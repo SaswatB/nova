@@ -1,6 +1,6 @@
 import { css } from "styled-system/css";
 
-function App(): JSX.Element {
+export function App(): JSX.Element {
   return (
     <>
       <div className={css({ color: "text.primary" })}>Powered by electron-vite</div>
@@ -13,5 +13,3 @@ function App(): JSX.Element {
     </>
   );
 }
-
-export default App;

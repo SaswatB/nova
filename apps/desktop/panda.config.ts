@@ -131,7 +131,7 @@ export default defineConfig({
           text: { value: colors["cool-grey"][500] },
         },
         overlay: {
-          background: { value: "rgba(31, 41, 51, 0.8)" }, // colors["cool-grey"][900] with 80% opacity
+          background: { value: `color-mix(in srgb, {colors.background.primary} 0.8, transparent)` },
         },
         shadow: {
           primary: { value: "rgba(0, 0, 0, 0.2)" },
@@ -139,12 +139,19 @@ export default defineConfig({
         },
       },
     },
+    keyframes: {
+      fadeInBackground: {
+        from: { backgroundColor: "transparent" },
+        to: { backgroundColor: "{colors.background.primary}/60" },
+      },
+    },
   },
   globalCss: defineGlobalStyles({
     "html, body": {
       minHeight: "100vh",
       color: "{colors.text.primary}",
-      backgroundColor: "{colors.background.primary}",
+      fontFamily: "Inter Variable, sans-serif",
+      animation: "fadeInBackground 1s ease-out forwards",
     },
   }),
 });

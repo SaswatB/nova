@@ -1,6 +1,7 @@
-import { resolve } from "path";
-import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
+import { defineConfig, externalizeDepsPlugin } from "electron-vite";
+import { resolve } from "path";
+import Unfonts from "unplugin-fonts/vite";
 
 export default defineConfig({
   main: { plugins: [externalizeDepsPlugin()] },
@@ -12,6 +13,6 @@ export default defineConfig({
         "styled-system": resolve("styled-system/"),
       },
     },
-    plugins: [react()],
+    plugins: [react(), Unfonts({ fontsource: { families: ["Inter Variable"] } })],
   },
 });
