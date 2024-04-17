@@ -84,6 +84,7 @@ export default defineConfig({
   outdir: "styled-system",
   strictTokens: true,
   strictPropertyValues: true,
+  jsxFramework: "react",
   presets: [],
   theme: {
     tokens: {
@@ -138,12 +139,20 @@ export default defineConfig({
           secondary: { value: "rgba(0, 0, 0, 0.1)" },
         },
       },
+      sizes: {
+        full: { value: "100%" },
+      },
     },
     keyframes: {
       fadeInBackground: {
         from: { backgroundColor: "transparent" },
         to: { backgroundColor: "{colors.background.primary}/60" },
       },
+    },
+  },
+  patterns: {
+    extend: {
+      fill: { defaultValues: { flex: "1" } },
     },
   },
   globalCss: defineGlobalStyles({

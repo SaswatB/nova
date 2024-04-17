@@ -27,7 +27,8 @@
     "@fontsource-variable/inter": "^5.0.17",
     "axios": "^1.6.8",
     "electron-screenshots": "^0.5.26",
-    "electron-updater": "^6.1.7"
+    "electron-updater": "^6.1.7",
+    "reactflow": "^11.11.1"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^2.0.0",
