@@ -3,6 +3,7 @@ import ReactFlow from "reactflow";
 import { Flex, Stack } from "styled-system/jsx";
 
 import { fill } from "./components/base";
+import { env } from "./lib/env";
 import { STTClient } from "./lib/stt";
 
 const initialNodes = [
@@ -29,7 +30,7 @@ export function App(): JSX.Element {
     [],
   );
   useEffect(() => {
-    sttClient.connect();
+    if (env.VITE_ENABLE_STT) sttClient.connect();
   }, [sttClient]);
 
   return (
