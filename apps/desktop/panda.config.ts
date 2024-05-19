@@ -140,7 +140,7 @@ export default defineConfig({
         },
       },
       sizes: {
-        full: { value: "100%" },
+        ["100%"]: { value: "100%" },
       },
     },
     keyframes: {
@@ -148,11 +148,6 @@ export default defineConfig({
         from: { backgroundColor: "transparent" },
         to: { backgroundColor: "{colors.background.primary}/60" },
       },
-    },
-  },
-  patterns: {
-    extend: {
-      fill: { defaultValues: { flex: "1" } },
     },
   },
   globalCss: defineGlobalStyles({

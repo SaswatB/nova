@@ -1,0 +1,13 @@
+diff --git a/esm/types.d.ts b/esm/types.d.ts
+index aaf28501f6cdc025973cf5e16a4fdbf6354033c5..87b123e255c22f88e3ba3524c17910f99f8a6749 100644
+--- a/esm/types.d.ts
++++ b/esm/types.d.ts
+@@ -31,7 +31,7 @@ export interface ISplitProps extends HTMLElementProps {
+      * Only support controlled mode, so it's required
+      */
+     sizes: (string | number)[];
+-    sashRender: (index: number, active: boolean) => React.ReactNode;
++    sashRender?: (index: number, active: boolean) => React.ReactNode;
+     onChange: (sizes: number[]) => void;
+     onDragStart?: (e: MouseEvent) => void;
+     onDragEnd?: (e: MouseEvent) => void;

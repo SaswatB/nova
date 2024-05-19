@@ -91,10 +91,10 @@ app
         operation_rectangle_title: "Rectangle",
       },
     });
-    globalShortcut.register("ctrl+shift+a", () => {
-      screenshots.startCapture().catch(console.error);
-      screenshots.$view.webContents.openDevTools();
-    });
+    // globalShortcut.register("ctrl+shift+a", () => {
+    //   screenshots.startCapture().catch(console.error);
+    //   screenshots.$view.webContents.openDevTools();
+    // });
     screenshots.on("ok", (_e, buffer, bounds) => {
       console.log("capture ok", buffer, bounds);
     });
