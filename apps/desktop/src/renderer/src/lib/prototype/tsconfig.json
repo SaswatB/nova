@@ -1,7 +1,9 @@
 {
+  "include": ["./**/*.ts", "./**/*.tsx"],
   "compilerOptions": {
     "strict": true,
     "noImplicitAny": null,
+    "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "Bundler"
   }
