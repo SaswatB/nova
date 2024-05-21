@@ -29,9 +29,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@anthropic-ai/sdk@npm:^0.20.4":
-  version: 0.20.4
-  resolution: "@anthropic-ai/sdk@npm:0.20.4"
+"@anthropic-ai/sdk@npm:^0.20.9":
+  version: 0.20.9
+  resolution: "@anthropic-ai/sdk@npm:0.20.9"
   dependencies:
     "@types/node": "npm:^18.11.18"
     "@types/node-fetch": "npm:^2.6.4"
@@ -41,7 +41,7 @@ __metadata:
     formdata-node: "npm:^4.3.2"
     node-fetch: "npm:^2.6.7"
     web-streams-polyfill: "npm:^3.2.1"
-  checksum: 10c0/0b1e13ada5d5d937c4f679fe843e53f4ba26eb440b87a3cec2a00c7d04687fcc472b54cbf221b4eb139343323ecd261535e1c1edd77cc9aa6ad6e44ba26d5178
+  checksum: 10c0/5a26f4e2506c2408c30b4a83cc6fcf670aa68c1e99676fa1086e5747c752840467f502cbbef247fcc1e316c5074de805a53ff53e239551cc0419f4c91a43fbf2
   languageName: node
   linkType: hard
 
@@ -905,6 +905,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@google/generative-ai@npm:^0.11.3":
+  version: 0.11.3
+  resolution: "@google/generative-ai@npm:0.11.3"
+  checksum: 10c0/335ba4a072f45fa36c8a3de8586c8d1437f37a771e89e62fe96eab4c03fba6e1eaa666fa91e192495f92cb4a0a370892f8985a9d926c7be004e98504a9687ea0
+  languageName: node
+  linkType: hard
+
 "@humanwhocodes/config-array@npm:^0.11.14":
   version: 0.11.14
   resolution: "@humanwhocodes/config-array@npm:0.11.14"
@@ -1428,7 +1435,7 @@ __metadata:
     eslint-config-turbo: "npm:^1.12.4"
     eslint-plugin-only-warn: "npm:^1.1.0"
     eslint-plugin-simple-import-sort: "npm:^12.0.0"
-    typescript: "npm:^5.3.3"
+    typescript: "npm:^5.4.5"
   languageName: unknown
   linkType: soft
 
@@ -1969,6 +1976,13 @@ __metadata:
   dependencies:
     "@types/node": "npm:*"
   checksum: 10c0/ff8f54fc49621210291f815fe5b15d809fd7d032941b3180743440bd507ecdf08b9e844625fa346af568c84bf34114eb378dcdc3e921a08ba1e2a08d7e3c809c
+  languageName: node
+  linkType: hard
+
+"@types/lodash@npm:^4.17.4":
+  version: 4.17.4
+  resolution: "@types/lodash@npm:4.17.4"
+  checksum: 10c0/0124c64cb9fe7a0f78b6777955abd05ef0d97844d49118652eae45f8fa57bfb7f5a7a9bccc0b5a84c0a6dc09631042e4590cb665acb9d58dfd5e6543c75341ec
   languageName: node
   linkType: hard
 
@@ -3243,7 +3257,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"chokidar@npm:3.6.0, chokidar@npm:^3.6.0":
+"chokidar@npm:3.6.0, chokidar@npm:^3.5.2, chokidar@npm:^3.6.0":
   version: 3.6.0
   resolution: "chokidar@npm:3.6.0"
   dependencies:
@@ -3641,7 +3655,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"debug@npm:4, debug@npm:^4.1.0, debug@npm:^4.1.1, debug@npm:^4.3.1, debug@npm:^4.3.2, debug@npm:^4.3.4":
+"debug@npm:4, debug@npm:^4, debug@npm:^4.1.0, debug@npm:^4.1.1, debug@npm:^4.3.1, debug@npm:^4.3.2, debug@npm:^4.3.4":
   version: 4.3.4
   resolution: "debug@npm:4.3.4"
   dependencies:
@@ -3725,7 +3739,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "desktop@workspace:apps/desktop"
   dependencies:
-    "@anthropic-ai/sdk": "npm:^0.20.4"
+    "@anthropic-ai/sdk": "npm:^0.20.9"
     "@dagrejs/dagre": "npm:^1.1.2"
     "@electron-toolkit/eslint-config-prettier": "npm:^2.0.0"
     "@electron-toolkit/eslint-config-ts": "npm:^1.0.1"
@@ -3733,8 +3747,10 @@ __metadata:
     "@electron-toolkit/tsconfig": "npm:^1.0.1"
     "@electron-toolkit/utils": "npm:^3.0.0"
     "@fontsource-variable/inter": "npm:^5.0.17"
+    "@google/generative-ai": "npm:^0.11.3"
     "@pandacss/dev": "npm:^0.37.2"
     "@repo/eslint-config": "workspace:*"
+    "@types/lodash": "npm:^4.17.4"
     "@types/node": "npm:^18.19.9"
     "@types/react": "npm:^18.2.48"
     "@types/react-dom": "npm:^18.2.18"
@@ -3748,18 +3764,23 @@ __metadata:
     electron-vite: "npm:^2.0.0"
     eslint: "npm:^8.56.0"
     eslint-plugin-react: "npm:^7.33.2"
-    groq-sdk: "npm:^0.3.2"
+    groq-sdk: "npm:^0.3.3"
     immer: "npm:^10.0.4"
+    jiti: "npm:^1.21.0"
+    lodash: "npm:^4.17.21"
+    nodemon: "npm:^3.1.0"
+    openai: "npm:^4.47.1"
     prettier: "npm:^3.2.4"
     react: "npm:^18.2.0"
     react-dom: "npm:^18.2.0"
     reactflow: "npm:^11.11.1"
     split-pane-react: "patch:split-pane-react@npm%3A0.1.3#~/.yarn/patches/split-pane-react-npm-0.1.3-1cc8da6424.patch"
     ts-pattern: "npm:^5.1.1"
-    typescript: "npm:^5.3.3"
+    typescript: "npm:^5.4.5"
     unplugin-fonts: "npm:^1.1.1"
     vite: "npm:^5.0.12"
     zod: "npm:^3.22.5"
+    zod-to-json-schema: "npm:^3.23.0"
   languageName: unknown
   linkType: soft
 
@@ -5446,9 +5467,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"groq-sdk@npm:^0.3.2":
-  version: 0.3.2
-  resolution: "groq-sdk@npm:0.3.2"
+"groq-sdk@npm:^0.3.3":
+  version: 0.3.3
+  resolution: "groq-sdk@npm:0.3.3"
   dependencies:
     "@types/node": "npm:^18.11.18"
     "@types/node-fetch": "npm:^2.6.4"
@@ -5459,7 +5480,7 @@ __metadata:
     formdata-node: "npm:^4.3.2"
     node-fetch: "npm:^2.6.7"
     web-streams-polyfill: "npm:^3.2.1"
-  checksum: 10c0/e54a7b8b0dbaaa5c42ac80334942a35240bf12514b7e99d754da43cd34e2dd57351dd0c7cfae672476be48583c785ef7d034dff3f17ff94623cafae1afb65671
+  checksum: 10c0/94b2447dcef92753c4ec7846c2ec042d076764c5853c5d9ef64bdd013c4909fa819e11ed63ece03421dea3395185dcdb724f48f68434c6f34f313ec136de3f08
   languageName: node
   linkType: hard
 
@@ -5638,6 +5659,13 @@ __metadata:
   version: 1.2.1
   resolution: "ieee754@npm:1.2.1"
   checksum: 10c0/b0782ef5e0935b9f12883a2e2aa37baa75da6e66ce6515c168697b42160807d9330de9a32ec1ed73149aea02e0d822e572bca6f1e22bdcbd2149e13b050b17bb
+  languageName: node
+  linkType: hard
+
+"ignore-by-default@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "ignore-by-default@npm:1.0.1"
+  checksum: 10c0/9ab6e70e80f7cc12735def7ecb5527cfa56ab4e1152cd64d294522827f2dcf1f6d85531241537dc3713544e88dd888f65cb3c49c7b2cddb9009087c75274e533
   languageName: node
   linkType: hard
 
@@ -6096,6 +6124,15 @@ __metadata:
   version: 2.1.0
   resolution: "javascript-stringify@npm:2.1.0"
   checksum: 10c0/374e74ebff29b94de78da39daa6e530999c58a145aeb293dc21180c4584459b14d9e5721d9bc6ed4eba319c437ef0145c157c946b70ecddcff6668682a002bcc
+  languageName: node
+  linkType: hard
+
+"jiti@npm:^1.21.0":
+  version: 1.21.0
+  resolution: "jiti@npm:1.21.0"
+  bin:
+    jiti: bin/jiti.js
+  checksum: 10c0/7f361219fe6c7a5e440d5f1dba4ab763a5538d2df8708cdc22561cf25ea3e44b837687931fca7cdd8cdd9f567300e90be989dd1321650045012d8f9ed6aab07f
   languageName: node
   linkType: hard
 
@@ -7032,6 +7069,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"nodemon@npm:^3.1.0":
+  version: 3.1.0
+  resolution: "nodemon@npm:3.1.0"
+  dependencies:
+    chokidar: "npm:^3.5.2"
+    debug: "npm:^4"
+    ignore-by-default: "npm:^1.0.1"
+    minimatch: "npm:^3.1.2"
+    pstree.remy: "npm:^1.1.8"
+    semver: "npm:^7.5.3"
+    simple-update-notifier: "npm:^2.0.0"
+    supports-color: "npm:^5.5.0"
+    touch: "npm:^3.1.0"
+    undefsafe: "npm:^2.0.5"
+  bin:
+    nodemon: bin/nodemon.js
+  checksum: 10c0/3aeb50105ecae31ce4d0a5cd464011d4aa0dc15419e39ac0fd203d784e38940e1436f4ed96adbaa0f9614ee0644f91e3cf38f2afae8d3918ae7afc51c7e2116b
+  languageName: node
+  linkType: hard
+
 "nopt@npm:^7.0.0":
   version: 7.2.0
   resolution: "nopt@npm:7.2.0"
@@ -7182,6 +7239,24 @@ __metadata:
   dependencies:
     wrappy: "npm:1"
   checksum: 10c0/5d48aca287dfefabd756621c5dfce5c91a549a93e9fdb7b8246bc4c4790aa2ec17b34a260530474635147aeb631a2dcc8b32c613df0675f96041cbb8244517d0
+  languageName: node
+  linkType: hard
+
+"openai@npm:^4.47.1":
+  version: 4.47.1
+  resolution: "openai@npm:4.47.1"
+  dependencies:
+    "@types/node": "npm:^18.11.18"
+    "@types/node-fetch": "npm:^2.6.4"
+    abort-controller: "npm:^3.0.0"
+    agentkeepalive: "npm:^4.2.1"
+    form-data-encoder: "npm:1.7.2"
+    formdata-node: "npm:^4.3.2"
+    node-fetch: "npm:^2.6.7"
+    web-streams-polyfill: "npm:^3.2.1"
+  bin:
+    openai: bin/cli
+  checksum: 10c0/10f5c7cd388dca758a31ccfd572d0ff732324842bc41f8cda80db043ad59035dbb9f903d0273bc14d1565f680901b7d65993b5e4c27dcf5deee2235a544ac0e4
   languageName: node
   linkType: hard
 
@@ -7630,6 +7705,13 @@ __metadata:
   version: 1.1.0
   resolution: "proxy-from-env@npm:1.1.0"
   checksum: 10c0/fe7dd8b1bdbbbea18d1459107729c3e4a2243ca870d26d34c2c1bcd3e4425b7bcc5112362df2d93cc7fb9746f6142b5e272fd1cc5c86ddf8580175186f6ad42b
+  languageName: node
+  linkType: hard
+
+"pstree.remy@npm:^1.1.8":
+  version: 1.1.8
+  resolution: "pstree.remy@npm:1.1.8"
+  checksum: 10c0/30f78c88ce6393cb3f7834216cb6e282eb83c92ccb227430d4590298ab2811bc4a4745f850a27c5178e79a8f3e316591de0fec87abc19da648c2b3c6eb766d14
   languageName: node
   linkType: hard
 
@@ -8220,7 +8302,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"simple-update-notifier@npm:2.0.0":
+"simple-update-notifier@npm:2.0.0, simple-update-notifier@npm:^2.0.0":
   version: 2.0.0
   resolution: "simple-update-notifier@npm:2.0.0"
   dependencies:
@@ -8555,7 +8637,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"supports-color@npm:^5.3.0":
+"supports-color@npm:^5.3.0, supports-color@npm:^5.5.0":
   version: 5.5.0
   resolution: "supports-color@npm:5.5.0"
   dependencies:
@@ -8683,6 +8765,15 @@ __metadata:
   dependencies:
     is-number: "npm:^7.0.0"
   checksum: 10c0/487988b0a19c654ff3e1961b87f471702e708fa8a8dd02a298ef16da7206692e8552a0250e8b3e8759270f62e9d8314616f6da274734d3b558b1fc7b7724e892
+  languageName: node
+  linkType: hard
+
+"touch@npm:^3.1.0":
+  version: 3.1.1
+  resolution: "touch@npm:3.1.1"
+  bin:
+    nodetouch: bin/nodetouch.js
+  checksum: 10c0/d2e4d269a42c846a22a29065b9af0b263de58effc85a1764bb7a2e8fc4b47700e9e2fcbd7eb1f5bffbb7c73d860f93600cef282b93ddac8f0b62321cb498b36e
   languageName: node
   linkType: hard
 
@@ -8982,7 +9073,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:^5.3.3":
+"typescript@npm:^5.3.3, typescript@npm:^5.4.5":
   version: 5.4.5
   resolution: "typescript@npm:5.4.5"
   bin:
@@ -9002,7 +9093,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A^5.3.3#optional!builtin<compat/typescript>":
+"typescript@patch:typescript@npm%3A^5.3.3#optional!builtin<compat/typescript>, typescript@patch:typescript@npm%3A^5.4.5#optional!builtin<compat/typescript>":
   version: 5.4.5
   resolution: "typescript@patch:typescript@npm%3A5.4.5#optional!builtin<compat/typescript>::version=5.4.5&hash=5adc0c"
   bin:
@@ -9028,6 +9119,13 @@ __metadata:
     has-symbols: "npm:^1.0.3"
     which-boxed-primitive: "npm:^1.0.2"
   checksum: 10c0/81ca2e81134167cc8f75fa79fbcc8a94379d6c61de67090986a2273850989dd3bae8440c163121b77434b68263e34787a675cbdcb34bb2f764c6b9c843a11b66
+  languageName: node
+  linkType: hard
+
+"undefsafe@npm:^2.0.5":
+  version: 2.0.5
+  resolution: "undefsafe@npm:2.0.5"
+  checksum: 10c0/96c0466a5fbf395917974a921d5d4eee67bca4b30d3a31ce7e621e0228c479cf893e783a109af6e14329b52fe2f0cb4108665fad2b87b0018c0df6ac771261d5
   languageName: node
   linkType: hard
 
@@ -9433,6 +9531,15 @@ __metadata:
   version: 0.1.0
   resolution: "yocto-queue@npm:0.1.0"
   checksum: 10c0/dceb44c28578b31641e13695d200d34ec4ab3966a5729814d5445b194933c096b7ced71494ce53a0e8820685d1d010df8b2422e5bf2cdea7e469d97ffbea306f
+  languageName: node
+  linkType: hard
+
+"zod-to-json-schema@npm:^3.23.0":
+  version: 3.23.0
+  resolution: "zod-to-json-schema@npm:3.23.0"
+  peerDependencies:
+    zod: ^3.23.3
+  checksum: 10c0/bcd966fa040765d7170a89c0c5f1717575e7d8823b84cbbb606689d494ae308c9eaadd4b71a74752e3170deef64c1f1bb2985f4663c44a0ed2e7854ff6fda724
   languageName: node
   linkType: hard
 

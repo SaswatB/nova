@@ -11,6 +11,9 @@
     "composite": true,
     "jsx": "react-jsx",
     "baseUrl": ".",
+    "noImplicitAny": null,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "paths": {
       "@renderer/*": ["src/renderer/src/*"]
     }
