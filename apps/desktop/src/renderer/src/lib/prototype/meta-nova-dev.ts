@@ -16,7 +16,6 @@ Provide useful responses, make sure to consider when to stay high level and when
 
 const projectContext = {
   rules: [
-    "The goal of this project is to use AI to recursively add & improve functionality to itself.",
     "Strict TypeScript is used throughout the codebase.",
     "Type inference is preferred over explicit types when possible.",
     "Prefer concise and expressive code over verbose code, but keep things readable and use comments if necessary.",
@@ -191,28 +190,31 @@ If using short file names, please include a legend at the top of the file with t
   ]);
 }
 
-async function execute({ prompt }: { prompt: string }) {
+async function execute({ context }: { context: string }) {
   console.log("execute");
   return aiChat("gpt4o", SYSTEM, [
     {
       role: "user",
-      content: prompt,
+      content: `${context}
+
+Please suggest changes to the provided files based on the plan.
+Suggestions may either be snippets or full files, it should be clear enough for a junior engineer to understand and apply.
+Prefer snippets unless the file is small or the change is very large.
+Make sure to be very clear about which file is changing and what the change is.
+Please include a legend at the top of the file with the absolute path to the files you are changing.
+Suggest adding imports in distinct, standalone snippets from the code changes.
+If creating a new file, please provide the full file content.`.trim(),
     },
   ]);
 }
 
 async function iterate() {
   const goal = "Move AI Chat helper functions to a separate file.";
+  const srcFiles = [join(__dirname, "./meta-nova-dev.ts")];
 
   // research
-  const typescriptResult = await typescriptResearch({
-    type: "typescript",
-    files: [join(__dirname, "./meta-nova-dev.ts")],
-  });
-  const researchResult = await filesystemResearch({
-    type: "filesystem",
-    files: [...typescriptResult.keys()],
-  });
+  const typescriptResult = await typescriptResearch({ type: "typescript", files: srcFiles });
+  const researchResult = await filesystemResearch({ type: "filesystem", files: [...typescriptResult.keys()] });
   writeFileSync("debug/research.json", researchResult.toPrompt({ showFileContent: true, showResearch: true }));
 
   // planning
@@ -229,24 +231,14 @@ async function iterate() {
 
   // execution
   const executeResult = await execute({
-    prompt: `
+    context: `
 <context>
 ${projectContext.rules.join("\n")}
 </context>
-<research>
 ${researchResult.toPrompt({ showResearch: true, showFileContent: true })}
-</research>
 <plan>
 ${planResult}
 </plan>
-
-Please suggest changes to the provided files based on the plan.
-Suggestions may either be snippets or full files, it should be clear enough for a junior engineer to understand and apply.
-Prefer snippets unless the file is small or the change is very large.
-Make sure to be very clear about which file is changing and what the change is.
-Please include a legend at the top of the file with the absolute path to the files you are changing.
-Suggest adding imports in distinct, standalone snippets from the code changes.
-If creating a new file, please provide the full file content.
       `.trim(),
   });
   writeFileSync("debug/execute.json", executeResult);
@@ -262,8 +254,7 @@ If creating a new file, please provide the full file content.
     filesToChange: z.array(
       z.object({
         absolutePathIncludingFileName: z.string(),
-        fullStepsWithEverything_GPT_I_AM_SERIOUS_YOU_SHOULD_COPY_EVERYTHING_FOR_THIS_FILE_INCLUDING_STEP_NOTES_AND_TITLE_AND_ONLY_ONE_STEP_PER_ARRAY_ITEM:
-          z.array(z.string()),
+        steps: z.array(z.string()),
       }),
     ),
   });
@@ -283,23 +274,21 @@ ${JSON.stringify({
   filesToChange: [
     {
       absolutePathIncludingFileName: "/root/project/src/file.ts",
-      fullStepsWithEverything_GPT_I_AM_SERIOUS_YOU_SHOULD_COPY_EVERYTHING_FOR_THIS_FILE_INCLUDING_STEP_NOTES_AND_TITLE_AND_ONLY_ONE_STEP_PER_ARRAY_ITEM:
-        [
-          "#### Modify `aiChat` Function\nUpdate the `aiChat` function to include caching.\n\n```typescript\n// utils.ts\nfunction generateCacheKey(model: string, system: string, messages: { role: \"user\" | \"assistant\"; content: string }[]): string {\n  const hash = createHash('sha256');\n  hash.update(model + system + JSON.stringify(messages));\n  return hash.digest('hex');\n}\n\nasync function aiChat(\n  model: 'groq' | 'gpt4o' | 'opus' | 'gemini' | 'geminiFlash',\n  system: string,\n  messages: { role: 'user' | 'assistant'; content: string }[],\n): Promise<string> {\n  const cacheKey = generateCacheKey(model, system, messages);\n  const cachePath = join(CACHE_DIR, `${cacheKey}.json`);\n\n  if (existsSync(cachePath)) {\n    const cachedData = JSON.parse(readFileSync(cachePath, 'utf-8'));\n    // Assuming there is a `timestamp` attribute to validate freshness\n    if (Date.now() - cachedData.timestamp < 24 * 60 * 60 * 1000) { // 24 hours expiration\n      return cachedData.response;\n    }\n  }\n\n  let response: string;\n  switch (model) {\n    case 'groq':\n      response = await groqChat(system, messages);\n      break;\n    case 'gpt4o':\n      response = await openaiChat(system, messages);\n      break;\n    case 'opus':\n      response = await claudeChat(system, messages);\n      break;\n    case 'gemini':\n      response = await geminiChat(gemini, system, messages);\n      break;\n    case 'geminiFlash':\n      response = await geminiChat(geminiFlash, system, messages);\n      break;\n    default:\n      throw new Error('Invalid model name');\n  }\n\n  writeFileSync(\n    cachePath, \n    JSON.stringify({ response, timestamp: Date.now() }, null, 2)\n  );\n\n  return response;\n}\n```",
-        ],
+      steps: [
+        "#### Modify `aiChat` Function\nUpdate the `aiChat` function to include caching.\n\n```typescript\n// utils.ts\nfunction generateCacheKey(model: string, system: string, messages: { role: \"user\" | \"assistant\"; content: string }[]): string {\n  const hash = createHash('sha256');\n  hash.update(model + system + JSON.stringify(messages));\n  return hash.digest('hex');\n}\n\nasync function aiChat(\n  model: 'groq' | 'gpt4o' | 'opus' | 'gemini' | 'geminiFlash',\n  system: string,\n  messages: { role: 'user' | 'assistant'; content: string }[],\n): Promise<string> {\n  const cacheKey = generateCacheKey(model, system, messages);\n  const cachePath = join(CACHE_DIR, `${cacheKey}.json`);\n\n  if (existsSync(cachePath)) {\n    const cachedData = JSON.parse(readFileSync(cachePath, 'utf-8'));\n    // Assuming there is a `timestamp` attribute to validate freshness\n    if (Date.now() - cachedData.timestamp < 24 * 60 * 60 * 1000) { // 24 hours expiration\n      return cachedData.response;\n    }\n  }\n\n  let response: string;\n  switch (model) {\n    case 'groq':\n      response = await groqChat(system, messages);\n      break;\n    case 'gpt4o':\n      response = await openaiChat(system, messages);\n      break;\n    case 'opus':\n      response = await claudeChat(system, messages);\n      break;\n    case 'gemini':\n      response = await geminiChat(gemini, system, messages);\n      break;\n    case 'geminiFlash':\n      response = await geminiChat(geminiFlash, system, messages);\n      break;\n    default:\n      throw new Error('Invalid model name');\n  }\n\n  writeFileSync(\n    cachePath, \n    JSON.stringify({ response, timestamp: Date.now() }, null, 2)\n  );\n\n  return response;\n}\n```",
+      ],
     },
   ],
 } satisfies ChangeSet)}
 
 Here's the document content:
-${executeResult}
-    `.trim(),
+${executeResult}`.trim(),
   );
   writeFileSync("debug/result.json", JSON.stringify(changeSet, null, 2));
 
   console.log(changeSet.generalNoteList?.join("\n") || "");
   for (const file of changeSet.filesToChange) {
-    const output = await aiChat("groq", SYSTEM, [
+    let output = await aiChat("groq", SYSTEM, [
       {
         role: "user",
         content: `
@@ -313,11 +302,17 @@ Your response will directly overwrite the file.
 ${existsSync(file.absolutePathIncludingFileName) ? readFileSync(file.absolutePathIncludingFileName) : ""}
 </file>
 <changes>
-${file.fullStepsWithEverything_GPT_I_AM_SERIOUS_YOU_SHOULD_COPY_EVERYTHING_FOR_THIS_FILE_INCLUDING_STEP_NOTES_AND_TITLE_AND_ONLY_ONE_STEP_PER_ARRAY_ITEM.map((change) => `<change>${change}</change>`).join("\n")}
+${file.steps.map((change) => `<change>${change}</change>`).join("\n")}
 </changes>
         `.trim(),
       },
     ]);
+
+    if (output.includes("```")) {
+      const startIndex = output.indexOf("\n", output.indexOf("```"));
+      const endIndex = output.lastIndexOf("\n", output.lastIndexOf("```"));
+      output = output.slice(startIndex, endIndex);
+    }
 
     writeFileSync(file.absolutePathIncludingFileName, output);
   }
