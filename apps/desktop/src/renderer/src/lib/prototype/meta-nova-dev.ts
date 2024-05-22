@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from "fs";
+import llamaTokenizer from "llama-tokenizer-js";
 import { uniq } from "lodash";
 import { dirname, join } from "path";
 import * as ts from "typescript";
@@ -34,7 +35,7 @@ const projectContext = {
 
 type ResearchTask =
   | { type: "context"; prompt: string }
-  | { type: "filesystem"; files: string[] }
+  | { type: "filesystem"; files: string[]; dependencies: Map<string, { fileName?: string; moduleSpecifier: string }[]> }
   | { type: "typescript"; files: string[] };
 
 // async function contextResearch(task: ResearchTask & { type: "context" }) {
@@ -50,12 +51,14 @@ function xmlFile(obj: { path: string; content: string; research: string }) {
   return {
     path: obj.path,
     content: obj.content,
-    toPrompt: ({ showFileContent = false, showResearch = false } = {}) =>
-      `
-<file path="${obj.path}" ${showFileContent ? "" : 'content-hidden="true"'}>
-${showFileContent ? `<content>\n${obj.content}\n</content>\n` : ""}
+    toPrompt: ({ showFileContent = false as boolean | ((path: string) => boolean), showResearch = false } = {}) => {
+      const showFileContentForPath =
+        typeof showFileContent === "function" ? showFileContent(obj.path) : showFileContent;
+      return `<file path="${obj.path}" ${showFileContentForPath ? "" : 'content-hidden="true"'}>
+${showFileContentForPath ? `<content>\n${obj.content}\n</content>\n` : ""}
 ${showResearch ? `<research>\n${obj.research}\n</research>\n` : ""}
-</file>`.trim(),
+</file>`.trim();
+    },
   };
 }
 
@@ -63,11 +66,18 @@ function xmlFilesystemResearch({ files, research }: { files: ReturnType<typeof x
   return {
     files,
     research,
-    toPrompt: ({ showFileContent = false, showResearch = false } = {}) =>
+    toPrompt: ({
+      showFileContent = false as boolean | ((path: string) => boolean),
+      showResearch = false,
+      filterFiles = (path: string) => true as boolean,
+    } = {}) =>
       `
 <report>
 <files>
-${files.map((f) => f.toPrompt({ showFileContent, showResearch })).join("\n\n")}
+${files
+  .filter((f) => filterFiles(f.path))
+  .map((f) => f.toPrompt({ showFileContent, showResearch }))
+  .join("\n\n")}
 </files>
 ${showResearch ? `<research>\n${research}\n</research>\n` : ""}
 </report>
@@ -82,7 +92,8 @@ async function filesystemResearch(task: ResearchTask & { type: "filesystem" }) {
   );
   const files: ReturnType<typeof xmlFile>[] = [];
   for (const f of rawFiles) {
-    const research = await aiChat("groq", SYSTEM, [
+    console.log("filesystemResearch file", f.path);
+    const research = await aiChat("geminiFlash", SYSTEM, [
       {
         role: "user",
         content: `
@@ -99,11 +110,8 @@ ${f.content}
     files.push(xmlFile({ path: f.path, content: f.content, research }));
   }
 
-  // todo use dependencies to read a few related files at a time instead of all at once
-  const research = await aiChat("groq", SYSTEM, [
-    {
-      role: "user",
-      content: `
+  function constructBatchPrompt(batch: ReturnType<typeof xmlFile>[]) {
+    return `
 Could you please provide the following information:
 - A summary of the coding conventions used in the codebase.
 - An overview of the high-level structure, including key components and their interactions.
@@ -111,11 +119,64 @@ Could you please provide the following information:
 - Any best practices or common patterns you can identify from the provided files.
 
 <files>
-${files.map((f) => f.toPrompt({ showFileContent: true })).join("\n\n")}
+${batch.map((f) => f.toPrompt({ showFileContent: true })).join("\n\n")}
 </files>
+`.trim();
+  }
+
+  let research;
+  const totalBatchPrompt = constructBatchPrompt(files);
+  const modelLimit = { groq: 8192, geminiFlash: 1e6 };
+  const model = "geminiFlash" as const;
+  if (llamaTokenizer.encode(totalBatchPrompt).length < modelLimit[model] * 0.6) {
+    research = await aiChat(model, SYSTEM, [{ role: "user", content: constructBatchPrompt(files) }]);
+  } else {
+    console.log("Batching research");
+    const seen = new Set<string>();
+    const batchTokenThreshold = modelLimit[model] * 0.4;
+
+    const docs = [];
+    let batch: ReturnType<typeof xmlFile>[] = [];
+    let priority: typeof stack = []; // files related to the current batch
+    const stack = [...files];
+    while (stack.length > 0) {
+      const f = priority.length > 0 ? priority.shift()! : stack.shift()!;
+      if (seen.has(f.path)) continue;
+      seen.add(f.path);
+      batch.push(f);
+
+      // prioritize files that are dependencies of the current batch
+      const deps = task.dependencies.get(f.path);
+      if (deps) priority.push(...stack.filter((d) => deps.some((dep) => dep.fileName === d.path)));
+
+      // if the batch is too large, send it to the AI
+      const batchPrompt = constructBatchPrompt(batch);
+      if (batchPrompt.length > batchTokenThreshold) {
+        console.log(
+          "Running batch of",
+          batch.length,
+          "files",
+          batch.map((f) => f.path),
+        );
+        docs.push(await aiChat(model, SYSTEM, [{ role: "user", content: batchPrompt }]));
+        batch = [];
+        priority = [];
+      }
+    }
+    if (batch.length > 0)
+      docs.push(await aiChat(model, SYSTEM, [{ role: "user", content: constructBatchPrompt(batch) }]));
+
+    research = await aiChat(model, SYSTEM, [
+      {
+        role: "user",
+        content: `
+The following are the research results for a codebase, remove repeated information and consolidate the information into a single document.
+
+${docs.map((doc) => `<doc>${doc}</doc>`).join("\n")}
 `.trim(),
-    },
-  ]);
+      },
+    ]);
+  }
   return xmlFilesystemResearch({ files, research });
 }
 
@@ -146,7 +207,11 @@ async function typescriptResearch(task: ResearchTask & { type: "typescript" }) {
           const moduleSpecifier = (node.moduleSpecifier as ts.StringLiteral).text;
           const resolver = ts.resolveModuleName(moduleSpecifier, fileName, program.getCompilerOptions(), ts.sys);
           const resolvedFileName = resolver?.resolvedModule?.resolvedFileName;
-          if (!resolvedFileName && (moduleSpecifier.startsWith(".") || moduleSpecifier.startsWith("/")))
+          if (
+            !resolvedFileName &&
+            (moduleSpecifier.startsWith(".") || moduleSpecifier.startsWith("/")) &&
+            !moduleSpecifier.match(/\.[a-z]+$/)
+          )
             throw new Error(`Could not resolve module ${moduleSpecifier} in ${fileName}`);
           imports.push({ fileName: resolvedFileName, moduleSpecifier });
         }
@@ -179,12 +244,13 @@ async function plan({ context, goal }: { context: string; goal: string }) {
     {
       role: "user",
       content: `
-${context}
-
 Please create a plan for the following goal: ${goal}
 The plan should include a list of steps to achieve the goal, as well as any potential obstacles or challenges that may arise.
 Call out specific areas of the codebase that may need to be modified or extended to support the new functionality, and provide a high-level overview of the changes that will be required.
 If using short file names, please include a legend at the top of the file with the absolute path to the file.
+Contents for most files are omitted, but please comment on which files would be helpful to provide to improve the plan.
+
+${context}
                `.trim(),
     },
   ]);
@@ -209,33 +275,83 @@ If creating a new file, please provide the full file content.`.trim(),
 }
 
 async function iterate() {
-  const goal = "Move AI Chat helper functions to a separate file.";
-  const srcFiles = [join(__dirname, "./meta-nova-dev.ts")];
+  // const goal = "Move AI Chat helper functions to a separate file.";
+  // const srcFiles = [join(__dirname, "./meta-nova-dev.ts")];
+  const goal = "Within useTakeSnap, make the caption entry multiline and fix mobile autocomplete.";
+  const srcFiles = ["/Users/saswat/Documents/clones/bridge/apps/mobile/src/components/useTakeSnap.tsx"];
 
   // research
   const typescriptResult = await typescriptResearch({ type: "typescript", files: srcFiles });
-  const researchResult = await filesystemResearch({ type: "filesystem", files: [...typescriptResult.keys()] });
+  const researchResult = await filesystemResearch({
+    type: "filesystem",
+    files: [...typescriptResult.keys()],
+    dependencies: typescriptResult,
+  });
   writeFileSync("debug/research.json", researchResult.toPrompt({ showFileContent: true, showResearch: true }));
+
+  const rawRelevantFiles = await aiChat("geminiFlash", SYSTEM, [
+    {
+      role: "user",
+      content: `
+Based on the research, please identify the most relevant files for the goal: ${goal}
+
+${researchResult.toPrompt({ showFileContent: true, showResearch: true })}
+`.trim(),
+    },
+  ]);
+  writeFileSync("debug/rawRelevantFiles.json", rawRelevantFiles);
+
+  const RelevantFilesSchema = z.object({ files: z.array(z.string()) });
+  const directRelevantFiles = await openaiJson(
+    RelevantFilesSchema,
+    SYSTEM,
+    `Extract all the absolute paths for the relevant files from the following:\n\n${rawRelevantFiles}`,
+  );
+  const relevantFiles = uniq(
+    directRelevantFiles.files.flatMap((f) => [
+      f,
+      ...(typescriptResult
+        .get(f)
+        ?.map((d) => d.fileName)
+        .filter(Boolean) || []),
+    ]),
+  );
+  writeFileSync("debug/relevantFiles.json", JSON.stringify(relevantFiles, null, 2));
 
   // planning
   const planResult = await plan({
-    context: `
-  <context>
-  ${projectContext.rules.join("\n")}
-  </context>
-  ${researchResult.toPrompt({ showResearch: true })}
-  `.trim(),
     goal,
+    context: `
+<context>
+${projectContext.rules.join("\n")}
+</context>
+<relevantFilesAnalysis>
+${rawRelevantFiles}
+</relevantFilesAnalysis>
+${researchResult.toPrompt({ showResearch: true, showFileContent: (f) => relevantFiles.includes(f) })}
+  `.trim(),
   });
   writeFileSync("debug/plan.json", planResult);
 
   // execution
+  writeFileSync(
+    "debug/execute-input.json",
+    `
+<context>
+${projectContext.rules.join("\n")}
+</context>
+${researchResult.toPrompt({ showResearch: true, showFileContent: true, filterFiles: (f) => relevantFiles.includes(f) })}
+<plan>
+${planResult}
+</plan>
+      `.trim(),
+  );
   const executeResult = await execute({
     context: `
 <context>
 ${projectContext.rules.join("\n")}
 </context>
-${researchResult.toPrompt({ showResearch: true, showFileContent: true })}
+${researchResult.toPrompt({ showResearch: true, showFileContent: true, filterFiles: (f) => relevantFiles.includes(f) })}
 <plan>
 ${planResult}
 </plan>
@@ -297,7 +413,7 @@ ${projectContext.rules.join("\n")}
 </context>
 
 Please take the following change set and output the final file, if it looks like the changes are a full file overwrite, output just the changes.
-Your response will directly overwrite the file.
+Your response will directly overwrite the file, so you MUST not omit any of the file content.
 <file path="${file.absolutePathIncludingFileName}">
 ${existsSync(file.absolutePathIncludingFileName) ? readFileSync(file.absolutePathIncludingFileName) : ""}
 </file>
@@ -311,7 +427,7 @@ ${file.steps.map((change) => `<change>${change}</change>`).join("\n")}
     if (output.includes("```")) {
       const startIndex = output.indexOf("\n", output.indexOf("```"));
       const endIndex = output.lastIndexOf("\n", output.lastIndexOf("```"));
-      output = output.slice(startIndex, endIndex);
+      output = output.slice(startIndex + 1, endIndex);
     }
 
     writeFileSync(file.absolutePathIncludingFileName, output);

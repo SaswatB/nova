@@ -76,10 +76,9 @@ export function archiveDebugJsonFiles(inputDirectory: string) {
     let newFileName;
     let counter = 1;
     const baseName = basename(file, ".json");
-    const dirName = dirname(file);
 
     do {
-      newFileName = join(dirName, "archive", `${baseName}${counter}.json`);
+      newFileName = join(inputDirectory, "archive", `${baseName}${counter}.json`);
       counter++;
     } while (existsSync(newFileName));
 

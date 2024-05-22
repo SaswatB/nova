@@ -17,12 +17,14 @@ function generateCacheKey(obj: object): string {
 }
 
 const groq = new Groq({ apiKey: env.VITE_GROQ_API_KEY });
+// const groq = new OpenAI({ apiKey: env.VITE_TOGETHERAI_API_KEY, baseURL: "https://api.together.xyz/v1" });
 async function groqChat(system: string, messages: { role: "user" | "assistant"; content: string }[]): Promise<string> {
   const result = await groq.chat.completions.create({
     model: "llama3-70b-8192",
+    // model: "meta-llama/Llama-3-70b-chat-hf",
     messages: [{ role: "system", content: system }, ...messages],
   });
-  return result.choices[0].message.content;
+  return result.choices[0].message.content ?? "";
 }
 
 const openai = new OpenAI({ apiKey: env.VITE_OPENAI_API_KEY });
@@ -108,16 +110,20 @@ async function geminiChat(
   messages: { role: "user" | "assistant"; content: string }[],
 ) {
   const chat = model.startChat({
-    systemInstruction: system,
-    history: messages
-      .slice(0, -1)
-      .map((m) => ({ role: m.role === "user" ? "user" : "model", parts: [{ text: m.content }] })),
+    // systemInstruction: system,
+    history: [
+      { role: "user", parts: [{ text: system }] },
+      { role: "model", parts: [{ text: "Understood." }] },
+      ...messages
+        .slice(0, -1)
+        .map((m) => ({ role: m.role === "user" ? "user" : "model", parts: [{ text: m.content }] })),
+    ],
   });
   const result = await chat.sendMessage(messages.at(-1)!.content);
   return result.response.text();
 }
-const gemini = googleGenAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-const geminiFlash = googleGenAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const gemini = googleGenAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
+const geminiFlash = googleGenAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
 export async function aiChat(
   model: "groq" | "gpt4o" | "opus" | "gemini" | "geminiFlash",
