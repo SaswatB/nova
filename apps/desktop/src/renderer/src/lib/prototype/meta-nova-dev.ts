@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import llamaTokenizer from "llama-tokenizer-js";
 import { uniq } from "lodash";
 import { dirname, join } from "path";
@@ -277,7 +277,7 @@ If creating a new file, please provide the full file content.`.trim(),
 async function iterate() {
   // const goal = "Move AI Chat helper functions to a separate file.";
   // const srcFiles = [join(__dirname, "./meta-nova-dev.ts")];
-  const goal = "Within useTakeSnap, make the caption entry multiline and fix mobile autocomplete.";
+  const goal = "Write a typescript script to help backport general autoAdd chat channels manually.";
   const srcFiles = ["/Users/saswat/Documents/clones/bridge/apps/mobile/src/components/useTakeSnap.tsx"];
 
   // research
@@ -293,7 +293,10 @@ async function iterate() {
     {
       role: "user",
       content: `
-Based on the research, please identify the most relevant files for the goal: ${goal}
+Based on the research, please identify the relevant files for the goal.
+The relevant files are the ones that are most likely to be impacted by the goal and may need to be modified or extended to support the new functionality.
+Related files may also include files that would be useful to reference or provide context for the changes.
+Goal: ${goal}
 
 ${researchResult.toPrompt({ showFileContent: true, showResearch: true })}
 `.trim(),
@@ -404,7 +407,7 @@ ${executeResult}`.trim(),
 
   console.log(changeSet.generalNoteList?.join("\n") || "");
   for (const file of changeSet.filesToChange) {
-    let output = await aiChat("groq", SYSTEM, [
+    let output = await aiChat("geminiFlash", SYSTEM, [
       {
         role: "user",
         content: `
@@ -429,7 +432,10 @@ ${file.steps.map((change) => `<change>${change}</change>`).join("\n")}
       const endIndex = output.lastIndexOf("\n", output.lastIndexOf("```"));
       output = output.slice(startIndex + 1, endIndex);
     }
-
+    const dir = dirname(file.absolutePathIncludingFileName);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
     writeFileSync(file.absolutePathIncludingFileName, output);
   }
 
