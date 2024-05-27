@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import { isEqual } from "lodash";
 import { dirname } from "path";
+import { inspect } from "util";
 import { z } from "zod";
 
 import { aiChat, openaiJson } from "../ai-chat";
@@ -66,7 +67,7 @@ function findNodeByValue(nodes: NNode[], value: NNodeValue): NNode | undefined {
   return undefined;
 }
 
-class GraphRunner {
+export class GraphRunner {
   private nodes: NNode[];
   private trace: (
     | { type: "start"; timestamp: number }
@@ -188,6 +189,8 @@ class GraphRunner {
       await this.startNode(node);
     }
     this.trace.push({ type: "end", timestamp: Date.now() });
+
+    writeFileSync("graph.json", inspect({ nodes: this.nodes, trace: this.trace }, { depth: 20 }));
   }
 }
 

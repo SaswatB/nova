@@ -210,6 +210,7 @@ ${xmlFileSystemResearch(researchResult, { showFileContent: true, showResearch: t
   },
   [NNodeType.TypescriptDepAnalysis]: async (value, nrc) => {
     const result = getDepTree(nrc.projectContext.files.projectAnchorFiles);
+    console.log("[TypescriptDepAnalysis] ", result);
     return { type: NNodeType.TypescriptDepAnalysis, result };
   },
 
