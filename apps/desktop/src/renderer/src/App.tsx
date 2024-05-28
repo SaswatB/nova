@@ -1,11 +1,14 @@
+import { Theme } from "@radix-ui/themes";
 import { Stack } from "styled-system/jsx";
 
 import { Workspace } from "./components/Workspace";
 
 export function App(): JSX.Element {
   return (
-    <Stack css={{ w: "screen", h: "screen" }}>
-      <Workspace />
-    </Stack>
+    <Theme appearance="dark">
+      <Stack css={{ minW: "screen", minH: "screen" }}>
+        <Workspace />
+      </Stack>
+    </Theme>
   );
 }

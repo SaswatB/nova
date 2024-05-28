@@ -82,16 +82,16 @@ export default defineConfig({
   preflight: true,
   include: ["./src/**/*.{js,jsx,ts,tsx}"],
   outdir: "styled-system",
-  strictTokens: true,
-  strictPropertyValues: true,
+  // strictTokens: true,
+  // strictPropertyValues: true,
   jsxFramework: "react",
   presets: [],
   theme: {
     tokens: {
       colors: {
         background: {
-          primary: { value: colors["cool-grey"][900] },
-          secondary: { value: colors["cool-grey"][800] },
+          primary: { value: "#111111" },
+          secondary: { value: "#191919" },
           tertiary: { value: colors["cool-grey"][700] },
         },
         text: {

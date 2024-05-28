@@ -12,15 +12,14 @@ function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: isDev ? 1728 : undefined,
     height: isDev ? 1080 : undefined,
-    fullscreen: !isDev,
-    simpleFullscreen: !isDev,
-    autoHideMenuBar: true,
-    frame: false,
-    transparent: true,
-    skipTaskbar: true,
-    movable: false,
-    resizable: false,
-    // focusable: false,
+    // fullscreen: !isDev,
+    // simpleFullscreen: !isDev,
+    // autoHideMenuBar: true,
+    // frame: false,
+    // transparent: true,
+    // skipTaskbar: true,
+    // movable: false,
+    // resizable: false,
     ...(process.platform === "linux" ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
@@ -74,35 +73,35 @@ app
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
 
-    const screenshots = new Screenshots({
-      singleWindow: true,
-      lang: {
-        magnifier_position_label: "Position",
-        operation_ok_title: "Ok",
-        operation_cancel_title: "Cancel",
-        operation_save_title: "Save",
-        operation_redo_title: "Redo",
-        operation_undo_title: "Undo",
-        operation_mosaic_title: "Mosaic",
-        operation_text_title: "Text",
-        operation_brush_title: "Brush",
-        operation_arrow_title: "Arrow",
-        operation_ellipse_title: "Ellipse",
-        operation_rectangle_title: "Rectangle",
-      },
-    });
+    // const screenshots = new Screenshots({
+    //   singleWindow: true,
+    //   lang: {
+    //     magnifier_position_label: "Position",
+    //     operation_ok_title: "Ok",
+    //     operation_cancel_title: "Cancel",
+    //     operation_save_title: "Save",
+    //     operation_redo_title: "Redo",
+    //     operation_undo_title: "Undo",
+    //     operation_mosaic_title: "Mosaic",
+    //     operation_text_title: "Text",
+    //     operation_brush_title: "Brush",
+    //     operation_arrow_title: "Arrow",
+    //     operation_ellipse_title: "Ellipse",
+    //     operation_rectangle_title: "Rectangle",
+    //   },
+    // });
     // globalShortcut.register("ctrl+shift+a", () => {
     //   screenshots.startCapture().catch(console.error);
     //   screenshots.$view.webContents.openDevTools();
     // });
-    screenshots.on("ok", (_e, buffer, bounds) => {
-      console.log("capture ok", buffer, bounds);
-    });
-    globalShortcut.register("esc", () => {
-      if (screenshots.$win?.isFocused()) {
-        void screenshots.endCapture();
-      }
-    });
+    // screenshots.on("ok", (_e, buffer, bounds) => {
+    //   console.log("capture ok", buffer, bounds);
+    // });
+    // globalShortcut.register("esc", () => {
+    //   if (screenshots.$win?.isFocused()) {
+    //     void screenshots.endCapture();
+    //   }
+    // });
   })
   .catch(console.error);
 

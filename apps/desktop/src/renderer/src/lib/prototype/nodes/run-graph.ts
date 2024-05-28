@@ -1,3 +1,4 @@
+import { newId } from "@renderer/lib/uid";
 import { EventEmitter } from "events";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import { isEqual } from "lodash";
@@ -84,7 +85,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 
   public static fromGoal(projectContext: ProjectContext, goal: string) {
     const graphRunner = new GraphRunner(projectContext);
-    graphRunner.nodes = [{ id: "plan", value: { type: NNodeType.Plan, goal } }];
+    graphRunner.nodes = [{ id: newId.graphNode(), value: { type: NNodeType.Plan, goal } }];
     return graphRunner;
   }
 
@@ -109,7 +110,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       addDependantNode: (newNodeValue) => {
         console.log(`[GraphRunner] Adding dependant node: ${newNodeValue.type}`);
         const newNode = {
-          id: `${node.value.type}${this.nodes.length}`,
+          id: newId.graphNode(),
           value: newNodeValue,
           dependencies: [node],
         };
@@ -127,7 +128,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         }
         console.log(`[GraphRunner] Adding dependency node: ${nodeValue.type}`);
         const newNode = {
-          id: `${node.value.type}${this.nodes.length}`,
+          id: newId.graphNode(),
           value: nodeValue,
           dependencies: inheritDependencies ? [...(node.dependencies || [])] : undefined,
         };

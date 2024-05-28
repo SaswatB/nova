@@ -1,3 +1,4 @@
 @layer reset, base, tokens, recipes, utilities;
 @import "split-pane-react/esm/themes/default.css" layer(base);
 @import "reactflow/dist/style.css" layer(base);
+@import "@radix-ui/themes/styles.css" layer(base);
