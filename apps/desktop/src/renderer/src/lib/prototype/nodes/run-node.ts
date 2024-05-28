@@ -269,7 +269,7 @@ Please suggest changes to the provided files based on the plan.
 Suggestions may either be snippets or full files, it should be clear enough for a junior engineer to understand and apply.
 Prefer snippets unless the file is small or the change is very large.
 Make sure to be very clear about which file is changing and what the change is.
-Please include a legend at the top of the file with the absolute path to the files you are changing.
+Please include a legend at the top of the file with the absolute path to the files you are changing. (Example: /root/project/src/file.ts)
 Suggest adding imports in distinct, standalone snippets from the code changes.
 If creating a new file, please provide the full file content.`.trim(),
       },
@@ -301,11 +301,11 @@ If creating a new file, please provide the full file content.`.trim(),
 I have a document detailing changes to a project. Please transform the information into a JSON format with the following structure:
 
 1.	General notes for the project, such as packages to install.
-2.	A list of files to change, each containing a list of changes. Only include files that have changes.
+2.	A list of all files to change, each containing a list of changes. Only include files that have changes.
 
 Example:
 ${JSON.stringify({
-  generalNoteList: ["This is a note"],
+  generalNoteList: ["This is a general note"],
   filesToChange: [
     {
       absolutePathIncludingFileName: "/root/project/src/file.ts",

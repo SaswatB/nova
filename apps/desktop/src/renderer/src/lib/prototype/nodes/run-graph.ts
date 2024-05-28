@@ -1,3 +1,4 @@
+import { EventEmitter } from "events";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import { isEqual } from "lodash";
 import { dirname } from "path";
@@ -5,6 +6,7 @@ import { inspect } from "util";
 import { z } from "zod";
 
 import { aiChat, openaiJson } from "../ai-chat";
+import { OmitUnion } from "../utils";
 import { NNodeResult, NNodeType, NNodeValue, NodeRunnerContext, ProjectContext } from "./node-types";
 import { runNode } from "./run-node";
 
@@ -67,91 +69,100 @@ function findNodeByValue(nodes: NNode[], value: NNodeValue): NNode | undefined {
   return undefined;
 }
 
-export class GraphRunner {
-  private nodes: NNode[];
+export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
+  private nodes: NNode[] = [];
   private trace: (
     | { type: "start"; timestamp: number }
     | { type: "start-node"; node: NNode; timestamp: number }
     | { type: "end-node"; node: NNode; timestamp: number }
     | { type: "end"; timestamp: number }
   )[] = [];
-  private runStack: NNode[];
 
-  public constructor(
-    private projectContext: ProjectContext,
-    goal: string,
-  ) {
-    this.nodes = [{ id: "plan", value: { type: NNodeType.Plan, goal } }];
-    this.runStack = [...this.nodes];
+  private constructor(private projectContext: ProjectContext) {
+    super();
+  }
+
+  public static fromGoal(projectContext: ProjectContext, goal: string) {
+    const graphRunner = new GraphRunner(projectContext);
+    graphRunner.nodes = [{ id: "plan", value: { type: NNodeType.Plan, goal } }];
+    return graphRunner;
+  }
+
+  public static fromData(projectContext: ProjectContext, data: GraphRunnerData) {
+    const graphRunner = new GraphRunner(projectContext);
+    graphRunner.nodes = data.nodes;
+    graphRunner.trace = data.trace;
   }
 
   private async startNode<T extends NNodeType>(
     node: NNode & { value: { type: T } },
+    addToRunStack: (node: NNode) => void,
   ): Promise<NNodeResult & { type: T }> {
-    this.trace.push({ type: "start-node", node, timestamp: Date.now() });
     console.log(`[GraphRunner] Starting node: ${node.value.type}`);
 
-    (node.state = node.state || {}).startedAt = Date.now();
-    node.state.trace = node.state.trace || [];
-    node.state.trace.push({ type: "start", timestamp: Date.now() });
+    (node.state ||= {}).startedAt = Date.now();
+    this.addTrace({ type: "start-node", node });
+    this.addNodeTrace(node, { type: "start" });
 
     const nodeRunnerContext: NodeRunnerContext = {
       projectContext: this.projectContext,
       addDependantNode: (newNodeValue) => {
+        console.log(`[GraphRunner] Adding dependant node: ${newNodeValue.type}`);
         const newNode = {
           id: `${node.value.type}${this.nodes.length}`,
           value: newNodeValue,
           dependencies: [node],
         };
-        console.log(`[GraphRunner] Adding dependant node: ${newNode.value.type}`);
-        node.state!.trace!.push({ type: "dependant", node: newNode, timestamp: Date.now() });
         this.nodes.push(newNode);
-        this.runStack.push(newNode);
+        addToRunStack(newNode);
+        this.addNodeTrace(node, { type: "dependant", node: newNode });
       },
       getOrAddDependencyForResult: async (nodeValue, inheritDependencies) => {
         const existing = findNodeByValue(node.dependencies || [], nodeValue);
         if (existing) {
           console.log(`[GraphRunner] Found existing node: ${existing.value.type}`);
-          node.state!.trace!.push({ type: "dependency-result", node: existing, existing: true, timestamp: Date.now() });
           if (!existing.state?.result) throw new Error("Node result not found"); // this shouldn't happen since deps are processed first
+          this.addNodeTrace(node, { type: "dependency-result", node: existing, existing: true });
           return existing.state.result as any; // todo should this add the node as a direct dependency?
         }
+        console.log(`[GraphRunner] Adding dependency node: ${nodeValue.type}`);
         const newNode = {
           id: `${node.value.type}${this.nodes.length}`,
           value: nodeValue,
           dependencies: inheritDependencies ? [...(node.dependencies || [])] : undefined,
         };
-        console.log(`[GraphRunner] Adding dependency node: ${newNode.value.type}`);
-        node.state!.trace!.push({ type: "dependency", node: newNode, timestamp: Date.now() });
-        node.dependencies = node.dependencies || [];
-        node.dependencies.push(newNode);
+        (node.dependencies ||= []).push(newNode);
         this.nodes.push(newNode);
-        const subResult = await this.startNode(newNode as any);
+        this.addNodeTrace(node, { type: "dependency", node: newNode });
+
+        const subResult = await this.startNode(newNode as any, addToRunStack);
         console.log(`[GraphRunner] Dependency result: ${subResult}`);
-        node.state!.trace!.push({ type: "dependency-result", node: newNode, timestamp: Date.now() });
+        this.addNodeTrace(node, { type: "dependency-result", node: newNode });
         return subResult;
       },
       readFile: async (path) => {
+        console.log(`[GraphRunner] Read file: ${path}`);
         let result: Awaited<ReturnType<NodeRunnerContext["readFile"]>>;
         if (!existsSync(path)) result = { type: "not-found" };
         else if (statSync(path).isDirectory()) result = { type: "directory", files: readdirSync(path) };
         else result = { type: "file", content: readFileSync(path, "utf-8") };
-        console.log(`[GraphRunner] Read file: ${path}`);
-        node.state!.trace!.push({ type: "read-file", path, result, timestamp: Date.now() });
+
+        this.addNodeTrace(node, { type: "read-file", path, result });
         return result;
       },
       writeFile: async (path, content) => {
         console.log(`[GraphRunner] Write file: ${path}`);
-        node.state!.trace!.push({ type: "write-file", path, content, timestamp: Date.now() });
         const dir = dirname(path);
         if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
         writeFileSync(path, content);
+
+        this.addNodeTrace(node, { type: "write-file", path, content });
       },
       aiChat: async (model, messages) => {
         try {
           const result = await aiChat(model, this.projectContext.systemPrompt, messages);
           console.log(`[GraphRunner] AI chat result: ${result}`);
-          node.state!.trace!.push({ type: "ai-chat", model, messages, result, timestamp: Date.now() });
+          this.addNodeTrace(node, { type: "ai-chat", model, messages, result });
           return result;
         } catch (e) {
           console.error(e);
@@ -162,7 +173,7 @@ export class GraphRunner {
       aiJson: async (schema, input) => {
         const result = await openaiJson(schema, this.projectContext.systemPrompt, input);
         console.log(`[GraphRunner] AI JSON result: ${result}`);
-        node.state!.trace!.push({ type: "ai-json", schema, input, result, timestamp: Date.now() });
+        this.addNodeTrace(node, { type: "ai-json", schema, input, result });
         return result;
       },
     };
@@ -170,31 +181,44 @@ export class GraphRunner {
     const result = await runNode<T>(node.value, nodeRunnerContext);
     node.state.completedAt = Date.now();
     node.state.result = result;
-    node.state.trace.push({ type: "result", result, timestamp: Date.now() });
-    this.trace.push({ type: "end-node", node, timestamp: Date.now() });
+    this.addNodeTrace(node, { type: "result", result });
+    this.addTrace({ type: "end-node", node });
 
     return result;
   }
 
   public async run() {
-    this.trace.push({ type: "start", timestamp: Date.now() });
+    const runStack = [...this.nodes];
+    this.addTrace({ type: "start" });
     // run the graph, keep consuming nodes until all nodes are completed
-    while (this.runStack.length > 0) {
-      const node = this.runStack.pop()!;
+    while (runStack.length > 0) {
+      const node = runStack.pop()!;
       if (node.state?.startedAt) continue;
       if (node.dependencies?.some((dep) => !dep.state?.completedAt)) {
-        this.runStack.unshift(node); // todo do this better
+        runStack.unshift(node); // todo do this better
         continue;
       }
-      await this.startNode(node);
+      await this.startNode(node, (newNode) => runStack.push(newNode));
     }
-    this.trace.push({ type: "end", timestamp: Date.now() });
+    this.addTrace({ type: "end" });
 
     writeFileSync("graph.json", inspect({ nodes: this.nodes, trace: this.trace }, { depth: 20 }));
   }
-}
 
-export async function runGraph(projectContext: ProjectContext, goal: string) {
-  const graphRunner = new GraphRunner(projectContext, goal);
-  await graphRunner.run();
+  public toData() {
+    return { nodes: this.nodes, trace: this.trace };
+  }
+
+  private addTrace(event: OmitUnion<(typeof GraphRunner.prototype.trace)[number], "timestamp">) {
+    this.trace.push({ ...event, timestamp: Date.now() });
+    this.emit("dataChanged"); // whenever there's a change, there should be a trace, so this effectively occurs on every change to the top level data
+  }
+  private addNodeTrace(
+    node: NNode,
+    event: OmitUnion<Exclude<Exclude<NNode["state"], undefined>["trace"], undefined>[number], "timestamp">,
+  ) {
+    ((node.state ||= {}).trace ||= []).push({ ...event, timestamp: Date.now() });
+    this.emit("dataChanged"); // whenever there's a change, there should be a trace, so this effectively occurs on every change to the node data
+  }
 }
+export type GraphRunnerData = ReturnType<GraphRunner["toData"]>;

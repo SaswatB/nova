@@ -41,6 +41,7 @@ async function openaiChat(
 export async function openaiJson<T extends object>(schema: z.ZodSchema<T>, prompt: string, data: string) {
   const result = await openai.chat.completions.create({
     model: "gpt-4o",
+    temperature: 0,
     messages: [
       { role: "system", content: `Please format the given data to fit the schema.\n${prompt}`.trim() },
       { role: "user", content: data },

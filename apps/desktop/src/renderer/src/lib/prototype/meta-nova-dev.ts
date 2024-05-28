@@ -1,5 +1,5 @@
 import { ProjectContext } from "./nodes/node-types";
-import { runGraph } from "./nodes/run-graph";
+import { GraphRunner, runGraph } from "./nodes/run-graph";
 
 async function iterate() {
   // const goal = "Move AI Chat helper functions to a separate file.";
@@ -48,6 +48,6 @@ Provide useful responses, make sure to consider when to stay high level and when
   // ${readFileSync(join(__dirname, "./mcmaster.html"), "utf-8")}
   //   `.trim();
 
-  await runGraph(projectContext, goal);
+  await GraphRunner.fromGoal(projectContext, goal).run();
 }
 iterate().catch(console.error);
