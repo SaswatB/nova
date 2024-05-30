@@ -19,14 +19,14 @@ const convertChatNodesToFlowElements = (graphNodes: GraphRunnerData["nodes"]): {
       selectable: true,
     }),
   );
-  nodes.forEach((node) => g.setNode(node.id, { width: 100, height: 100 }));
+  nodes.forEach((node) => g.setNode(node.id, { width: 150, height: 50 }));
 
   const edges = Object.values(graphNodes).flatMap((node) =>
     (node.dependencies || []).map(
       (depId): Edge => ({
         id: `e${node.id}-${depId}`,
-        source: node.id,
-        target: depId,
+        source: depId,
+        target: node.id,
         animated: true,
         selectable: false,
       }),

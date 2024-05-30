@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
 import { cloneDeep, isEqual } from "lodash";
-import { z } from "zod";
+import zodToJsonSchema from "zod-to-json-schema";
 
 import { newId } from "../../uid";
 import { aiChat, openaiJson } from "../ai-chat";
@@ -8,7 +8,49 @@ import { asyncToArray, dirname, isDefined, OmitUnion } from "../utils";
 import { NNodeResult, NNodeType, NNodeValue, NodeRunnerContext, ProjectContext } from "./node-types";
 import { runNode } from "./run-node";
 
-interface NNode {
+export type GraphTraceEvent =
+  | { type: "start"; timestamp: number }
+  | { type: "start-node"; node: NNode; timestamp: number }
+  | { type: "end-node"; node: NNode; timestamp: number }
+  | { type: "end"; timestamp: number };
+export type NNodeTraceEvent =
+  | { type: "start"; timestamp: number }
+  | {
+      type: "dependency" | "dependency-result";
+      node: NNode;
+      timestamp: number;
+      existing?: boolean;
+    }
+  | { type: "dependant"; node: NNode; timestamp: number }
+  | {
+      type: "read-file";
+      path: string;
+      result: Awaited<ReturnType<NodeRunnerContext["readFile"]>>;
+      timestamp: number;
+    }
+  | {
+      type: "write-file";
+      path: string;
+      content: string;
+      timestamp: number;
+    }
+  | {
+      type: "ai-chat";
+      model: string;
+      messages: { role: "user" | "assistant"; content: string }[];
+      result: string;
+      timestamp: number;
+    }
+  | {
+      type: "ai-json";
+      schema: unknown;
+      input: string;
+      result: unknown;
+      timestamp: number;
+    }
+  | { type: "result"; result: NNodeResult; timestamp: number };
+
+export interface NNode {
   id: string;
   dependencies?: string[]; // node ids
   value: NNodeValue;
@@ -17,43 +59,7 @@ interface NNode {
     startedAt?: number;
     completedAt?: number;
     result?: NNodeResult;
-    trace?: (
-      | { type: "start"; timestamp: number }
-      | {
-          type: "dependency" | "dependency-result";
-          node: NNode;
-          timestamp: number;
-          existing?: boolean;
-        }
-      | { type: "dependant"; node: NNode; timestamp: number }
-      | {
-          type: "read-file";
-          path: string;
-          result: Awaited<ReturnType<NodeRunnerContext["readFile"]>>;
-          timestamp: number;
-        }
-      | {
-          type: "write-file";
-          path: string;
-          content: string;
-          timestamp: number;
-        }
-      | {
-          type: "ai-chat";
-          model: string;
-          messages: { role: "user" | "assistant"; content: string }[];
-          result: string;
-          timestamp: number;
-        }
-      | {
-          type: "ai-json";
-          schema: z.Schema<unknown>;
-          input: string;
-          result: unknown;
-          timestamp: number;
-        }
-      | { type: "result"; result: NNodeResult; timestamp: number }
-    )[];
+    trace?: NNodeTraceEvent[];
   };
 }
 
@@ -69,12 +75,7 @@ function findNodeByValue(nodes: NNode[], value: NNodeValue, nodeMap: Record<stri
 
 export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
   private nodes: Record<string, NNode> = {}; // id -> node
-  private trace: (
-    | { type: "start"; timestamp: number }
-    | { type: "start-node"; node: NNode; timestamp: number }
-    | { type: "end-node"; node: NNode; timestamp: number }
-    | { type: "end"; timestamp: number }
-  )[] = [];
+  private trace: GraphTraceEvent[] = [];
 
   private constructor(private projectContext: ProjectContext) {
     super();
@@ -187,7 +188,12 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       aiJson: async (schema, input) => {
         const result = await openaiJson(schema, this.projectContext.systemPrompt, input);
         console.log(`[GraphRunner] AI JSON result: ${result}`);
-        this.addNodeTrace(node, { type: "ai-json", schema, input, result });
+        this.addNodeTrace(node, {
+          type: "ai-json",
+          schema: zodToJsonSchema(schema, "S").definitions?.S,
+          input,
+          result,
+        });
         return result;
       },
     };
@@ -203,6 +209,12 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
   }
 
   public async run() {
+    if ((await this.projectContext.folderHandle.queryPermission({ mode: "readwrite" })) !== "granted") {
+      if ((await this.projectContext.folderHandle.requestPermission({ mode: "readwrite" })) !== "granted") {
+        throw new Error("Permission denied");
+      }
+    }
+
     const runStack = Object.values(this.nodes);
     this.addTrace({ type: "start" });
     // run the graph, keep consuming nodes until all nodes are completed
@@ -219,7 +231,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
   }
 
   public toData() {
-    return { nodes: this.nodes, trace: this.trace };
+    return { nodes: { ...this.nodes }, trace: [...this.trace] };
   }
 
   private addTrace(event: OmitUnion<(typeof GraphRunner.prototype.trace)[number], "timestamp">) {

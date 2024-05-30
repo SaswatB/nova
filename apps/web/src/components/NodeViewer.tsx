@@ -15,7 +15,7 @@ export function NodeViewer({
   onChangeNode: (apply: (draft: GraphRunnerData["nodes"][number]) => void) => void;
 }) {
   return (
-    <Stack>
+    <Stack css={{ p: 24, overflowY: "auto" }}>
       {startCase(node.value.type)}
       <styled.hr css={{ border: "1px solid #333", my: 8 }} />
       <ZodForm

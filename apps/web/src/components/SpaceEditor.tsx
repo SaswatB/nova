@@ -1,20 +1,32 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAsync, useAsyncCallback } from "react-async-hook";
-import { Button, Dialog, TextField } from "@radix-ui/themes";
+import { toast } from "react-toastify";
+import { Button, Card, Dialog, TextField } from "@radix-ui/themes";
 import * as idb from "idb-keyval";
 import { produce } from "immer";
+import { reverse, sortBy, startCase } from "lodash";
 import { Pane } from "split-pane-react";
 import SplitPane from "split-pane-react/esm/SplitPane";
-import { Flex, Stack } from "styled-system/jsx";
+import { css } from "styled-system/css";
+import { Flex, Stack, styled } from "styled-system/jsx";
 import { stack } from "styled-system/patterns";
+import { VList } from "virtua";
 import { z } from "zod";
 
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
+import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
 import { useZodForm } from "../lib/hooks/useZodForm";
 import { ProjectContext } from "../lib/prototype/nodes/node-types";
-import { GraphRunner, GraphRunnerData } from "../lib/prototype/nodes/run-graph";
+import {
+  GraphRunner,
+  GraphRunnerData,
+  GraphTraceEvent,
+  NNode,
+  NNodeTraceEvent,
+} from "../lib/prototype/nodes/run-graph";
 import { newId } from "../lib/uid";
 import { FormHelper } from "./base/FormHelper";
+import { Loader } from "./base/Loader";
 import { GraphCanvas } from "./GraphCanvas";
 import { NodeViewer } from "./NodeViewer";
 
@@ -73,15 +85,26 @@ function NewGoal({ onNewGoal }: { onNewGoal: (goal: string) => void }) {
   );
 }
 
+interface Page {
+  id: string;
+  name: string;
+  graphData?: GraphRunnerData;
+}
+
 export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId: string }) {
   const [sizes, setSizes] = useLocalStorage<number[]>("space:sizes", [60, 40]);
   const handle = useAsync(() => idb.get<FileSystemDirectoryHandle>(`project:${projectId}:root`), [projectId]);
-  const [pages, setPages] = useLocalStorage<{ id: string; name: string; graphData?: GraphRunnerData }[]>(
-    `space:${spaceId}:pages`,
-    [],
-  );
+
+  const pagesAsync = useAsync((spaceId: string) => idb.get<Page[]>(`space:${spaceId}:pages`), [spaceId]);
+  const pagesRef = useUpdatingRef(pagesAsync.result);
+  const setPages = (pages: Page[] | ((pages: Page[]) => Page[])) => {
+    const newPages = typeof pages === "function" ? pages(pagesRef.current || []) : pages;
+    pagesAsync.set({ status: "success", loading: false, error: undefined, result: newPages });
+    pagesRef.current = newPages;
+    void idb.set(`space:${spaceId}:pages`, newPages).catch(console.error);
+  };
   const [selectedPageId, setSelectedPageId] = useLocalStorage<string | null>(`space:${spaceId}:selectedPageId`, null);
-  const selectedPage = pages.find((page) => page.id === selectedPageId);
+  const selectedPage = pagesRef.current?.find((page) => page.id === selectedPageId);
 
   const [refreshIndex, setRefreshIndex] = useState(0); // refreshes the graph runner
   const graphRunner = useMemo(
@@ -96,13 +119,14 @@ export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId
     if (!graphRunner) return;
     let cancelled = false;
 
-    handle.result?.requestPermission({ mode: "readwrite" });
-
     graphRunner.on("dataChanged", () => {
       if (cancelled) return;
-      // setPages((pages) =>
-      //   pages.map((page) => (page.id === selectedPageId ? { ...page, graphData: graphRunner.toData() } : page)),
-      // );
+      setPages(
+        produce((draft) => {
+          const page = draft.find((p) => p.id === selectedPageId);
+          if (page) page.graphData = graphRunner.toData();
+        }),
+      );
     });
 
     return () => {
@@ -118,6 +142,7 @@ export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId
     [selectedPage?.graphData?.nodes, selectedNodeId],
   );
 
+  if (!handle.result || pagesAsync.loading) return <Loader fill />;
   return (
     <SplitPane split="vertical" sizes={sizes} onChange={setSizes}>
       <Pane minSize={15} className={stack({ bg: "background.primary" })}>
@@ -125,7 +150,15 @@ export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId
           <GraphCanvas
             graphData={selectedPage.graphData}
             actions={
-              <Button loading={runGraph.loading} onClick={() => runGraph.execute().catch(console.error)}>
+              <Button
+                loading={runGraph.loading}
+                onClick={() =>
+                  runGraph.execute().catch((error) => {
+                    console.error(error);
+                    toast.error(error.message);
+                  })
+                }
+              >
                 Run
               </Button>
             }
@@ -136,10 +169,10 @@ export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId
           <NewGoal
             onNewGoal={(goal) => {
               const graphData = GraphRunner.fromGoal(getProjectContext(handle.result!), goal).toData();
-              if (selectedPageId) {
+              if (selectedPage) {
                 setPages(
                   produce((draft) => {
-                    const page = draft.find((p) => p.id === selectedPageId);
+                    const page = draft.find((p) => p.id === selectedPage.id);
                     if (page) page.graphData = graphData;
                   }),
                 );
@@ -152,9 +185,10 @@ export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId
           />
         )}
       </Pane>
-      <Pane minSize={15} className={stack({ p: 24, bg: "background.secondary" })}>
+      <Pane minSize={15} className={stack({ bg: "background.secondary" })}>
         {selectedNode ? (
           <NodeViewer
+            key={selectedNodeId}
             node={selectedNode}
             onChangeNode={(apply) => {
               setPages(
@@ -168,7 +202,7 @@ export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId
               setRefreshIndex(refreshIndex + 1);
             }}
           />
-        ) : (
+        ) : !selectedPage?.graphData?.trace.length ? (
           <Stack
             css={{
               width: "100%",
@@ -178,7 +212,38 @@ export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId
               color: "text.secondary",
             }}
           >
-            Select a node
+            No trace yet
+          </Stack>
+        ) : (
+          <Stack css={{ flex: 1 }}>
+            <VList>
+              <styled.h2 css={{ fontSize: 16, fontWeight: "bold", mt: 8, ml: 16, py: 8 }}>Graph Trace</styled.h2>
+              {reverse(
+                sortBy(
+                  selectedPage.graphData.trace.flatMap(
+                    (t): (GraphTraceEvent | (NNodeTraceEvent & { source: NNode }))[] =>
+                      t.type === "start-node"
+                        ? [t, ...(t.node.state?.trace || []).map((tr) => ({ ...tr, source: t.node }))]
+                        : [t],
+                  ),
+                  "timestamp",
+                ),
+              ).map((trace, i) => (
+                <Card key={i} className={css({ mx: 16, my: 8 })}>
+                  <Flex css={{ justifyContent: "space-between" }}>
+                    <span>{startCase(trace.type)}</span>
+                    <styled.span
+                      css={{
+                        color: "text.secondary",
+                        fontSize: 12,
+                      }}
+                    >
+                      {new Date(trace.timestamp).toLocaleString()}
+                    </styled.span>
+                  </Flex>
+                </Card>
+              ))}
+            </VList>
           </Stack>
         )}
       </Pane>
