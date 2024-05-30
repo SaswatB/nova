@@ -1,46 +1,34 @@
-import { Dispatch, SetStateAction } from "react";
-import { ChatNode } from "@renderer/lib/types";
-import { Stack } from "styled-system/jsx";
+import { toast } from "react-toastify";
+import { TextArea } from "@radix-ui/themes";
+import { NNodeValue } from "@renderer/lib/prototype/nodes/node-types";
+import { GraphRunnerData } from "@renderer/lib/prototype/nodes/run-graph";
+import { startCase } from "lodash";
+import { Stack, styled } from "styled-system/jsx";
+
+import { ZodForm } from "./ZodForm";
 
 export function NodeViewer({
   node,
-  setNode,
+  onChangeNode,
 }: {
-  node: ChatNode | undefined;
-  setNode: Dispatch<SetStateAction<ChatNode>>;
+  node: GraphRunnerData["nodes"][number];
+  onChangeNode: (apply: (draft: GraphRunnerData["nodes"][number]) => void) => void;
 }) {
-  // const [transcription, setTranscription] = useState<string[]>([]);
-  // const [partialTranscription, setPartialTranscription] = useState("");
-
-  // const sttClient = useMemo(
-  //   () =>
-  //     new STTClient({
-  //       onFullSentence(sentence) {
-  //         setTranscription((t) => [...t, sentence]);
-  //         setPartialTranscription("");
-  //       },
-  //       onRealtimeTranscription(text) {
-  //         setPartialTranscription(text);
-  //       },
-  //     }),
-  //   [],
-  // );
-  // useEffect(() => {
-  //   if (env.VITE_ENABLE_STT) sttClient.connect();
-  // }, [sttClient]);
   return (
     <Stack>
-      {/*
-      <Stack css={fill}>
-        <div>
-          <h2>Transcription:</h2>
-          {transcription.map((sentence, index) => (
-            <p key={index}>{sentence}</p>
-          ))}
-          <h3>Partial Transcription:</h3>
-          <p>{partialTranscription}</p>
-        </div>
-      </Stack> */}
+      {startCase(node.value.type)}
+      <styled.hr css={{ border: "1px solid #333", my: 8 }} />
+      <ZodForm
+        schema={NNodeValue.optionsMap.get(node.value.type)!}
+        defaultValues={node.value}
+        overrideFieldMap={{ type: () => null, goal: { renderField: ({ register }) => <TextArea {...register()} /> } }}
+        onSubmit={(values) => {
+          onChangeNode((draft) => {
+            draft.value = values as NNodeValue;
+          });
+          toast.success("Node updated");
+        }}
+      />
     </Stack>
   );
 }

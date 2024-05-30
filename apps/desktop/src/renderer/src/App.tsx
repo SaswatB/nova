@@ -1,3 +1,4 @@
+import { ToastContainer } from "react-toastify";
 import { Theme } from "@radix-ui/themes";
 import { Stack } from "styled-system/jsx";
 
@@ -9,6 +10,7 @@ export function App(): JSX.Element {
       <Stack css={{ minW: "screen", minH: "screen" }}>
         <Workspace />
       </Stack>
+      <ToastContainer position="bottom-right" theme="dark" hideProgressBar newestOnTop />
     </Theme>
   );
 }

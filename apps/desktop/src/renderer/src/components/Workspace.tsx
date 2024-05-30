@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { UseFormReturn } from "react-hook-form";
 import { Link2Icon, PlusCircledIcon } from "@radix-ui/react-icons";
 import { Button, Dialog, IconButton, TextField, Tooltip } from "@radix-ui/themes";
 import { useLocalStorage } from "@renderer/lib/hooks/useLocalStorage";
-import { useZodForm } from "@renderer/lib/hooks/useZodForm";
 import { newId } from "@renderer/lib/uid";
 import * as idb from "idb-keyval";
 import { Pane } from "split-pane-react";
@@ -12,22 +12,24 @@ import { Flex, Stack } from "styled-system/jsx";
 import { stack } from "styled-system/patterns";
 import { z } from "zod";
 
-import { FormHelper } from "./base/FormHelper";
 import { Select } from "./base/Select";
 import { SpaceEditor } from "./SpaceEditor";
+import { ZodForm } from "./ZodForm";
 
 function AddProject({ onAdd }: { onAdd: (project: { name: string; handle: FileSystemDirectoryHandle }) => void }) {
+  const schema = z.object({ name: z.string().min(1), rootPath: z.string().min(1) });
+  type FormValues = z.infer<typeof schema>;
+
   const [open, setOpen] = useState(false);
   const [fileHandle, setFileHandle] = useState<FileSystemDirectoryHandle | null>(null);
 
-  const form = useZodForm({ schema: z.object({ name: z.string().min(1), rootPath: z.string().min(1) }) });
-  const onSubmit = form.handleSubmit((data) => {
+  const onSubmit = (data: FormValues) => {
     if (!fileHandle) return;
     onAdd({ ...data, handle: fileHandle });
     setOpen(false);
-  });
+  };
 
-  const openDialog = async () => {
+  const openDialog = async (form: UseFormReturn<FormValues>) => {
     const result = await window.showDirectoryPicker({ mode: "readwrite", startIn: "documents" });
     if (result) {
       form.setValue("rootPath", result.name);
@@ -44,35 +46,33 @@ function AddProject({ onAdd }: { onAdd: (project: { name: string; handle: FileSy
       </Dialog.Trigger>
       <Dialog.Content width="400px">
         <Dialog.Title>Add Project</Dialog.Title>
-        <Stack css={{ gap: 16 }}>
-          <FormHelper error={form.formState.errors.root?.message} variant="callout" />
 
-          <Stack css={{ gap: 1 }}>
-            <TextField.Root placeholder="New Project" {...form.register("name")} />
-            <FormHelper error={form.formState.errors.name?.message} />
-          </Stack>
-
-          <Stack css={{ gap: 1 }}>
-            <TextField.Root placeholder="Root Path" {...form.register("rootPath")} disabled>
-              <TextField.Slot side="right">
-                <Tooltip content="Open Folder">
-                  <IconButton size="1" variant="ghost" onClick={openDialog}>
-                    <Link2Icon height="14" width="14" />
-                  </IconButton>
-                </Tooltip>
-              </TextField.Slot>
-            </TextField.Root>
-            <FormHelper helper="The folder to your project" error={form.formState.errors.rootPath?.message} />
-          </Stack>
-
-          <Flex css={{ justifyContent: "flex-end" }}>
-            <Button onClick={onSubmit}>Save</Button>
-          </Flex>
-        </Stack>
+        <ZodForm
+          schema={schema}
+          overrideFieldMap={{
+            rootPath: {
+              renderField: ({ register, form }) => (
+                <TextField.Root {...register()} disabled>
+                  <TextField.Slot side="right">
+                    <Tooltip content="Open Folder">
+                      <IconButton size="1" variant="ghost" onClick={() => openDialog(form)}>
+                        <Link2Icon height="14" width="14" />
+                      </IconButton>
+                    </Tooltip>
+                  </TextField.Slot>
+                </TextField.Root>
+              ),
+              helper: "The folder to your project",
+            },
+          }}
+          onSubmit={onSubmit}
+        />
       </Dialog.Content>
     </Dialog.Root>
   );
 }
+
+const getSpacesId = (projectId: string) => `spaces:${projectId}`;
 
 function SpaceSelector({
   projectId,
@@ -84,10 +84,16 @@ function SpaceSelector({
   setSelectedSpaceId: (id: string) => void;
 }) {
   const [spacesImpl, setSpaces] = useLocalStorage<{ id: string; name: string | null; timestamp: number }[]>(
-    `spaces:${projectId}`,
+    getSpacesId(projectId),
     [],
   );
   const spaces = useMemo(() => spacesImpl.sort((a, b) => b.timestamp - a.timestamp), [spacesImpl]);
+
+  useEffect(() => {
+    if (selectedSpaceId && !spaces.find((space) => space.id === selectedSpaceId)) {
+      setSelectedSpaceId(spaces[0].id);
+    }
+  }, [selectedSpaceId, setSelectedSpaceId, spaces]);
 
   return (
     <Stack>
@@ -124,7 +130,7 @@ export function Workspace() {
 
   const [projects, setProjects] = useLocalStorage<{ id: string; name: string }[]>("projects", []);
   const [selectedProjectId, setSelectedProjectIdImpl] = useLocalStorage<string | null>("selectedProjectId", null);
-  const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
+  const [selectedSpaceId, setSelectedSpaceId] = useLocalStorage<string | null>("selectedSpaceId", null);
   const setSelectedProjectId = (id: string | null) => {
     setSelectedProjectIdImpl(id);
     setSelectedSpaceId(null);

@@ -1,22 +1,30 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { GenerativeModel, GoogleGenerativeAI } from "@google/generative-ai";
-import { createHash } from "crypto";
-import { existsSync, readFileSync, writeFileSync } from "fs";
 import Groq from "groq-sdk";
+import * as idb from "idb-keyval";
 import OpenAI from "openai";
-import { join } from "path";
 import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
 
 import { env } from "../env";
 
-function generateCacheKey(obj: object): string {
-  const hash = createHash("sha256");
-  hash.update(JSON.stringify(obj));
-  return hash.digest("hex");
+async function generateCacheKey(obj: object): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(JSON.stringify(obj));
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  const hexCodes = [];
+  const view = new DataView(hash);
+  for (let i = 0; i < view.byteLength; i += 4) {
+    const value = view.getUint32(i);
+    const stringValue = value.toString(16);
+    const padding = "00000000";
+    const paddedValue = (padding + stringValue).slice(-padding.length);
+    hexCodes.push(paddedValue);
+  }
+  return hexCodes.join("");
 }
 
-const groq = new Groq({ apiKey: env.VITE_GROQ_API_KEY });
+const groq = new Groq({ apiKey: env.VITE_GROQ_API_KEY, dangerouslyAllowBrowser: true });
 // const groq = new OpenAI({ apiKey: env.VITE_TOGETHERAI_API_KEY, baseURL: "https://api.together.xyz/v1" });
 async function groqChat(system: string, messages: { role: "user" | "assistant"; content: string }[]): Promise<string> {
   const result = await groq.chat.completions.create({
@@ -27,7 +35,7 @@ async function groqChat(system: string, messages: { role: "user" | "assistant"; 
   return result.choices[0].message.content ?? "";
 }
 
-const openai = new OpenAI({ apiKey: env.VITE_OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: env.VITE_OPENAI_API_KEY, dangerouslyAllowBrowser: true });
 async function openaiChat(
   system: string,
   messages: { role: "user" | "assistant"; content: string }[],
@@ -131,13 +139,10 @@ export async function aiChat(
   system: string,
   messages: { role: "user" | "assistant"; content: string }[],
 ): Promise<string> {
-  const cacheKey = generateCacheKey({ system, messages });
-  const cachePath = join(__dirname, "cache", `${model}-${cacheKey}.json`);
+  const cacheKey = `aicache:${model}-${await generateCacheKey({ system, messages })}`;
 
-  if (existsSync(cachePath)) {
-    const cachedData = JSON.parse(readFileSync(cachePath, "utf-8"));
-    return cachedData.response;
-  }
+  const cachedValue = await idb.get(cacheKey);
+  if (cachedValue) return cachedValue;
 
   let response: string;
   switch (model) {
@@ -160,7 +165,6 @@ export async function aiChat(
       throw new Error("Invalid model name");
   }
 
-  writeFileSync(cachePath, JSON.stringify({ model, system, messages, response, timestamp: Date.now() }, null, 2));
-
+  await idb.set(cacheKey, response);
   return response;
 }

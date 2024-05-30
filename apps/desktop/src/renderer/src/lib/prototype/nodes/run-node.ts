@@ -1,6 +1,6 @@
+import ignore from "ignore";
 import llamaTokenizer from "llama-tokenizer-js";
 import { uniq } from "lodash";
-import { join } from "path";
 import { z } from "zod";
 
 import { getDepTree } from "../ts-utils";
@@ -14,21 +14,39 @@ import {
 } from "./node-types";
 
 async function readFilesRecursively(
-  files: string[],
   nrc: NodeRunnerContext,
+  path: string,
+  extensions: string[],
+  ignoreParts: string[] = [],
 ): Promise<{ path: string; content: string }[]> {
-  const res = await Promise.all(
-    files.map(async (f) => {
-      const result = await nrc.readFile(f);
-      if (result.type === "not-found") return [];
-      if (result.type === "file") return [{ path: f, content: result.content }];
-      return await readFilesRecursively(
-        result.files.map((ff) => join(f, ff)),
-        nrc,
-      );
-    }),
-  );
-  return res.flat();
+  const ig = ignore().add(ignoreParts);
+
+  const file = await nrc.readFile(path);
+  if (file.type === "not-found") return [];
+  if (file.type === "file") {
+    if (ig.ignores(path)) return [];
+    return [{ path, content: file.content }];
+  }
+
+  const newIgnoreParts = [...ignoreParts];
+  const gitignore = await nrc.readFile(`${path}/.gitignore`);
+  if (gitignore.type === "file") {
+    const lines = gitignore.content.split("\n").filter((l) => l.trim().length > 0);
+    ig.add(lines);
+    newIgnoreParts.push(...lines);
+  }
+
+  const result: { path: string; content: string }[] = [];
+  for (const f of file.files) {
+    const p = `${path}/${f}`;
+    if (ig.ignores(p)) continue;
+    const file = await nrc.readFile(p);
+    if (file.type === "not-found") continue;
+    if (file.type === "file") {
+      if (extensions.some((ext) => p.endsWith(ext))) result.push({ path: p, content: file.content });
+    } else result.push(...(await readFilesRecursively(nrc, p, extensions, newIgnoreParts)));
+  }
+  return result;
 }
 
 function xmlFilePrompt(
@@ -64,13 +82,13 @@ ${showResearch ? `<research>\n${research}\n</research>\n` : ""}
 }
 
 async function projectAnalysis(value: NNodeValue & { type: NNodeType.ProjectAnalysis }, nrc: NodeRunnerContext) {
-  const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
-    type: NNodeType.TypescriptDepAnalysis,
-  });
-  const pendingFiles = [...Object.keys(typescriptResult)];
-  const dependencies = typescriptResult;
+  // const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
+  //   type: NNodeType.TypescriptDepAnalysis,
+  // });
+  // const pendingFiles = [...Object.keys(typescriptResult)];
+  // const dependencies = typescriptResult;
 
-  const rawFiles = await readFilesRecursively(pendingFiles, nrc);
+  const rawFiles = await readFilesRecursively(nrc, "/", nrc.projectContext.extensions);
   const files: ResearchedFile[] = [];
   for (const f of rawFiles) {
     console.log("filesystemResearch file", f.path);
@@ -127,8 +145,8 @@ ${batch.map((f) => xmlFilePrompt(f, { showFileContent: true })).join("\n\n")}
       batch.push(f);
 
       // prioritize files that are dependencies of the current batch
-      const deps = dependencies[f.path];
-      if (deps) priority.push(...stack.filter((d) => deps.some((dep) => dep.fileName === d.path)));
+      // const deps = dependencies[f.path];
+      // if (deps) priority.push(...stack.filter((d) => deps.some((dep) => dep.fileName === d.path)));
 
       // if the batch is too large, send it to the AI
       const batchPrompt = constructBatchPrompt(batch);
@@ -209,9 +227,9 @@ ${xmlFileSystemResearch(researchResult, { showFileContent: true, showResearch: t
     return { type: NNodeType.RelevantFileAnalysis, result: rawRelevantFiles, files: relevantFiles };
   },
   [NNodeType.TypescriptDepAnalysis]: async (value, nrc) => {
-    const result = getDepTree(nrc.projectContext.files.projectAnchorFiles);
-    console.log("[TypescriptDepAnalysis] ", result);
-    return { type: NNodeType.TypescriptDepAnalysis, result };
+    // const result = getDepTree(nrc.projectContext.);
+    // console.log("[TypescriptDepAnalysis] ", result);
+    return { type: NNodeType.TypescriptDepAnalysis, result: {} };
   },
 
   [NNodeType.Plan]: async (value, nrc) => {

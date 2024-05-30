@@ -93,3 +93,23 @@ export class STTClient {
     }
   }
 }
+
+// const [transcription, setTranscription] = useState<string[]>([]);
+// const [partialTranscription, setPartialTranscription] = useState("");
+
+// const sttClient = useMemo(
+//   () =>
+//     new STTClient({
+//       onFullSentence(sentence) {
+//         setTranscription((t) => [...t, sentence]);
+//         setPartialTranscription("");
+//       },
+//       onRealtimeTranscription(text) {
+//         setPartialTranscription(text);
+//       },
+//     }),
+//   [],
+// );
+// useEffect(() => {
+//   if (env.VITE_ENABLE_STT) sttClient.connect();
+// }, [sttClient]);

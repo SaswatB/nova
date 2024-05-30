@@ -1,6 +1,7 @@
 import { uniq } from "lodash";
-import { dirname } from "path";
 import * as ts from "typescript";
+
+import { dirname } from "./utils";
 
 export function getDepTree(files: string[]) {
   const configPaths = uniq(

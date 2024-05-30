@@ -23,15 +23,17 @@ export interface ResearchedFileSystem {
   research: string;
 }
 
-export type NNodeValue =
-  | { type: NNodeType.Output; description: string; value: unknown }
-  | { type: NNodeType.ProjectAnalysis }
-  | { type: NNodeType.RelevantFileAnalysis; goal: string }
-  | { type: NNodeType.TypescriptDepAnalysis }
-  | { type: NNodeType.Plan; goal: string }
-  | { type: NNodeType.Execute; instructions: string; relevantFiles: string[] }
-  | { type: NNodeType.CreateChangeSet; rawChangeSet: string }
-  | { type: NNodeType.ApplyFileChanges; path: string; changes: string[] };
+export const NNodeValue = z.discriminatedUnion("type", [
+  z.object({ type: z.literal(NNodeType.Output), description: z.string(), value: z.unknown() }),
+  z.object({ type: z.literal(NNodeType.ProjectAnalysis) }),
+  z.object({ type: z.literal(NNodeType.RelevantFileAnalysis), goal: z.string().min(1) }),
+  z.object({ type: z.literal(NNodeType.TypescriptDepAnalysis) }),
+  z.object({ type: z.literal(NNodeType.Plan), goal: z.string() }),
+  z.object({ type: z.literal(NNodeType.Execute), instructions: z.string(), relevantFiles: z.array(z.string()) }),
+  z.object({ type: z.literal(NNodeType.CreateChangeSet), rawChangeSet: z.string() }),
+  z.object({ type: z.literal(NNodeType.ApplyFileChanges), path: z.string(), changes: z.array(z.string()) }),
+]);
+export type NNodeValue = z.infer<typeof NNodeValue>;
 export type NNodeResult =
   | { type: NNodeType.Output }
   | { type: NNodeType.ProjectAnalysis; result: ResearchedFileSystem }
@@ -48,7 +50,8 @@ export type NNodeResult =
 export interface ProjectContext {
   systemPrompt: string;
   rules: string[];
-  files: { projectAnchorFiles: string[] };
+  folderHandle: FileSystemDirectoryHandle;
+  extensions: string[];
 }
 
 export interface NodeRunnerContext {

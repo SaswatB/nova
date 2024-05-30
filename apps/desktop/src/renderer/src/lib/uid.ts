@@ -29,6 +29,7 @@ enum ID_TYPE {
   project = "p",
   graphNode = "gn",
   space = "s",
+  spacePage = "sp",
 }
 
 /**
