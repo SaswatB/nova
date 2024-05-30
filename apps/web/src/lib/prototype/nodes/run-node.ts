@@ -1,4 +1,4 @@
-import ignore from "ignore";
+import ignore, { Ignore } from "ignore";
 import llamaTokenizer from "llama-tokenizer-js";
 import { uniq } from "lodash";
 import { z } from "zod";
@@ -13,38 +13,49 @@ import {
   ResearchedFileSystem,
 } from "./node-types";
 
+function checkIgnores(ignores: { dir: string; ignore: Ignore }[], path: string) {
+  for (const { dir, ignore } of ignores) {
+    if (path.startsWith(dir)) {
+      const relativePath = path.slice(dir.length);
+      if (ignore.ignores(relativePath)) return true;
+    } else {
+      console.error("Path does not start with dir", path, dir);
+    }
+  }
+  return false;
+}
+
 async function readFilesRecursively(
   nrc: NodeRunnerContext,
   path: string,
   extensions: string[],
-  ignoreParts: string[] = [],
+  ignores: { dir: string; ignore: Ignore }[] = [],
 ): Promise<{ path: string; content: string }[]> {
-  const ig = ignore().add(ignoreParts);
-
   const file = await nrc.readFile(path);
   if (file.type === "not-found") return [];
   if (file.type === "file") {
-    if (ig.ignores(path)) return [];
+    if (checkIgnores(ignores, path)) return [];
     return [{ path, content: file.content }];
   }
 
-  const newIgnoreParts = [...ignoreParts];
-  const gitignore = await nrc.readFile(`${path}/.gitignore`);
+  const newIgnores = [...ignores];
+  const gitignore = await nrc.readFile(`${path}.gitignore`);
   if (gitignore.type === "file") {
-    const lines = gitignore.content.split("\n").filter((l) => l.trim().length > 0);
-    ig.add(lines);
-    newIgnoreParts.push(...lines);
+    newIgnores.push({ dir: path, ignore: ignore().add(gitignore.content) });
   }
 
   const result: { path: string; content: string }[] = [];
   for (const f of file.files) {
-    const p = `${path}/${f}`;
-    if (ig.ignores(p)) continue;
+    if (f === ".git") continue;
+
+    const p = `${path}${f}`;
+    if (checkIgnores(ignores, p)) continue;
+
     const file = await nrc.readFile(p);
     if (file.type === "not-found") continue;
     if (file.type === "file") {
       if (extensions.some((ext) => p.endsWith(ext))) result.push({ path: p, content: file.content });
-    } else result.push(...(await readFilesRecursively(nrc, p, extensions, newIgnoreParts)));
+    } else result.push(...(await readFilesRecursively(nrc, `${p}/`, extensions, newIgnores)));
   }
   return result;
 }
