@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { Link2Icon, PlusCircledIcon } from "@radix-ui/react-icons";
 import { Button, Dialog, IconButton, TextField, Tooltip } from "@radix-ui/themes";
-import { useLocalStorage } from "@renderer/lib/hooks/useLocalStorage";
-import { newId } from "@renderer/lib/uid";
 import * as idb from "idb-keyval";
 import { Pane } from "split-pane-react";
 import SplitPane from "split-pane-react/esm/SplitPane";
@@ -12,6 +10,8 @@ import { Flex, Stack } from "styled-system/jsx";
 import { stack } from "styled-system/patterns";
 import { z } from "zod";
 
+import { useLocalStorage } from "../lib/hooks/useLocalStorage";
+import { newId } from "../lib/uid";
 import { Select } from "./base/Select";
 import { SpaceEditor } from "./SpaceEditor";
 import { ZodForm } from "./ZodForm";
@@ -81,7 +81,7 @@ function SpaceSelector({
 }: {
   projectId: string;
   selectedSpaceId: string | null;
-  setSelectedSpaceId: (id: string) => void;
+  setSelectedSpaceId: (id: string | null) => void;
 }) {
   const [spacesImpl, setSpaces] = useLocalStorage<{ id: string; name: string | null; timestamp: number }[]>(
     getSpacesId(projectId),
@@ -91,7 +91,7 @@ function SpaceSelector({
 
   useEffect(() => {
     if (selectedSpaceId && !spaces.find((space) => space.id === selectedSpaceId)) {
-      setSelectedSpaceId(spaces[0].id);
+      setSelectedSpaceId(spaces[0]?.id || null);
     }
   }, [selectedSpaceId, setSelectedSpaceId, spaces]);
 

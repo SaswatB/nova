@@ -1,10 +1,10 @@
-import { newId } from "@renderer/lib/uid";
 import { EventEmitter } from "events";
 import { cloneDeep, isEqual } from "lodash";
 import { z } from "zod";
 
+import { newId } from "../../uid";
 import { aiChat, openaiJson } from "../ai-chat";
-import { asyncToArray, dirname, OmitUnion } from "../utils";
+import { asyncToArray, dirname, isDefined, OmitUnion } from "../utils";
 import { NNodeResult, NNodeType, NNodeValue, NodeRunnerContext, ProjectContext } from "./node-types";
 import { runNode } from "./run-node";
 
@@ -61,11 +61,7 @@ function findNodeByValue(nodes: NNode[], value: NNodeValue, nodeMap: Record<stri
   const directDep = nodes.find((n) => isEqual(n.value, value));
   if (directDep) return directDep;
   for (const node of nodes) {
-    const found = findNodeByValue(
-      (node.dependencies || []).map((id) => nodeMap[id]),
-      value,
-      nodeMap,
-    );
+    const found = findNodeByValue((node.dependencies || []).map((id) => nodeMap[id]).filter(isDefined), value, nodeMap);
     if (found) return found;
   }
   return undefined;
@@ -123,7 +119,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       },
       getOrAddDependencyForResult: async (nodeValue, inheritDependencies) => {
         const existing = findNodeByValue(
-          (node.dependencies || []).map((id) => this.nodes[id]),
+          (node.dependencies || []).map((id) => this.nodes[id]).filter(isDefined),
           nodeValue,
           this.nodes,
         );
@@ -211,7 +207,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     while (runStack.length > 0) {
       const node = runStack.pop()!;
       if (node.state?.startedAt) continue;
-      if (node.dependencies?.some((id) => !this.nodes[id].state?.completedAt)) {
+      if (node.dependencies?.some((id) => !this.nodes[id]?.state?.completedAt)) {
         runStack.unshift(node); // todo do this better
         continue;
       }

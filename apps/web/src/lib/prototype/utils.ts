@@ -11,3 +11,7 @@ export function dirname(path: string) {
   const separator = isWindows ? "\\" : "/";
   return path.substring(0, path.lastIndexOf(separator));
 }
+
+export function isDefined<T>(value: T | undefined | null): value is T {
+  return value !== undefined && value !== null;
+}

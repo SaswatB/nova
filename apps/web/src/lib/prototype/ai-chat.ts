@@ -32,7 +32,7 @@ async function groqChat(system: string, messages: { role: "user" | "assistant"; 
     // model: "meta-llama/Llama-3-70b-chat-hf",
     messages: [{ role: "system", content: system }, ...messages],
   });
-  return result.choices[0].message.content ?? "";
+  return result.choices[0]?.message.content ?? "";
 }
 
 const openai = new OpenAI({ apiKey: env.VITE_OPENAI_API_KEY, dangerouslyAllowBrowser: true });
@@ -44,7 +44,7 @@ async function openaiChat(
     model: "gpt-4o",
     messages: [{ role: "system", content: system }, ...messages],
   });
-  return result.choices[0].message.content ?? "";
+  return result.choices[0]?.message.content ?? "";
 }
 export async function openaiJson<T extends object>(schema: z.ZodSchema<T>, prompt: string, data: string) {
   const result = await openai.chat.completions.create({
@@ -66,7 +66,7 @@ export async function openaiJson<T extends object>(schema: z.ZodSchema<T>, promp
     ],
     tool_choice: { type: "function", function: { name: "resolve" } },
   });
-  const out = result.choices[0].message.tool_calls?.[0].function?.arguments ?? "{}";
+  const out = result.choices[0]?.message.tool_calls?.[0]?.function?.arguments ?? "{}";
   return schema.parse(JSON.parse(out));
 }
 
@@ -81,7 +81,7 @@ async function claudeChat(
     system,
     messages,
   });
-  return message.content[0].text;
+  return message.content[0]?.text ?? "";
 }
 export async function claudeJson<T extends object>(schema: z.ZodSchema<T>, prompt: string, data: string) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -108,7 +108,7 @@ export async function claudeJson<T extends object>(schema: z.ZodSchema<T>, promp
   });
 
   const result = await response.json();
-  const out = result.content.find((m: any) => m.type === "tool_use").input;
+  const out = result.content.find((m: { type: string }) => m.type === "tool_use").input;
   return schema.parse(out);
 }
 

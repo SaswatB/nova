@@ -1,9 +1,10 @@
 import { Dispatch, memo, ReactNode, SetStateAction, useMemo } from "react";
 import Dagre from "@dagrejs/dagre";
-import { GraphRunnerData } from "@renderer/lib/prototype/nodes/run-graph";
 import { Background, Controls, Edge, Handle, Node, NodeProps, Panel, Position, ReactFlow } from "@xyflow/react";
 import { startCase } from "lodash";
 import { Flex } from "styled-system/jsx";
+
+import { GraphRunnerData } from "../lib/prototype/nodes/run-graph";
 
 const convertChatNodesToFlowElements = (graphNodes: GraphRunnerData["nodes"]): { nodes: Node[]; edges: Edge[] } => {
   const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));

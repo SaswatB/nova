@@ -1,10 +1,10 @@
 import { toast } from "react-toastify";
 import { TextArea } from "@radix-ui/themes";
-import { NNodeValue } from "@renderer/lib/prototype/nodes/node-types";
-import { GraphRunnerData } from "@renderer/lib/prototype/nodes/run-graph";
 import { startCase } from "lodash";
 import { Stack, styled } from "styled-system/jsx";
 
+import { NNodeValue } from "../lib/prototype/nodes/node-types";
+import { GraphRunnerData } from "../lib/prototype/nodes/run-graph";
 import { ZodForm } from "./ZodForm";
 
 export function NodeViewer({

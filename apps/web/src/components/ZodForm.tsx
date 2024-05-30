@@ -1,11 +1,11 @@
 import { Fragment, ReactNode } from "react";
 import { UseFormRegisterReturn, UseFormReturn } from "react-hook-form";
 import { Button, TextField } from "@radix-ui/themes";
-import { useZodForm } from "@renderer/lib/hooks/useZodForm";
 import { startCase } from "lodash";
 import { Flex, Stack } from "styled-system/jsx";
 import { z } from "zod";
 
+import { useZodForm } from "../lib/hooks/useZodForm";
 import { FormHelper } from "./base/FormHelper";
 
 export function ZodForm<T extends z.ZodObject<any>>({

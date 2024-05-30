@@ -17,7 +17,7 @@ function SelectComponent<T>({ className, options, placeholder, value, onChange }
   return (
     <Select.Root
       value={`${valueIndex !== -1 ? valueIndex : ""}`}
-      onValueChange={(value) => onChange?.(options[parseInt(value)].value)}
+      onValueChange={(value) => onChange?.(options[parseInt(value)]!.value)}
       disabled={options.length === 0}
     >
       <Select.Trigger placeholder={placeholder} className={className} />

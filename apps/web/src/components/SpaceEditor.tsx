@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAsync, useAsyncCallback } from "react-async-hook";
 import { Button, Dialog, TextField } from "@radix-ui/themes";
-import { useLocalStorage } from "@renderer/lib/hooks/useLocalStorage";
-import { useZodForm } from "@renderer/lib/hooks/useZodForm";
-import { ProjectContext } from "@renderer/lib/prototype/nodes/node-types";
-import { GraphRunner, GraphRunnerData } from "@renderer/lib/prototype/nodes/run-graph";
-import { newId } from "@renderer/lib/uid";
 import * as idb from "idb-keyval";
 import { produce } from "immer";
 import { Pane } from "split-pane-react";
@@ -14,6 +9,11 @@ import { Flex, Stack } from "styled-system/jsx";
 import { stack } from "styled-system/patterns";
 import { z } from "zod";
 
+import { useLocalStorage } from "../lib/hooks/useLocalStorage";
+import { useZodForm } from "../lib/hooks/useZodForm";
+import { ProjectContext } from "../lib/prototype/nodes/node-types";
+import { GraphRunner, GraphRunnerData } from "../lib/prototype/nodes/run-graph";
+import { newId } from "../lib/uid";
 import { FormHelper } from "./base/FormHelper";
 import { GraphCanvas } from "./GraphCanvas";
 import { NodeViewer } from "./NodeViewer";
@@ -100,9 +100,9 @@ export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId
 
     graphRunner.on("dataChanged", () => {
       if (cancelled) return;
-      setPages((pages) =>
-        pages.map((page) => (page.id === selectedPageId ? { ...page, graphData: graphRunner.toData() } : page)),
-      );
+      // setPages((pages) =>
+      //   pages.map((page) => (page.id === selectedPageId ? { ...page, graphData: graphRunner.toData() } : page)),
+      // );
     });
 
     return () => {
