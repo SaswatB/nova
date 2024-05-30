@@ -162,9 +162,10 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       writeFile: async (path, content) => {
         console.log(`[GraphRunner] Write file: ${path}`);
         const dir = dirname(path);
+        const name = path.split("/").at(-1)!;
         const dirHandle = await this.getFileHandle(dir, undefined, true);
         if (dirHandle?.kind !== "directory") throw new Error(`Directory not found: ${dir}`);
-        const fileHandle = await dirHandle.getFileHandle(path, { create: true });
+        const fileHandle = await dirHandle.getFileHandle(name, { create: true });
         const writable = await fileHandle.createWritable();
         await writable.write(content);
         await writable.close();
@@ -196,6 +197,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     node.state.result = result;
     this.addNodeTrace(node, { type: "result", result });
     this.addTrace({ type: "end-node", node });
+    console.log(`[GraphRunner] Node completed: ${node.value.type}`);
 
     return result;
   }
