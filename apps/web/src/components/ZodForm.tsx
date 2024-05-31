@@ -1,6 +1,6 @@
 import { Fragment, ReactNode } from "react";
 import { UseFormRegisterReturn, UseFormReturn } from "react-hook-form";
-import { Button, TextField } from "@radix-ui/themes";
+import { Button, TextArea, TextField } from "@radix-ui/themes";
 import { startCase } from "lodash";
 import { Flex, Stack } from "styled-system/jsx";
 import { z } from "zod";
@@ -91,3 +91,7 @@ export function ZodForm<T extends z.ZodObject<any>>({
     </Stack>
   );
 }
+
+export const textAreaField = {
+  renderField: ({ register }: { register: () => UseFormRegisterReturn }) => <TextArea {...register()} />,
+};

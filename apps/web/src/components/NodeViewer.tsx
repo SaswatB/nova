@@ -6,7 +6,7 @@ import { Stack, styled } from "styled-system/jsx";
 import { NNodeValue } from "../lib/prototype/nodes/node-types";
 import { GraphRunnerData } from "../lib/prototype/nodes/run-graph";
 import { traceElementSourceSymbol, TraceElementView } from "./TraceElementView";
-import { ZodForm } from "./ZodForm";
+import { textAreaField, ZodForm } from "./ZodForm";
 
 export function NodeViewer({
   node,
@@ -23,7 +23,7 @@ export function NodeViewer({
       <ZodForm
         schema={NNodeValue.optionsMap.get(node.value.type)!}
         defaultValues={node.value}
-        overrideFieldMap={{ type: () => null, goal: { renderField: ({ register }) => <TextArea {...register()} /> } }}
+        overrideFieldMap={{ type: () => null, goal: textAreaField }}
         onSubmit={(values) => {
           onChangeNode((draft) => {
             draft.value = values as NNodeValue;

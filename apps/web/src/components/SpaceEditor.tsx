@@ -1,28 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAsync, useAsyncCallback } from "react-async-hook";
 import { toast } from "react-toastify";
-import { Button, Dialog, TextField } from "@radix-ui/themes";
+import { Button, Dialog } from "@radix-ui/themes";
 import * as idb from "idb-keyval";
 import { produce } from "immer";
 import { reverse, sortBy } from "lodash";
 import { Pane } from "split-pane-react";
 import SplitPane from "split-pane-react/esm/SplitPane";
-import { Flex, Stack, styled } from "styled-system/jsx";
+import { Stack, styled } from "styled-system/jsx";
 import { stack } from "styled-system/patterns";
 import { VList } from "virtua";
 import { z } from "zod";
 
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
-import { useZodForm } from "../lib/hooks/useZodForm";
 import { ProjectContext } from "../lib/prototype/nodes/node-types";
 import { GraphRunner, GraphRunnerData } from "../lib/prototype/nodes/run-graph";
 import { newId } from "../lib/uid";
-import { FormHelper } from "./base/FormHelper";
 import { Loader } from "./base/Loader";
 import { GraphCanvas } from "./GraphCanvas";
 import { NodeViewer } from "./NodeViewer";
 import { TraceElement, traceElementSourceSymbol, TraceElementView } from "./TraceElementView";
+import { textAreaField, ZodForm } from "./ZodForm";
 
 const getProjectContext = (folderHandle: FileSystemDirectoryHandle): ProjectContext => ({
   systemPrompt: `
@@ -46,34 +45,24 @@ Provide useful responses, make sure to consider when to stay high level and when
   extensions: [".ts", ".tsx", ".js", ".jsx", ".json", ".xml", ".html", ".css", ".scss"],
 });
 
-function NewGoal({ onNewGoal }: { onNewGoal: (goal: string) => void }) {
+function NewPlan({ onNewGoal }: { onNewGoal: (goal: string) => void }) {
   const [open, setOpen] = useState(false);
-
-  const form = useZodForm({ schema: z.object({ goal: z.string().min(1) }) });
-  const onSubmit = form.handleSubmit((data) => {
-    onNewGoal(data.goal);
-    setOpen(false);
-  });
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger>
-        <Button>New Goal</Button>
+        <Button>New Plan</Button>
       </Dialog.Trigger>
       <Dialog.Content width="400px">
-        <Dialog.Title>New Goal</Dialog.Title>
-        <Stack css={{ gap: 16 }}>
-          <FormHelper error={form.formState.errors.root?.message} variant="callout" />
-
-          <Stack css={{ gap: 1 }}>
-            <TextField.Root placeholder="New Goal" {...form.register("goal")} />
-            <FormHelper error={form.formState.errors.goal?.message} />
-          </Stack>
-
-          <Flex css={{ justifyContent: "flex-end" }}>
-            <Button onClick={onSubmit}>Save</Button>
-          </Flex>
-        </Stack>
+        <Dialog.Title>New Plan</Dialog.Title>
+        <ZodForm
+          schema={z.object({ goal: z.string().min(1) })}
+          overrideFieldMap={{ goal: textAreaField }}
+          onSubmit={({ goal }) => {
+            onNewGoal(goal);
+            setOpen(false);
+          }}
+        />
       </Dialog.Content>
     </Dialog.Root>
   );
@@ -160,23 +149,25 @@ export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId
             setSelectedNodeId={setSelectedNodeId}
           />
         ) : (
-          <NewGoal
-            onNewGoal={(goal) => {
-              const graphData = GraphRunner.fromGoal(getProjectContext(handle.result!), goal).toData();
-              if (selectedPage) {
-                setPages(
-                  produce((draft) => {
-                    const page = draft.find((p) => p.id === selectedPage.id);
-                    if (page) page.graphData = graphData;
-                  }),
-                );
-              } else {
-                const id = newId.spacePage();
-                setPages((p) => [...p, { id, name: `Page ${p.length + 1}`, graphData }]);
-                setSelectedPageId(id);
-              }
-            }}
-          />
+          <Stack css={{ alignItems: "center", justifyContent: "center", height: "100%" }}>
+            <NewPlan
+              onNewGoal={(goal) => {
+                const graphData = GraphRunner.fromGoal(getProjectContext(handle.result!), goal).toData();
+                if (selectedPage) {
+                  setPages(
+                    produce((draft) => {
+                      const page = draft.find((p) => p.id === selectedPage.id);
+                      if (page) page.graphData = graphData;
+                    }),
+                  );
+                } else {
+                  const id = newId.spacePage();
+                  setPages((p) => [...p, { id, name: `Page ${p.length + 1}`, graphData }]);
+                  setSelectedPageId(id);
+                }
+              }}
+            />
+          </Stack>
         )}
       </Pane>
       <Pane minSize={15} className={stack({ bg: "background.secondary" })}>
