@@ -11,10 +11,11 @@ export type TraceElement = GraphTraceEvent | (NNodeTraceEvent & { [traceElementS
 export function TraceElementView({ trace }: { trace: TraceElement }) {
   const [expanded, setExpanded] = useState(false);
   return (
-    <Card className={css({ mx: 16, my: 8 })}>
+    <Card className={css({ flex: "none", mx: 16, my: 8 })}>
       <Flex
         css={{
           justifyContent: "space-between",
+          alignItems: "center",
           cursor: "pointer",
           "&:hover": {
             backgroundColor: "background.secondary",

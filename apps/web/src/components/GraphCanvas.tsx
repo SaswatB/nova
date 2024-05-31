@@ -97,10 +97,10 @@ export function GraphCanvas({
         nodeTypes={{ default: CustomNodeView }}
         fitView
         onNodesChange={(changes) => {
-          const selected = changes.find(
+          const selected = changes.filter(
             (change): change is typeof change & { type: "select" } => change.type === "select",
           );
-          if (selected) setSelectedNodeId(selected.selected ? selected.id : null);
+          if (selected.length) setSelectedNodeId(selected.find((s) => s.selected)?.id || null);
         }}
       >
         <Panel position="top-right">{actions}</Panel>
