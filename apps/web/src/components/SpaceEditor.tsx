@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAsync, useAsyncCallback } from "react-async-hook";
 import { toast } from "react-toastify";
-import { Button, Card, Dialog, TextField } from "@radix-ui/themes";
+import { Button, Dialog, TextField } from "@radix-ui/themes";
 import * as idb from "idb-keyval";
 import { produce } from "immer";
-import { reverse, sortBy, startCase } from "lodash";
+import { reverse, sortBy } from "lodash";
 import { Pane } from "split-pane-react";
 import SplitPane from "split-pane-react/esm/SplitPane";
-import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 import { stack } from "styled-system/patterns";
 import { VList } from "virtua";
@@ -17,18 +16,13 @@ import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
 import { useZodForm } from "../lib/hooks/useZodForm";
 import { ProjectContext } from "../lib/prototype/nodes/node-types";
-import {
-  GraphRunner,
-  GraphRunnerData,
-  GraphTraceEvent,
-  NNode,
-  NNodeTraceEvent,
-} from "../lib/prototype/nodes/run-graph";
+import { GraphRunner, GraphRunnerData } from "../lib/prototype/nodes/run-graph";
 import { newId } from "../lib/uid";
 import { FormHelper } from "./base/FormHelper";
 import { Loader } from "./base/Loader";
 import { GraphCanvas } from "./GraphCanvas";
 import { NodeViewer } from "./NodeViewer";
+import { TraceElement, traceElementSourceSymbol, TraceElementView } from "./TraceElementView";
 
 const getProjectContext = (folderHandle: FileSystemDirectoryHandle): ProjectContext => ({
   systemPrompt: `
@@ -220,28 +214,15 @@ export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId
               <styled.h2 css={{ fontSize: 16, fontWeight: "bold", mt: 8, ml: 16, py: 8 }}>Graph Trace</styled.h2>
               {reverse(
                 sortBy(
-                  selectedPage.graphData.trace.flatMap(
-                    (t): (GraphTraceEvent | (NNodeTraceEvent & { source: NNode }))[] =>
-                      t.type === "start-node"
-                        ? [t, ...(t.node.state?.trace || []).map((tr) => ({ ...tr, source: t.node }))]
-                        : [t],
+                  selectedPage.graphData.trace.flatMap((t): TraceElement[] =>
+                    t.type === "start-node"
+                      ? [t, ...(t.node.state?.trace || []).map((tr) => ({ ...tr, [traceElementSourceSymbol]: t.node }))]
+                      : [t],
                   ),
                   "timestamp",
                 ),
               ).map((trace, i) => (
-                <Card key={i} className={css({ mx: 16, my: 8 })}>
-                  <Flex css={{ justifyContent: "space-between" }}>
-                    <span>{startCase(trace.type)}</span>
-                    <styled.span
-                      css={{
-                        color: "text.secondary",
-                        fontSize: 12,
-                      }}
-                    >
-                      {new Date(trace.timestamp).toLocaleString()}
-                    </styled.span>
-                  </Flex>
-                </Card>
+                <TraceElementView key={i} trace={trace} />
               ))}
             </VList>
           </Stack>
