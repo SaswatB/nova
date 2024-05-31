@@ -1,11 +1,15 @@
 import { Fragment, ReactNode } from "react";
-import { UseFormRegisterReturn, UseFormReturn } from "react-hook-form";
-import { Button, TextArea, TextField } from "@radix-ui/themes";
+import { Control, useController, UseFormRegisterReturn, UseFormReturn } from "react-hook-form";
+import { Link1Icon, TrashIcon } from "@radix-ui/react-icons";
+import { Button, IconButton, TextArea, TextField, Tooltip } from "@radix-ui/themes";
 import { startCase } from "lodash";
+import { css } from "styled-system/css";
 import { Flex, Stack } from "styled-system/jsx";
 import { z } from "zod";
 
 import { useZodForm } from "../lib/hooks/useZodForm";
+import { isNodeRef } from "../lib/prototype/nodes/ref-types";
+import { GraphRunnerData, resolveNodeRefAccessor } from "../lib/prototype/nodes/run-graph";
 import { FormHelper } from "./base/FormHelper";
 
 export function ZodForm<T extends z.ZodObject<any>>({
@@ -25,6 +29,7 @@ export function ZodForm<T extends z.ZodObject<any>>({
             register: () => UseFormRegisterReturn;
             error?: string;
             form: UseFormReturn<z.infer<T>>;
+            name: keyof z.infer<T>;
           }) => ReactNode;
           helper?: string;
         }
@@ -32,6 +37,7 @@ export function ZodForm<T extends z.ZodObject<any>>({
           register: () => UseFormRegisterReturn;
           error?: string;
           form: UseFormReturn<z.infer<T>>;
+          name: keyof z.infer<T>;
         }) => ReactNode)
     >
   >;
@@ -44,7 +50,7 @@ export function ZodForm<T extends z.ZodObject<any>>({
   });
 
   const fields = Object.keys(schema.shape).map((key) => {
-    const field = schema.shape[key];
+    let field = schema.shape[key];
     const error = form.formState.errors[key]?.message?.toString();
     const register = () => form.register(key);
 
@@ -53,17 +59,29 @@ export function ZodForm<T extends z.ZodObject<any>>({
     let label = field.description || startCase(key);
     if (overrideFieldMap && key in overrideFieldMap) {
       const override = overrideFieldMap[key as keyof z.infer<T>]!;
-      if (typeof override === "function") return <Fragment key={key}>{override({ register, error, form })}</Fragment>;
-      fieldNode = override.renderField?.({ register, error, form });
+      if (typeof override === "function")
+        return <Fragment key={key}>{override({ register, error, form, name: key })}</Fragment>;
+      fieldNode = override.renderField?.({ register, error, form, name: key });
       helper = override.helper;
       label = override.label || label;
     }
 
     if (!fieldNode) {
+      // if (
+      //   // remove union type for refs
+      //   field instanceof z.ZodUnion &&
+      //   isArray(field.options) &&
+      //   field.options.length === 2 &&
+      //   field.options[1] instanceof z.ZodObject &&
+      //   field.options[1].shape.sym instanceof z.ZodLiteral &&
+      //   field.options[1].shape.sym.value === nnodeRefSymbol
+      // ) {
+      //   field = field.options[0];
+      // }
       if (field instanceof z.ZodString) {
         fieldNode = <TextField.Root {...register()} />;
       } else {
-        console.error("Unsupported field type", field);
+        console.error("Unsupported field type", key, field);
         return null;
       }
     }
@@ -93,5 +111,128 @@ export function ZodForm<T extends z.ZodObject<any>>({
 }
 
 export const textAreaField = {
-  renderField: ({ register }: { register: () => UseFormRegisterReturn }) => <TextArea {...register()} />,
+  renderField: ({ register }: { register: () => UseFormRegisterReturn }) => (
+    <TextArea resize="vertical" {...register()} />
+  ),
 };
+
+function ResetRefButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Tooltip content="Field is a reference, click to reset">
+      <IconButton variant="soft" onClick={onClick}>
+        <Link1Icon />
+      </IconButton>
+    </Tooltip>
+  );
+}
+
+function TextAreaRefField({
+  control,
+  name,
+  graphData,
+}: {
+  control: Control;
+  name: string;
+  graphData: GraphRunnerData;
+}) {
+  const { field } = useController({
+    name,
+    control,
+    rules: { required: true },
+  });
+  const isRef = isNodeRef(field.value);
+  const refNode = isRef ? graphData.nodes[field.value.nodeId] : undefined;
+  const refValue = refNode ? resolveNodeRefAccessor(field.value, refNode) : undefined; // todo print if ref is broken?
+
+  return (
+    <Flex css={{ width: "100%" }}>
+      <TextArea
+        ref={field.ref}
+        className={css({ flex: 1 })}
+        resize="vertical"
+        name={field.name}
+        value={
+          isRef
+            ? `<ref node="${refNode?.value?.type}" accessor="${JSON.stringify(field.value.accessor)}">\n${refValue}\n</ref>`
+            : field.value
+        }
+        readOnly={isRef}
+        onBlur={field.onBlur}
+        onChange={field.onChange}
+      />
+
+      {isRef ? <ResetRefButton onClick={() => field.onChange(refValue)} /> : null}
+    </Flex>
+  );
+}
+
+export const createTextAreaRefField = (graphData: GraphRunnerData) => ({
+  // for string fields
+  renderField: ({ form, name }: { form: UseFormReturn; name: string }) => (
+    <TextAreaRefField control={form.control} name={name} graphData={graphData} />
+  ),
+});
+
+function TextAreaRefArrayField({
+  control,
+  name,
+  graphData,
+}: {
+  control: Control;
+  name: string;
+  graphData: GraphRunnerData;
+}) {
+  const { field } = useController({
+    name,
+    control,
+    rules: { required: true },
+  });
+  const isRef = isNodeRef(field.value);
+  const refNode = isRef ? graphData.nodes[field.value.nodeId] : undefined;
+  const refValue = refNode ? resolveNodeRefAccessor(field.value, refNode) : undefined; // todo print if ref is broken?
+
+  if (isRef) {
+    return (
+      <Flex css={{ width: "100%" }}>
+        <TextArea
+          ref={field.ref}
+          className={css({ flex: 1 })}
+          resize="vertical"
+          name={field.name}
+          value={`<ref node="${refNode?.value?.type}" accessor="${JSON.stringify(field.value.accessor)}">\n${(refValue as string[]).join("\n")}\n</ref>`}
+          readOnly
+          onBlur={field.onBlur}
+          onChange={field.onChange}
+        />
+        <ResetRefButton onClick={() => field.onChange(refValue)} />
+      </Flex>
+    );
+  }
+  return (
+    <Stack css={{ width: "100%" }}>
+      {field.value.map((value: string, index: number) => (
+        <Flex key={index} css={{ width: "100%", mb: 8 }}>
+          <TextArea className={css({ flex: 1 })} resize="vertical" name={`${field.name}.${index}`} value={value} />
+          <IconButton
+            variant="soft"
+            onClick={() => {
+              const newValues = [...field.value];
+              newValues.splice(index, 1);
+              field.onChange(newValues);
+            }}
+          >
+            <TrashIcon />
+          </IconButton>
+        </Flex>
+      ))}
+      <Button onClick={() => field.onChange([...field.value, ""])}>Add Item</Button>
+    </Stack>
+  );
+}
+
+export const createTextAreaRefArrayField = (graphData: GraphRunnerData) => ({
+  // for string array fields
+  renderField: ({ form, name }: { form: UseFormReturn; name: string }) => (
+    <TextAreaRefArrayField control={form.control} name={name} graphData={graphData} />
+  ),
+});

@@ -1,11 +1,20 @@
 import { EventEmitter } from "events";
-import { cloneDeep, isEqual } from "lodash";
+import { cloneDeep, get, isEqual } from "lodash";
+import { match } from "ts-pattern";
 import zodToJsonSchema from "zod-to-json-schema";
 
 import { newId } from "../../uid";
 import { aiChat, openaiJson } from "../ai-chat";
 import { asyncToArray, dirname, isDefined, OmitUnion } from "../utils";
 import { NNodeResult, NNodeType, NNodeValue, NodeRunnerContext, ProjectContext } from "./node-types";
+import {
+  isNodeRef,
+  NNodeRef,
+  NNodeRefAccessorSchema,
+  NNodeRefAccessorSchemaMap,
+  nnodeRefSymbol,
+  ResolveRefs,
+} from "./ref-types";
 import { runNode } from "./run-node";
 
 export type GraphTraceEvent =
@@ -14,7 +23,7 @@ export type GraphTraceEvent =
   | { type: "end-node"; node: NNode; timestamp: number }
   | { type: "end"; timestamp: number };
 export type NNodeTraceEvent =
-  | { type: "start"; timestamp: number }
+  | { type: "start"; resolvedValue: ResolveRefs<NNodeValue>; timestamp: number }
   | {
       type: "dependency" | "dependency-result";
       node: NNode;
@@ -100,10 +109,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     addToRunStack: (node: NNode) => void,
   ): Promise<NNodeResult & { type: T }> {
     console.log(`[GraphRunner] Starting node: ${node.value.type}`);
-
-    (node.state ||= {}).startedAt = Date.now();
     this.addTrace({ type: "start-node", node });
-    this.addNodeTrace(node, { type: "start" });
 
     const nodeRunnerContext: NodeRunnerContext = {
       projectContext: this.projectContext,
@@ -119,32 +125,43 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         this.addNodeTrace(node, { type: "dependant", node: newNode });
       },
       getOrAddDependencyForResult: async (nodeValue, inheritDependencies) => {
-        const existing = findNodeByValue(
+        let depNode = findNodeByValue(
           (node.dependencies || []).map((id) => this.nodes[id]).filter(isDefined),
           nodeValue,
           this.nodes,
         );
-        if (existing) {
-          console.log(`[GraphRunner] Found existing node: ${existing.value.type}`);
-          if (!existing.state?.result) throw new Error("Node result not found"); // this shouldn't happen since deps are processed first
-          this.addNodeTrace(node, { type: "dependency-result", node: existing, existing: true });
-          return existing.state.result as any; // todo should this add the node as a direct dependency?
-        }
-        console.log(`[GraphRunner] Adding dependency node: ${nodeValue.type}`);
-        const newNode: NNode = {
-          id: newId.graphNode(),
-          value: nodeValue,
-          dependencies: inheritDependencies ? [...(node.dependencies || [])] : undefined,
-        };
-        (node.dependencies ||= []).push(newNode.id);
-        this.nodes[newNode.id] = newNode;
-        this.addNodeTrace(node, { type: "dependency", node: newNode });
+        let subResult;
+        let existing = undefined;
+        if (depNode) {
+          console.log(`[GraphRunner] Found existing node: ${depNode.value.type}`);
+          if (!depNode.state?.result) throw new Error("Node result not found"); // this shouldn't happen since deps are processed first
+          existing = true;
+          subResult = depNode.state.result; // todo should this add the node as a direct dependency?
+        } else {
+          console.log(`[GraphRunner] Adding dependency node: ${nodeValue.type}`);
+          depNode = {
+            id: newId.graphNode(),
+            value: nodeValue,
+            dependencies: inheritDependencies ? [...(node.dependencies || [])] : undefined,
+          };
+          (node.dependencies ||= []).push(depNode.id);
+          this.nodes[depNode.id] = depNode;
+          this.addNodeTrace(node, { type: "dependency", node: depNode });
 
-        const subResult = await this.startNode(newNode as any, addToRunStack);
+          subResult = await this.startNode(depNode, addToRunStack);
+        }
+
         console.log(`[GraphRunner] Dependency result: ${subResult}`);
-        this.addNodeTrace(node, { type: "dependency-result", node: newNode });
-        return subResult;
+        this.addNodeTrace(node, { type: "dependency-result", node: depNode, existing });
+
+        return {
+          ...(subResult as any),
+          createNodeRef: (accessor) => ({ sym: nnodeRefSymbol, nodeId: depNode!.id, accessor }),
+        };
       },
+      createNodeRef: (accessor) => ({ sym: nnodeRefSymbol, nodeId: node.id, accessor }),
+      resolveNodeRef: this.resolveNodeRef.bind(this),
+
       readFile: async (path) => {
         console.log(`[GraphRunner] Read file: ${path}`);
 
@@ -197,14 +214,21 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         return result;
       },
     };
+
+    const nodeResolvedValue = this.resolveNodeValueRefs(node.value); // resolve refs in input
+
+    (node.state ||= {}).startedAt = Date.now();
+    this.addNodeTrace(node, { type: "start", resolvedValue: nodeResolvedValue });
+
     // todo error handling
-    const result = await runNode<T>(node.value, nodeRunnerContext);
+    const result = await runNode<T>(nodeResolvedValue, nodeRunnerContext);
+
     node.state.completedAt = Date.now();
     node.state.result = result;
     this.addNodeTrace(node, { type: "result", result });
+
     this.addTrace({ type: "end-node", node });
     console.log(`[GraphRunner] Node completed: ${node.value.type}`);
-
     return result;
   }
 
@@ -279,5 +303,36 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 
     return null;
   }
+
+  private resolveNodeRef<T extends NNodeRefAccessorSchema>(
+    ref: NNodeRef<T> | NNodeRefAccessorSchemaMap[T],
+  ): NNodeRefAccessorSchemaMap[T] {
+    if (isNodeRef(ref)) {
+      return resolveNodeRefAccessor<T>(ref as NNodeRef<T>, this.nodes[ref.nodeId]!);
+    }
+    return ref as NNodeRefAccessorSchemaMap[T];
+  }
+  private resolveNodeValueRefs<T extends NNodeValue>(value: T): ResolveRefs<T> {
+    const resolved: any = { ...value };
+    Object.entries(value).forEach(([key, val]) => {
+      if (isNodeRef(val)) resolved[key as keyof T] = this.resolveNodeRef(val);
+    });
+    return resolved;
+  }
 }
 export type GraphRunnerData = ReturnType<GraphRunner["toData"]>;
+
+export function resolveNodeRefAccessor<T extends NNodeRefAccessorSchema>(
+  ref: NNodeRef<T>,
+  node: NNode,
+): NNodeRefAccessorSchemaMap[T] {
+  const accessor = ref.accessor as NNodeRef<NNodeRefAccessorSchema>["accessor"];
+  const val = get(
+    match(accessor.type)
+      .with("value", () => node.value)
+      .with("result", () => node.state?.result)
+      .exhaustive(),
+    accessor.path,
+  );
+  return NNodeRefAccessorSchemaMap[accessor.schema]!.parse(val) as any;
+}

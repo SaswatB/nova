@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { NNodeRef, NNodeRefAccessorSchema, NNodeRefAccessorSchemaMap, orRef } from "./ref-types";
+
 export enum NNodeType {
   Output = "output",
 
@@ -24,14 +26,22 @@ export interface ResearchedFileSystem {
 }
 
 export const NNodeValue = z.discriminatedUnion("type", [
-  z.object({ type: z.literal(NNodeType.Output), description: z.string(), value: z.unknown() }),
+  z.object({ type: z.literal(NNodeType.Output), description: z.string(), value: orRef(z.unknown()) }),
   z.object({ type: z.literal(NNodeType.ProjectAnalysis) }),
-  z.object({ type: z.literal(NNodeType.RelevantFileAnalysis), goal: z.string().min(1) }),
+  z.object({ type: z.literal(NNodeType.RelevantFileAnalysis), goal: orRef(z.string().min(1)) }),
   z.object({ type: z.literal(NNodeType.TypescriptDepAnalysis) }),
-  z.object({ type: z.literal(NNodeType.Plan), goal: z.string() }),
-  z.object({ type: z.literal(NNodeType.Execute), instructions: z.string(), relevantFiles: z.array(z.string()) }),
-  z.object({ type: z.literal(NNodeType.CreateChangeSet), rawChangeSet: z.string() }),
-  z.object({ type: z.literal(NNodeType.ApplyFileChanges), path: z.string(), changes: z.array(z.string()) }),
+  z.object({ type: z.literal(NNodeType.Plan), goal: orRef(z.string()) }),
+  z.object({
+    type: z.literal(NNodeType.Execute),
+    instructions: orRef(z.string()),
+    relevantFiles: orRef(z.array(z.string())),
+  }),
+  z.object({ type: z.literal(NNodeType.CreateChangeSet), rawChangeSet: orRef(z.string()) }),
+  z.object({
+    type: z.literal(NNodeType.ApplyFileChanges),
+    path: orRef(z.string()),
+    changes: orRef(z.array(z.string())),
+  }),
 ]);
 export type NNodeValue = z.infer<typeof NNodeValue>;
 export type NNodeResult =
@@ -61,7 +71,17 @@ export interface NodeRunnerContext {
   getOrAddDependencyForResult: <T extends NNodeType>(
     nodeValue: NNodeValue & { type: T },
     inheritDependencies?: boolean,
-  ) => Promise<NNodeResult & { type: T }>;
+  ) => Promise<
+    NNodeResult & { type: T } & {
+      createNodeRef: <T extends NNodeRefAccessorSchema>(
+        accessor: NNodeRef<T>["accessor"] & { type: "result" },
+      ) => NNodeRef<T>; // create a reference to the dependency node
+    }
+  >;
+  createNodeRef: <T extends NNodeRefAccessorSchema>(accessor: NNodeRef<T>["accessor"]) => NNodeRef<T>; // create a reference to the current node
+  resolveNodeRef: <T extends NNodeRefAccessorSchema>(
+    ref: NNodeRef<T> | NNodeRefAccessorSchemaMap[T],
+  ) => NNodeRefAccessorSchemaMap[T];
 
   readFile: (
     path: string,

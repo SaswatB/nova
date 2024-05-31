@@ -174,6 +174,7 @@ export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId
         {selectedNode ? (
           <NodeViewer
             key={selectedNodeId}
+            graphData={selectedPage?.graphData!}
             node={selectedNode}
             onChangeNode={(apply) => {
               setPages(

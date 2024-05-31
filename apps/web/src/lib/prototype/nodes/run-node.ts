@@ -12,6 +12,7 @@ import {
   ResearchedFile,
   ResearchedFileSystem,
 } from "./node-types";
+import { ResolveRefs } from "./ref-types";
 
 function checkIgnores(ignores: { dir: string; ignore: Ignore }[], path: string) {
   for (const { dir, ignore } of ignores) {
@@ -190,7 +191,10 @@ ${docs.map((doc) => `<doc>${doc}</doc>`).join("\n")}
 }
 
 const runners: {
-  [T in NNodeType]: (value: NNodeValue & { type: T }, nrc: NodeRunnerContext) => Promise<NNodeResult & { type: T }>;
+  [T in NNodeType]: (
+    value: ResolveRefs<NNodeValue & { type: T }>,
+    nrc: NodeRunnerContext,
+  ) => Promise<NNodeResult & { type: T }>;
 } = {
   [NNodeType.Output]: async (value) => {
     console.log("[OutputNode] ", value.description, value.value);
@@ -202,12 +206,7 @@ const runners: {
     const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
       type: NNodeType.TypescriptDepAnalysis,
     });
-    const { result: researchResult } = await nrc.getOrAddDependencyForResult(
-      {
-        type: NNodeType.ProjectAnalysis,
-      },
-      true,
-    );
+    const { result: researchResult } = await nrc.getOrAddDependencyForResult({ type: NNodeType.ProjectAnalysis }, true);
 
     const rawRelevantFiles = await nrc.aiChat("geminiFlash", [
       {
@@ -244,13 +243,15 @@ ${xmlFileSystemResearch(researchResult, { showFileContent: true, showResearch: t
   },
 
   [NNodeType.Plan]: async (value, nrc) => {
-    const { result: researchResult } = await nrc.getOrAddDependencyForResult({
-      type: NNodeType.ProjectAnalysis,
-    });
-    const { result: relevantFilesAnalysis, files: relevantFiles } = await nrc.getOrAddDependencyForResult(
+    const { result: researchResult } = await nrc.getOrAddDependencyForResult({ type: NNodeType.ProjectAnalysis });
+    const {
+      result: relevantFilesAnalysis,
+      files: relevantFiles,
+      createNodeRef: createRelevantFilesRef,
+    } = await nrc.getOrAddDependencyForResult(
       {
         type: NNodeType.RelevantFileAnalysis,
-        goal: value.goal,
+        goal: nrc.createNodeRef({ type: "value", path: "goal", schema: "string" }),
       },
       true,
     );
@@ -275,13 +276,15 @@ ${xmlFileSystemResearch(researchResult, { showResearch: true, showFileContent: (
       },
     ]);
 
-    nrc.addDependantNode({ type: NNodeType.Execute, instructions: res, relevantFiles });
+    nrc.addDependantNode({
+      type: NNodeType.Execute,
+      instructions: nrc.createNodeRef({ type: "result", path: "result", schema: "string" }),
+      relevantFiles: createRelevantFilesRef({ type: "result", path: "files", schema: "string[]" }),
+    });
     return { type: NNodeType.Plan, result: res };
   },
   [NNodeType.Execute]: async (value, nrc) => {
-    const { result: researchResult } = await nrc.getOrAddDependencyForResult({
-      type: NNodeType.ProjectAnalysis,
-    });
+    const { result: researchResult } = await nrc.getOrAddDependencyForResult({ type: NNodeType.ProjectAnalysis });
     const res = await nrc.aiChat("gpt4o", [
       {
         role: "user",
@@ -304,7 +307,10 @@ If creating a new file, please provide the full file content.`.trim(),
       },
     ]);
 
-    nrc.addDependantNode({ type: NNodeType.CreateChangeSet, rawChangeSet: res });
+    nrc.addDependantNode({
+      type: NNodeType.CreateChangeSet,
+      rawChangeSet: nrc.createNodeRef({ type: "result", path: "result", schema: "string" }),
+    });
     return { type: NNodeType.Execute, result: res };
   },
   [NNodeType.CreateChangeSet]: async (value, nrc) => {
@@ -353,14 +359,18 @@ ${value.rawChangeSet}`.trim(),
       nrc.addDependantNode({
         type: NNodeType.Output,
         description: "General notes for the project",
-        value: changeSet.generalNoteList,
+        value: nrc.createNodeRef({ type: "result", path: "result.generalNoteList", schema: "string[]" }),
       });
     }
-    for (const file of changeSet.filesToChange) {
+    for (let i = 0; i < changeSet.filesToChange.length; i++) {
       nrc.addDependantNode({
         type: NNodeType.ApplyFileChanges,
-        path: file.absolutePathIncludingFileName,
-        changes: file.steps,
+        path: nrc.createNodeRef({
+          type: "result",
+          path: `result.filesToChange[${i}].absolutePathIncludingFileName`,
+          schema: "string",
+        }),
+        changes: nrc.createNodeRef({ type: "result", path: `result.filesToChange[${i}].steps`, schema: "string[]" }),
       });
     }
     return { type: NNodeType.CreateChangeSet, result: changeSet };
@@ -401,7 +411,7 @@ ${value.changes.map((change) => `<change>${change}</change>`).join("\n")}
 };
 
 export function runNode<T extends NNodeType>(
-  nodeValue: NNodeValue & { type: T },
+  nodeValue: ResolveRefs<NNodeValue & { type: T }>,
   nrc: NodeRunnerContext,
 ): Promise<NNodeResult & { type: T }> {
   return (runners as any)[nodeValue.type](nodeValue, nrc);

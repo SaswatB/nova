@@ -6,12 +6,14 @@ import { Stack, styled } from "styled-system/jsx";
 import { NNodeValue } from "../lib/prototype/nodes/node-types";
 import { GraphRunnerData } from "../lib/prototype/nodes/run-graph";
 import { traceElementSourceSymbol, TraceElementView } from "./TraceElementView";
-import { textAreaField, ZodForm } from "./ZodForm";
+import { createTextAreaRefArrayField, createTextAreaRefField, ZodForm } from "./ZodForm";
 
 export function NodeViewer({
+  graphData,
   node,
   onChangeNode,
 }: {
+  graphData: GraphRunnerData;
   node: GraphRunnerData["nodes"][number];
   onChangeNode: (apply: (draft: GraphRunnerData["nodes"][number]) => void) => void;
 }) {
@@ -23,7 +25,17 @@ export function NodeViewer({
       <ZodForm
         schema={NNodeValue.optionsMap.get(node.value.type)!}
         defaultValues={node.value}
-        overrideFieldMap={{ type: () => null, goal: textAreaField }}
+        overrideFieldMap={{
+          type: () => null,
+          description: createTextAreaRefField(graphData),
+          value: () => null,
+          goal: createTextAreaRefField(graphData),
+          instructions: createTextAreaRefField(graphData),
+          relevantFiles: createTextAreaRefArrayField(graphData),
+          rawChangeSet: createTextAreaRefField(graphData),
+          path: createTextAreaRefField(graphData),
+          changes: createTextAreaRefArrayField(graphData),
+        }}
         onSubmit={(values) => {
           onChangeNode((draft) => {
             draft.value = values as NNodeValue;
@@ -32,7 +44,11 @@ export function NodeViewer({
         }}
       />
       <styled.hr css={{ border: "1px solid #333", my: 8 }} />
-      {otherState ? <TextArea value={JSON.stringify(otherState, null, 2)} rows={20} /> : "No state yet"}
+      {otherState ? (
+        <TextArea value={JSON.stringify(otherState, null, 2)} readOnly resize="vertical" rows={20} />
+      ) : (
+        "No state yet"
+      )}
       {trace?.map((t, i) => <TraceElementView key={i} trace={{ ...t, [traceElementSourceSymbol]: node }} />) || null}
     </Stack>
   );

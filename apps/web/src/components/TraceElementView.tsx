@@ -39,7 +39,7 @@ export function TraceElementView({ trace }: { trace: TraceElement }) {
           {new Date(trace.timestamp).toLocaleString()}
         </styled.div>
       </Flex>
-      {expanded && <TextArea value={JSON.stringify(trace, null, 2)} rows={20} />}
+      {expanded && <TextArea value={JSON.stringify(trace, null, 2)} readOnly resize="vertical" rows={20} />}
     </Card>
   );
 }
