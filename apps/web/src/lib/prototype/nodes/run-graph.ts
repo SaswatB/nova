@@ -296,8 +296,9 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         if (createAsDirectory) {
           folder = await folder.getDirectoryHandle(part, { create: true });
           if (parts.length === 0) return folder;
+        } else {
+          return null;
         }
-        return null;
       }
     }
 

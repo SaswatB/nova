@@ -156,10 +156,20 @@ export async function aiChat(
       response = await claudeChat(system, messages);
       break;
     case "gemini":
-      response = await geminiChat(gemini, system, messages);
+      try {
+        response = await geminiChat(gemini, system, messages);
+      } catch (error) {
+        console.error("Failed to use gemini, falling back to gpt4o", error);
+        response = await openaiChat(system, messages);
+      }
       break;
     case "geminiFlash":
-      response = await geminiChat(geminiFlash, system, messages);
+      try {
+        response = await geminiChat(geminiFlash, system, messages);
+      } catch (error) {
+        console.error("Failed to use geminiFlash, falling back to gpt4o", error);
+        response = await openaiChat(system, messages);
+      }
       break;
     default:
       throw new Error("Invalid model name");
