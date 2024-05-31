@@ -3,6 +3,7 @@ import { UseFormReturn } from "react-hook-form";
 import { Link2Icon, PlusCircledIcon } from "@radix-ui/react-icons";
 import { Button, Dialog, IconButton, TextField, Tooltip } from "@radix-ui/themes";
 import * as idb from "idb-keyval";
+import { startCase } from "lodash";
 import { Pane } from "split-pane-react";
 import SplitPane from "split-pane-react/esm/SplitPane";
 import { css } from "styled-system/css";
@@ -17,7 +18,7 @@ import { SpaceEditor } from "./SpaceEditor";
 import { ZodForm } from "./ZodForm";
 
 function AddProject({ onAdd }: { onAdd: (project: { name: string; handle: FileSystemDirectoryHandle }) => void }) {
-  const schema = z.object({ name: z.string().min(1), rootPath: z.string().min(1) });
+  const schema = z.object({ rootPath: z.string().min(1), name: z.string().min(1) });
   type FormValues = z.infer<typeof schema>;
 
   const [open, setOpen] = useState(false);
@@ -32,7 +33,8 @@ function AddProject({ onAdd }: { onAdd: (project: { name: string; handle: FileSy
   const openDialog = async (form: UseFormReturn<FormValues>) => {
     const result = await window.showDirectoryPicker({ mode: "readwrite", startIn: "documents" });
     if (result) {
-      form.setValue("rootPath", result.name);
+      form.setValue("rootPath", result.name, { shouldDirty: true });
+      if (!form.getValues().name.trim()) form.setValue("name", startCase(result.name), { shouldDirty: true });
       setFileHandle(result);
     }
   };
@@ -102,7 +104,7 @@ function SpaceSelector({
         className={css({ mb: 8 })}
         onClick={() => {
           const id = newId.space();
-          setSpaces([...spaces, { id, name: null, timestamp: Date.now() }]);
+          setSpaces([...spaces, { id, name: `Space ${spaces.length + 1}`, timestamp: Date.now() }]);
           setSelectedSpaceId(id);
         }}
       >
