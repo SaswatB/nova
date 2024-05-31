@@ -1,6 +1,17 @@
-import { Dispatch, memo, ReactNode, SetStateAction, useMemo } from "react";
+import { Dispatch, memo, ReactNode, SetStateAction, useEffect, useMemo, useRef } from "react";
 import Dagre from "@dagrejs/dagre";
-import { Background, Controls, Edge, Handle, Node, NodeProps, Panel, Position, ReactFlow } from "@xyflow/react";
+import {
+  Background,
+  Controls,
+  Edge,
+  Handle,
+  Node,
+  NodeProps,
+  Panel,
+  Position,
+  ReactFlow,
+  ReactFlowInstance,
+} from "@xyflow/react";
 import { startCase } from "lodash";
 import { Flex } from "styled-system/jsx";
 
@@ -65,9 +76,19 @@ export function GraphCanvas({
     return graphView.nodes.map((node) => ({ ...node, selected: node.id === selectedNodeId }));
   }, [graphView.nodes, selectedNodeId]);
 
+  const graphRef = useRef<ReactFlowInstance<any>>();
+  useEffect(() => {
+    setTimeout(() => {
+      graphRef.current?.fitView();
+    }, 100);
+  }, [graphData]);
+
   return (
     <Flex css={{ flex: "1" }}>
       <ReactFlow
+        onInit={(instance) => {
+          graphRef.current = instance;
+        }}
         nodes={nodes}
         edges={graphView.edges}
         nodesDraggable={false}
