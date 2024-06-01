@@ -99,7 +99,7 @@ function SpaceSelector({
   }, [selectedSpaceId, setSelectedSpaceId, spaces]);
 
   return (
-    <Stack css={{ flex: 1, overflowY: "auto" }}>
+    <>
       <Button
         variant="surface"
         className={css({ mb: 8 })}
@@ -124,7 +124,7 @@ function SpaceSelector({
           </Button>
         ))}
       </Stack>
-    </Stack>
+    </>
   );
 }
 
@@ -160,14 +160,16 @@ export function Workspace() {
               }}
             />
           </Flex>
-          {selectedProjectId ? (
-            <SpaceSelector
-              key={selectedProjectId}
-              projectId={selectedProjectId}
-              selectedSpaceId={selectedSpaceId}
-              setSelectedSpaceId={setSelectedSpaceId}
-            />
-          ) : null}
+          <Stack css={{ flex: 1, overflowY: "auto" }}>
+            {selectedProjectId ? (
+              <SpaceSelector
+                key={selectedProjectId}
+                projectId={selectedProjectId}
+                selectedSpaceId={selectedSpaceId}
+                setSelectedSpaceId={setSelectedSpaceId}
+              />
+            ) : null}
+          </Stack>
           <Flex css={{ justifyContent: "center" }}>
             <UserButton />
           </Flex>
