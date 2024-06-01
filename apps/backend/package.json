@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "nodemon --watch src --ext ts,tsx --exec 'yarn start'",
-    "start": "doppler run -- jiti src/index.ts",
+    "dev": "nodemon --watch src --ext ts,tsx --exec 'doppler run -- yarn start'",
+    "start": "jiti src/index.ts",
     "prisma": "doppler run -- prisma",
     "postinstall": "prisma generate",
     "lint": "eslint \"src/**/*.ts\" --fix",
