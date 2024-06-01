@@ -108,13 +108,13 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     node: NNode & { value: { type: T } },
     addToRunStack: (node: NNode) => void,
   ): Promise<NNodeResult & { type: T }> {
-    console.log(`[GraphRunner] Starting node: ${node.value.type}`);
+    console.log("[GraphRunner] Starting node", node.value);
     this.addTrace({ type: "start-node", node });
 
     const nodeRunnerContext: NodeRunnerContext = {
       projectContext: this.projectContext,
       addDependantNode: (newNodeValue) => {
-        console.log(`[GraphRunner] Adding dependant node: ${newNodeValue.type}`);
+        console.log("[GraphRunner] Adding dependant node", newNodeValue);
         const newNode: NNode = {
           id: newId.graphNode(),
           value: newNodeValue,
@@ -133,12 +133,12 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         let subResult;
         let existing = undefined;
         if (depNode) {
-          console.log(`[GraphRunner] Found existing node: ${depNode.value.type}`);
+          console.log("[GraphRunner] Found existing node", depNode.value);
           if (!depNode.state?.result) throw new Error("Node result not found"); // this shouldn't happen since deps are processed first
           existing = true;
           subResult = depNode.state.result; // todo should this add the node as a direct dependency?
         } else {
-          console.log(`[GraphRunner] Adding dependency node: ${nodeValue.type}`);
+          console.log("[GraphRunner] Adding dependency node", nodeValue);
           depNode = {
             id: newId.graphNode(),
             value: nodeValue,
@@ -151,7 +151,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           subResult = await this.startNode(depNode, addToRunStack);
         }
 
-        console.log(`[GraphRunner] Dependency result: ${subResult}`);
+        console.log("[GraphRunner] Dependency result", subResult);
         this.addNodeTrace(node, { type: "dependency-result", node: depNode, existing });
 
         return {
@@ -163,7 +163,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       resolveNodeRef: this.resolveNodeRef.bind(this),
 
       readFile: async (path) => {
-        console.log(`[GraphRunner] Read file: ${path}`);
+        console.log("[GraphRunner] Read file", path);
 
         const handle = await this.getFileHandle(path);
         let result: Awaited<ReturnType<NodeRunnerContext["readFile"]>>;
@@ -178,7 +178,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         return result;
       },
       writeFile: async (path, content) => {
-        console.log(`[GraphRunner] Write file: ${path}`);
+        console.log("[GraphRunner] Write file", path);
         const dir = dirname(path);
         const name = path.split("/").at(-1)!;
         const dirHandle = await this.getFileHandle(dir, undefined, true);
@@ -193,7 +193,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       aiChat: async (model, messages) => {
         try {
           const result = await aiChat(this.projectContext, model, this.projectContext.systemPrompt, messages);
-          console.log(`[GraphRunner] AI chat result: ${result}`);
+          console.log("[GraphRunner] AI chat result", result);
           this.addNodeTrace(node, { type: "ai-chat", model, messages, result });
           return result;
         } catch (e) {
@@ -204,7 +204,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       },
       aiJson: async (schema, input) => {
         const result = await aiJson(this.projectContext, "gpt4o", schema, this.projectContext.systemPrompt, input);
-        console.log(`[GraphRunner] AI JSON result: ${result}`);
+        console.log("[GraphRunner] AI JSON result", result);
         this.addNodeTrace(node, {
           type: "ai-json",
           schema: zodToJsonSchema(schema, "S").definitions?.S,
@@ -228,7 +228,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     this.addNodeTrace(node, { type: "result", result });
 
     this.addTrace({ type: "end-node", node });
-    console.log(`[GraphRunner] Node completed: ${node.value.type}`);
+    console.log("[GraphRunner] Node completed", node.value);
     return result;
   }
 
@@ -240,6 +240,13 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     }
 
     const runStack = Object.values(this.nodes);
+    runStack.forEach((node) => {
+      if (node.state?.startedAt && !node.state.completedAt) {
+        console.warn("[GraphRunner] Node started but not completed, clearing state", node.value);
+        delete node.state;
+      }
+    });
+
     this.addTrace({ type: "start" });
     // run the graph, keep consuming nodes until all nodes are completed
     while (runStack.length > 0) {

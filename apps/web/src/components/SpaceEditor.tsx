@@ -103,6 +103,7 @@ export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [!!selectedPage?.graphData, selectedPageId, handle.result, refreshIndex],
   );
+  (window as any).graphRunner = graphRunner; // for debugging
   useEffect(() => {
     if (!graphRunner) return;
     let cancelled = false;

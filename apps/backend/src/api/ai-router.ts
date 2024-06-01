@@ -62,10 +62,7 @@ export const aiRouter = router({
     ),
 });
 
-const groq = new Groq({
-  apiKey: env.GROQ_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
+const groq = new Groq({ apiKey: env.GROQ_API_KEY });
 // const groq = new OpenAI({ apiKey: env.VITE_TOGETHERAI_API_KEY, baseURL: "https://api.together.xyz/v1" });
 async function groqChat(
   system: string,
@@ -79,10 +76,7 @@ async function groqChat(
   return result.choices[0]?.message.content ?? "";
 }
 
-const openai = new OpenAI({
-  apiKey: env.OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
+const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 async function openaiChat(
   system: string,
   messages: { role: "user" | "assistant"; content: string }[]
