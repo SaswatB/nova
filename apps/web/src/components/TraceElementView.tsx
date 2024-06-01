@@ -14,7 +14,7 @@ export function TraceElementView({ trace }: { trace: TraceElement }) {
     <Card className={css({ flex: "none", mx: 16, my: 8 })}>
       <Flex
         css={{
-          justifyContent: "space-between",
+          px: 2,
           alignItems: "center",
           cursor: "pointer",
           "&:hover": {
@@ -23,14 +23,13 @@ export function TraceElementView({ trace }: { trace: TraceElement }) {
         }}
         onClick={() => setExpanded(!expanded)}
       >
-        <span>
-          {traceElementSourceSymbol in trace ? (
-            <Badge className={css({ mr: 12 })}>{startCase(trace[traceElementSourceSymbol].value.type)}</Badge>
-          ) : (
-            ""
-          )}
-          {startCase(trace.type)}
-        </span>
+        {traceElementSourceSymbol in trace ? (
+          <Badge className={css({ mr: 12 })}>{startCase(trace[traceElementSourceSymbol].value.type)}</Badge>
+        ) : (
+          ""
+        )}
+        {startCase(trace.type)}
+        <styled.div css={{ flex: 1 }} />
         <styled.div
           css={{
             color: "text.secondary",
@@ -40,7 +39,15 @@ export function TraceElementView({ trace }: { trace: TraceElement }) {
           {new Date(trace.timestamp).toLocaleString()}
         </styled.div>
       </Flex>
-      {expanded && <TextArea value={JSON.stringify(trace, null, 2)} readOnly resize="vertical" rows={20} />}
+      {expanded && (
+        <TextArea
+          className={css({ mt: 4 })}
+          value={JSON.stringify(trace, null, 2)}
+          readOnly
+          resize="vertical"
+          rows={20}
+        />
+      )}
     </Card>
   );
 }
