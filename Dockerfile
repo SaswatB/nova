@@ -9,7 +9,7 @@ WORKDIR /app
 
 COPY . .
 RUN yarn
-RUN npx turbo run build --scope ${BUILD_CONTEXT}
+RUN npx turbo run build --filter ${BUILD_CONTEXT}
 
 WORKDIR ./apps/${BUILD_CONTEXT}
 CMD npm run start
