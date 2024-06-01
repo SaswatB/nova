@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
+import { UserButton } from "@clerk/clerk-react";
 import { Link2Icon, PlusCircledIcon } from "@radix-ui/react-icons";
 import { Button, Dialog, IconButton, TextField, Tooltip } from "@radix-ui/themes";
 import * as idb from "idb-keyval";
@@ -98,7 +99,7 @@ function SpaceSelector({
   }, [selectedSpaceId, setSelectedSpaceId, spaces]);
 
   return (
-    <Stack>
+    <Stack css={{ flex: 1, overflowY: "auto" }}>
       <Button
         variant="surface"
         className={css({ mb: 8 })}
@@ -140,8 +141,8 @@ export function Workspace() {
 
   return (
     <SplitPane split="vertical" sizes={sizes} onChange={setSizes}>
-      <Pane minSize={15} className={stack({ p: 24, bg: "background.secondary" })}>
-        <Stack>
+      <Pane minSize={15}>
+        <Stack css={{ p: 24, bg: "background.secondary", maxH: "100vh", h: "100vh" }}>
           <Flex css={{ alignItems: "center", gap: 8, mb: 24 }}>
             <Select
               className={css({ flex: 1 })}
@@ -167,6 +168,9 @@ export function Workspace() {
               setSelectedSpaceId={setSelectedSpaceId}
             />
           ) : null}
+          <Flex css={{ justifyContent: "center" }}>
+            <UserButton />
+          </Flex>
         </Stack>
       </Pane>
       <Pane minSize={20} className={stack()}>

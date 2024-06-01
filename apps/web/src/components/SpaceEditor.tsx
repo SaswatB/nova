@@ -16,6 +16,7 @@ import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
 import { ProjectContext } from "../lib/prototype/nodes/node-types";
 import { GraphRunner, GraphRunnerData } from "../lib/prototype/nodes/run-graph";
+import { AppTRPCClient, trpc } from "../lib/trpc-client";
 import { newId } from "../lib/uid";
 import { Loader } from "./base/Loader";
 import { GraphCanvas } from "./GraphCanvas";
@@ -23,7 +24,7 @@ import { NodeViewer } from "./NodeViewer";
 import { TraceElement, traceElementSourceSymbol, TraceElementView } from "./TraceElementView";
 import { textAreaField, ZodForm } from "./ZodForm";
 
-const getProjectContext = (folderHandle: FileSystemDirectoryHandle): ProjectContext => ({
+const getProjectContext = (folderHandle: FileSystemDirectoryHandle, trpcClient: AppTRPCClient): ProjectContext => ({
   systemPrompt: `
 You are an expert staff level software engineer.
 Working with other staff level engineers on a project.
@@ -41,8 +42,10 @@ Provide useful responses, make sure to consider when to stay high level and when
     "Don't worry about unit tests unless they are explicitly asked for.",
     "It's fine to have large complex functions during the initial implementation as this is a proof of concept.",
   ],
-  folderHandle,
   extensions: [".ts", ".tsx", ".js", ".jsx", ".json", ".xml", ".html", ".css", ".scss"],
+
+  folderHandle,
+  trpcClient,
 });
 
 function NewPlan({ onNewGoal }: { onNewGoal: (goal: string) => void }) {
@@ -75,6 +78,8 @@ interface Page {
 }
 
 export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId: string }) {
+  const trpcClient = trpc.useUtils().client;
+
   const [sizes, setSizes] = useLocalStorage<number[]>("space:sizes", [60, 40]);
   const handle = useAsync(() => idb.get<FileSystemDirectoryHandle>(`project:${projectId}:root`), [projectId]);
 
@@ -94,7 +99,7 @@ export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId
     () =>
       !!selectedPage?.graphData &&
       handle.result &&
-      GraphRunner.fromData(getProjectContext(handle.result), selectedPage.graphData),
+      GraphRunner.fromData(getProjectContext(handle.result, trpcClient), selectedPage.graphData),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [!!selectedPage?.graphData, selectedPageId, handle.result, refreshIndex],
   );
@@ -152,7 +157,7 @@ export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId
           <Stack css={{ alignItems: "center", justifyContent: "center", height: "100%" }}>
             <NewPlan
               onNewGoal={(goal) => {
-                const graphData = GraphRunner.fromGoal(getProjectContext(handle.result!), goal).toData();
+                const graphData = GraphRunner.fromGoal(getProjectContext(handle.result!, trpcClient), goal).toData();
                 if (selectedPage) {
                   setPages(
                     produce((draft) => {

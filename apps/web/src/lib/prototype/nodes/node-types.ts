@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { AppTRPCClient } from "../../trpc-client";
 import { NNodeRef, NNodeRefAccessorSchema, NNodeRefAccessorSchemaMap, orRef } from "./ref-types";
 
 export enum NNodeType {
@@ -60,8 +61,10 @@ export type NNodeResult =
 export interface ProjectContext {
   systemPrompt: string;
   rules: string[];
-  folderHandle: FileSystemDirectoryHandle;
   extensions: string[];
+
+  folderHandle: FileSystemDirectoryHandle;
+  trpcClient: AppTRPCClient;
 }
 
 export interface NodeRunnerContext {

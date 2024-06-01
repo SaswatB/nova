@@ -4,7 +4,7 @@ import { match } from "ts-pattern";
 import zodToJsonSchema from "zod-to-json-schema";
 
 import { newId } from "../../uid";
-import { aiChat, openaiJson } from "../ai-chat";
+import { aiChat, aiJson } from "../ai-chat";
 import { asyncToArray, dirname, isDefined, OmitUnion } from "../utils";
 import { NNodeResult, NNodeType, NNodeValue, NodeRunnerContext, ProjectContext } from "./node-types";
 import {
@@ -192,7 +192,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       },
       aiChat: async (model, messages) => {
         try {
-          const result = await aiChat(model, this.projectContext.systemPrompt, messages);
+          const result = await aiChat(this.projectContext, model, this.projectContext.systemPrompt, messages);
           console.log(`[GraphRunner] AI chat result: ${result}`);
           this.addNodeTrace(node, { type: "ai-chat", model, messages, result });
           return result;
@@ -203,7 +203,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         }
       },
       aiJson: async (schema, input) => {
-        const result = await openaiJson(schema, this.projectContext.systemPrompt, input);
+        const result = await aiJson(this.projectContext, "gpt4o", schema, this.projectContext.systemPrompt, input);
         console.log(`[GraphRunner] AI JSON result: ${result}`);
         this.addNodeTrace(node, {
           type: "ai-json",
