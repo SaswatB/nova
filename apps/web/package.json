@@ -9,7 +9,7 @@
     "lint": "eslint . --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit",
     "dev": "doppler run -- vite dev",
-    "build": "doppler run -- vite build",
+    "build": "vite build",
     "prepare": "panda codegen"
   },
   "dependencies": {
