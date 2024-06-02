@@ -35,7 +35,7 @@ async function readFilesRecursively(
   const file = await nrc.readFile(path);
   if (file.type === "not-found") return [];
   if (file.type === "file") {
-    if (checkIgnores(ignores, path)) return [];
+    if (checkIgnores(ignores, path) || file.content.length > 1e6) return [];
     return [{ path, content: file.content }];
   }
 
