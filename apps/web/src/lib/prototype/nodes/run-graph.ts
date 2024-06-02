@@ -1,3 +1,4 @@
+import { asyncToArray, dirname, isDefined, OmitUnion } from "@repo/shared";
 import { EventEmitter } from "events";
 import { cloneDeep, get, isEqual } from "lodash";
 import { match } from "ts-pattern";
@@ -5,7 +6,6 @@ import zodToJsonSchema from "zod-to-json-schema";
 
 import { newId } from "../../uid";
 import { aiChat, aiJson } from "../ai-chat";
-import { asyncToArray, dirname, isDefined, OmitUnion } from "../utils";
 import { NNodeResult, NNodeType, NNodeValue, NodeRunnerContext, ProjectContext } from "./node-types";
 import {
   isNodeRef,

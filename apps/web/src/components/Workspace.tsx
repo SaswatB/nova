@@ -16,6 +16,7 @@ import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { newId } from "../lib/uid";
 import { Select } from "./base/Select";
 import { SpaceEditor } from "./SpaceEditor";
+import { VoiceChat } from "./VoiceChat";
 import { ZodForm } from "./ZodForm";
 
 function AddProject({ onAdd }: { onAdd: (project: { name: string; handle: FileSystemDirectoryHandle }) => void }) {
@@ -141,7 +142,7 @@ export function Workspace() {
 
   return (
     <SplitPane split="vertical" sizes={sizes} onChange={setSizes}>
-      <Pane minSize={15}>
+      <Pane minSize="200px">
         <Stack css={{ p: 24, bg: "background.secondary", maxH: "100vh", h: "100vh" }}>
           <Flex css={{ alignItems: "center", gap: 8, mb: 24 }}>
             <Select
@@ -170,6 +171,7 @@ export function Workspace() {
               />
             ) : null}
           </Stack>
+          <VoiceChat />
           <Flex css={{ justifyContent: "center" }}>
             <UserButton />
           </Flex>
@@ -177,7 +179,12 @@ export function Workspace() {
       </Pane>
       <Pane minSize={20} className={stack()}>
         {selectedSpaceId && selectedProjectId ? (
-          <SpaceEditor key={selectedSpaceId} projectId={selectedProjectId} spaceId={selectedSpaceId} />
+          <SpaceEditor
+            key={selectedSpaceId}
+            projectName={projects.find((project) => project.id === selectedProjectId)?.name || ""}
+            projectId={selectedProjectId}
+            spaceId={selectedSpaceId}
+          />
         ) : null}
       </Pane>
     </SplitPane>

@@ -29,14 +29,10 @@ export function TraceElementView({ trace }: { trace: TraceElement }) {
           ""
         )}
         {startCase(trace.type)}
-        <styled.div css={{ flex: 1 }} />
-        <styled.div
-          css={{
-            color: "text.secondary",
-            fontSize: 12,
-          }}
-        >
-          {new Date(trace.timestamp).toLocaleString()}
+        <styled.div css={{ flex: 1, minW: 5 }} />
+        <styled.div css={{ color: "text.secondary", fontSize: 12, textAlign: "right" }}>
+          {new Date(trace.timestamp).toLocaleTimeString()} <br />
+          {new Date(trace.timestamp).toLocaleDateString()}
         </styled.div>
       </Flex>
       {expanded && (

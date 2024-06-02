@@ -3,3 +3,8 @@
 @import "@xyflow/react/dist/style.css" layer(base);
 @import "@radix-ui/themes/styles.css" layer(base);
 @import "react-toastify/dist/ReactToastify.css" layer(base);
+
+/* force tooltips above voice portal */
+[data-radix-popper-content-wrapper] {
+  z-index: 2 !important;
+}

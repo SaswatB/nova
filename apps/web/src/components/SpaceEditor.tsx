@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAsync, useAsyncCallback } from "react-async-hook";
 import { toast } from "react-toastify";
 import { Button, Dialog } from "@radix-ui/themes";
+import { VoiceStatusPriority } from "@repo/shared";
 import * as idb from "idb-keyval";
 import { produce } from "immer";
 import { reverse, sortBy } from "lodash";
@@ -22,6 +23,7 @@ import { Loader } from "./base/Loader";
 import { GraphCanvas } from "./GraphCanvas";
 import { NodeViewer } from "./NodeViewer";
 import { TraceElement, traceElementSourceSymbol, TraceElementView } from "./TraceElementView";
+import { useAddVoiceFunction, useAddVoiceStatus } from "./VoiceChat";
 import { textAreaField, ZodForm } from "./ZodForm";
 
 const getProjectContext = (folderHandle: FileSystemDirectoryHandle, trpcClient: AppTRPCClient): ProjectContext => ({
@@ -49,7 +51,26 @@ Provide useful responses, make sure to consider when to stay high level and when
 });
 
 function NewPlan({ onNewGoal }: { onNewGoal: (goal: string) => void }) {
+  const formRef = useRef<{ reset: () => void; setValue: (name: "goal", value: unknown) => void } | null>(null);
   const [open, setOpen] = useState(false);
+
+  useAddVoiceStatus(
+    `
+The user currently has a modal open to create a new change plan. They are currently need to enter a new goal for Nova to start generating a plan.
+  `.trim(),
+    VoiceStatusPriority.HIGH,
+    open,
+  );
+
+  useAddVoiceFunction(
+    "propose_plan_goal",
+    "Propose a new goal. Example: 'Change the color of the navigation bar to purple'. The more detailed the goal, the better and feel free to use markdown.",
+    z.object({ goal: z.string().min(1) }),
+    ({ goal }) => {
+      formRef.current?.setValue("goal", goal);
+    },
+    open,
+  );
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -59,6 +80,7 @@ function NewPlan({ onNewGoal }: { onNewGoal: (goal: string) => void }) {
       <Dialog.Content width="400px">
         <Dialog.Title>New Plan</Dialog.Title>
         <ZodForm
+          formRef={formRef}
           schema={z.object({ goal: z.string().min(1) })}
           overrideFieldMap={{ goal: textAreaField }}
           onSubmit={({ goal }) => {
@@ -77,7 +99,15 @@ interface Page {
   graphData?: GraphRunnerData;
 }
 
-export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId: string }) {
+export function SpaceEditor({
+  projectName,
+  projectId,
+  spaceId,
+}: {
+  projectName: string;
+  projectId: string;
+  spaceId: string;
+}) {
   const trpcClient = trpc.useUtils().client;
 
   const [sizes, setSizes] = useLocalStorage<number[]>("space:sizes", [60, 40]);
@@ -129,6 +159,12 @@ export function SpaceEditor({ projectId, spaceId }: { projectId: string; spaceId
   const selectedNode = useMemo(
     () => selectedNodeId && selectedPage?.graphData?.nodes[selectedNodeId],
     [selectedPage?.graphData?.nodes, selectedNodeId],
+  );
+
+  useAddVoiceStatus(
+    `
+Currently working on the project "${projectName}".
+  `.trim(),
   );
 
   if (!handle.result || pagesAsync.loading) return <Loader fill />;

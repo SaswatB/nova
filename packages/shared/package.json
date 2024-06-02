@@ -1,0 +1,12 @@
+{
+  "name": "@repo/shared",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "type": "module",
+  "dependencies": {
+    "zod": "^3.22.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

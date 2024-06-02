@@ -1,7 +1,6 @@
+import { dirname } from "@repo/shared";
 import { uniq } from "lodash";
 import * as ts from "typescript";
-
-import { dirname } from "./utils";
 
 export function getDepTree(files: string[]) {
   const configPaths = uniq(

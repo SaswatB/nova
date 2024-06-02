@@ -10,6 +10,8 @@ export const env = z
     CLAUDE_API_KEY: z.string(),
     CLERK_PUBLISHABLE_KEY: z.string(),
     CLERK_SECRET_KEY: z.string(),
+    HUME_API_KEY: z.string(),
+    HUME_CLIENT_SECRET: z.string(),
     GEMINI_API_KEY: z.string(),
     GROQ_API_KEY: z.string(),
     OPENAI_API_KEY: z.string(),

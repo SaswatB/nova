@@ -1,4 +1,4 @@
-import { Fragment, ReactNode } from "react";
+import { Fragment, ReactNode, useImperativeHandle } from "react";
 import { Control, useController, UseFormRegisterReturn, UseFormReturn } from "react-hook-form";
 import { Link1Icon, TrashIcon } from "@radix-ui/react-icons";
 import { Button, IconButton, TextArea, TextField, Tooltip } from "@radix-ui/themes";
@@ -13,11 +13,13 @@ import { GraphRunnerData, resolveNodeRefAccessor } from "../lib/prototype/nodes/
 import { FormHelper } from "./base/FormHelper";
 
 export function ZodForm<T extends z.ZodObject<any>>({
+  formRef,
   defaultValues,
   schema,
   overrideFieldMap,
   onSubmit,
 }: {
+  formRef?: React.RefObject<{ reset: () => void; setValue: (name: keyof z.infer<T>, value: unknown) => void }>;
   defaultValues?: z.infer<T>;
   schema: T;
   overrideFieldMap?: Partial<
@@ -44,6 +46,10 @@ export function ZodForm<T extends z.ZodObject<any>>({
   onSubmit: (values: z.infer<T>) => void | Promise<void>;
 }) {
   const form = useZodForm({ schema, defaultValues } as any);
+  useImperativeHandle(formRef, () => ({
+    setValue: form.setValue as any,
+    reset: form.reset,
+  }));
   const handleSubmit = form.handleSubmit(async (values) => {
     await onSubmit(values);
     form.reset(values);

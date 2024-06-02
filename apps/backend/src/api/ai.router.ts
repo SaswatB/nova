@@ -1,10 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { GenerativeModel, GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
-import OpenAI from "openai";
 import { match } from "ts-pattern";
+import { container } from "tsyringe";
 import { z } from "zod";
 
+import { OpenAIService } from "../external/openai.service";
 import { env } from "../lib/env";
 import { procedure, router } from "./meta/app-server";
 
@@ -15,10 +16,7 @@ export const aiRouter = router({
         model: z.enum(["groq", "gpt4o", "opus", "gemini", "geminiFlash"]),
         system: z.string(),
         messages: z.array(
-          z.object({
-            role: z.enum(["user", "assistant"]),
-            content: z.string(),
-          })
+          z.object({ role: z.enum(["user", "assistant"]), content: z.string() })
         ),
       })
     )
@@ -76,11 +74,11 @@ async function groqChat(
   return result.choices[0]?.message.content ?? "";
 }
 
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 async function openaiChat(
   system: string,
   messages: { role: "user" | "assistant"; content: string }[]
 ): Promise<string> {
+  const openai = container.resolve(OpenAIService);
   const result = await openai.chat.completions.create({
     model: "gpt-4o",
     messages: [{ role: "system", content: system }, ...messages],
@@ -92,6 +90,7 @@ async function openaiJson(
   prompt: string,
   data: string
 ) {
+  const openai = container.resolve(OpenAIService);
   const result = await openai.chat.completions.create({
     model: "gpt-4o",
     temperature: 0,
