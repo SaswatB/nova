@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAsync, useAsyncCallback } from "react-async-hook";
+import { SetValueConfig } from "react-hook-form";
 import { toast } from "react-toastify";
 import { Button, Dialog } from "@radix-ui/themes";
 import { VoiceStatusPriority } from "@repo/shared";
@@ -54,6 +55,7 @@ Provide useful responses, make sure to consider when to stay high level and when
     ".cjs",
     ".jsx",
     ".json",
+    ".prisma",
     ".xml",
     ".html",
     ".css",
@@ -84,7 +86,10 @@ Provide useful responses, make sure to consider when to stay high level and when
 });
 
 function NewPlan({ onNewGoal }: { onNewGoal: (goal: string) => void }) {
-  const formRef = useRef<{ reset: () => void; setValue: (name: "goal", value: unknown) => void } | null>(null);
+  const formRef = useRef<{
+    reset: () => void;
+    setValue: (name: "goal", value: unknown, options?: SetValueConfig) => void;
+  } | null>(null);
   const [open, setOpen] = useState(false);
 
   useAddVoiceStatus(
@@ -100,7 +105,7 @@ The user currently has a modal open to create a new change plan. They are curren
     "Propose a new goal. Example: 'Change the color of the navigation bar to purple'. The more detailed the goal, the better and feel free to use markdown.",
     z.object({ goal: z.string().min(1) }),
     ({ goal }) => {
-      formRef.current?.setValue("goal", goal);
+      formRef.current?.setValue("goal", goal, { shouldDirty: true });
     },
     open,
   );

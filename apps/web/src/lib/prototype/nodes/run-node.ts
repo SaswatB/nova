@@ -1,6 +1,7 @@
 import ignore, { Ignore } from "ignore";
 import llamaTokenizer from "llama-tokenizer-js";
 import { uniq } from "lodash";
+import pLimit from "p-limit";
 import { z } from "zod";
 
 import { getDepTree } from "../ts-utils";
@@ -28,16 +29,18 @@ function checkIgnores(ignores: { dir: string; ignore: Ignore }[], path: string) 
 
 async function readFilesRecursively(
   nrc: NodeRunnerContext,
-  path: string,
+  path: string, // ends with /
   extensions: string[],
   ignores: { dir: string; ignore: Ignore }[] = [],
 ): Promise<{ path: string; content: string }[]> {
+  if (checkIgnores(ignores, path)) return [];
+
+  const CONCURRENCY_LIMIT = 5;
+  const limit = pLimit(CONCURRENCY_LIMIT);
+
   const file = await nrc.readFile(path);
-  if (file.type === "not-found") return [];
-  if (file.type === "file") {
-    if (checkIgnores(ignores, path) || file.content.length > 1e6) return [];
-    return [{ path, content: file.content }];
-  }
+  // file is unexpected here, since directories are supposed to be provided to this function
+  if (file.type === "not-found" || file.type === "file") return [];
 
   const newIgnores = [...ignores];
   const gitignore = await nrc.readFile(`${path}.gitignore`);
@@ -46,18 +49,28 @@ async function readFilesRecursively(
   }
 
   const result: { path: string; content: string }[] = [];
-  for (const f of file.files) {
-    if (f === ".git") continue;
 
-    const p = `${path}${f}`;
-    if (checkIgnores(ignores, p)) continue;
+  // Collect all file reading promises, but limit concurrency
+  const filePromises = file.files.map((f) =>
+    limit(async () => {
+      if (f === ".git") return;
 
-    const file = await nrc.readFile(p);
-    if (file.type === "not-found") continue;
-    if (file.type === "file") {
-      if (extensions.some((ext) => p.endsWith(ext))) result.push({ path: p, content: file.content });
-    } else result.push(...(await readFilesRecursively(nrc, `${p}/`, extensions, newIgnores)));
-  }
+      const p = `${path}${f}`;
+      if (checkIgnores(newIgnores, p)) return;
+
+      const file = await nrc.readFile(p);
+      if (file.type === "not-found") return;
+      if (file.type === "file") {
+        if (extensions.some((ext) => p.endsWith(ext)) && file.content.length < 1e6) {
+          result.push({ path: p, content: file.content });
+        }
+      } else {
+        result.push(...(await readFilesRecursively(nrc, `${p}/`, extensions, newIgnores)));
+      }
+    }),
+  );
+  await Promise.all(filePromises);
+
   return result;
 }
 

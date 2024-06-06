@@ -21,7 +21,11 @@ function AppContent() {
   return (
     <VoiceProvider
       auth={{ type: "accessToken", value: voiceAccessToken }}
-      configId="24f17c93-9a3a-4138-a3d2-69d1ea93128d"
+      configId={
+        env.VITE_API_URL.includes("localhost")
+          ? "7b9b894d-7d8c-4fbd-984f-132c2d0e0ffd" // https://beta.hume.ai/evi/configs/7b9b894d-7d8c-4fbd-984f-132c2d0e0ffd
+          : "24f17c93-9a3a-4138-a3d2-69d1ea93128d"
+      }
       sessionSettings={{ customSessionId: frontendSessionId }}
     >
       <Workspace />

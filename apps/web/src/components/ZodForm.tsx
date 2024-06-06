@@ -1,5 +1,5 @@
 import { Fragment, ReactNode, useImperativeHandle } from "react";
-import { Control, useController, UseFormRegisterReturn, UseFormReturn } from "react-hook-form";
+import { Control, SetValueConfig, useController, UseFormRegisterReturn, UseFormReturn } from "react-hook-form";
 import { Link1Icon, TrashIcon } from "@radix-ui/react-icons";
 import { Button, IconButton, TextArea, TextField, Tooltip } from "@radix-ui/themes";
 import { startCase } from "lodash";
@@ -19,7 +19,10 @@ export function ZodForm<T extends z.ZodObject<any>>({
   overrideFieldMap,
   onSubmit,
 }: {
-  formRef?: React.RefObject<{ reset: () => void; setValue: (name: keyof z.infer<T>, value: unknown) => void }>;
+  formRef?: React.RefObject<{
+    reset: () => void;
+    setValue: (name: keyof z.infer<T>, value: unknown, options?: SetValueConfig) => void;
+  }>;
   defaultValues?: z.infer<T>;
   schema: T;
   overrideFieldMap?: Partial<
