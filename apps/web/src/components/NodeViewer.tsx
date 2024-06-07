@@ -107,6 +107,9 @@ export function NodeViewer({
       ))
       .exhaustive();
 
+  const nodeInputs = renderNodeInputs();
+  const nodeOutputs = renderNodeOutputs();
+
   return (
     <Stack css={{ p: 24, gap: 0, overflowY: "auto" }}>
       <Flex css={{ justifyContent: "space-between" }}>
@@ -123,60 +126,68 @@ export function NodeViewer({
           <Tabs.Trigger value="trace">Trace</Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="details">
-          <Flex>
-            <styled.div css={{ mb: hideInput ? 0 : 8 }}>Inputs</styled.div>
-            <styled.div css={{ flex: 1 }} />
-            <Flex css={{ gap: 8 }}>
-              {editInput ? null : hideInput ? (
-                <Button variant="soft" size="1" onClick={() => setHideInput(false)}>
-                  Expand
-                </Button>
-              ) : (
-                <Button variant="soft" size="1" onClick={() => setHideInput(true)}>
-                  Collapse
-                </Button>
-              )}
+          {nodeInputs ? (
+            <>
+              <Flex>
+                <styled.div css={{ mb: hideInput ? 0 : 8 }}>Inputs</styled.div>
+                <styled.div css={{ flex: 1 }} />
+                <Flex css={{ gap: 8 }}>
+                  {editInput ? null : hideInput ? (
+                    <Button variant="soft" size="1" onClick={() => setHideInput(false)}>
+                      Expand
+                    </Button>
+                  ) : (
+                    <Button variant="soft" size="1" onClick={() => setHideInput(true)}>
+                      Collapse
+                    </Button>
+                  )}
+                  {hideInput ? null : editInput ? (
+                    <Button variant="soft" size="1" color="red" onClick={() => setEditInput(false)}>
+                      Cancel
+                    </Button>
+                  ) : (
+                    <Button variant="soft" size="1" onClick={() => setEditInput(true)}>
+                      Edit
+                    </Button>
+                  )}
+                </Flex>
+              </Flex>
               {hideInput ? null : editInput ? (
-                <Button variant="soft" size="1" color="red" onClick={() => setEditInput(false)}>
-                  Cancel
-                </Button>
+                <ZodForm
+                  schema={NNodeValue.optionsMap.get(node.value.type)!}
+                  defaultValues={node.value}
+                  overrideFieldMap={{
+                    type: () => null,
+                    description: createTextAreaRefField(graphData),
+                    value: () => null,
+                    goal: createTextAreaRefField(graphData),
+                    instructions: createTextAreaRefField(graphData),
+                    relevantFiles: createTextAreaRefArrayField(graphData),
+                    rawChangeSet: createTextAreaRefField(graphData),
+                    path: createTextAreaRefField(graphData),
+                    changes: createTextAreaRefArrayField(graphData),
+                  }}
+                  onSubmit={(values) => {
+                    onChangeNode((draft) => {
+                      draft.value = values as NNodeValue;
+                    });
+                    setEditInput(false);
+                    toast.success("Node updated");
+                  }}
+                />
               ) : (
-                <Button variant="soft" size="1" onClick={() => setEditInput(true)}>
-                  Edit
-                </Button>
+                <Stack>{nodeInputs}</Stack>
               )}
-            </Flex>
-          </Flex>
-          {hideInput ? null : editInput ? (
-            <ZodForm
-              schema={NNodeValue.optionsMap.get(node.value.type)!}
-              defaultValues={node.value}
-              overrideFieldMap={{
-                type: () => null,
-                description: createTextAreaRefField(graphData),
-                value: () => null,
-                goal: createTextAreaRefField(graphData),
-                instructions: createTextAreaRefField(graphData),
-                relevantFiles: createTextAreaRefArrayField(graphData),
-                rawChangeSet: createTextAreaRefField(graphData),
-                path: createTextAreaRefField(graphData),
-                changes: createTextAreaRefArrayField(graphData),
-              }}
-              onSubmit={(values) => {
-                onChangeNode((draft) => {
-                  draft.value = values as NNodeValue;
-                });
-                setEditInput(false);
-                toast.success("Node updated");
-              }}
-            />
-          ) : (
-            <Stack>{renderNodeInputs()}</Stack>
-          )}
-          <styled.hr css={{ border: "1px solid #333", my: 8 }} />
-          <styled.div css={{ mb: 8 }}>Outputs</styled.div>
+            </>
+          ) : null}
+          {nodeInputs && nodeOutputs ? <styled.hr css={{ border: "1px solid #333", my: 8 }} /> : null}
 
-          <Stack>{renderNodeOutputs()}</Stack>
+          {nodeOutputs ? (
+            <>
+              <styled.div css={{ mb: 8 }}>Outputs</styled.div>
+              <Stack>{nodeOutputs}</Stack>
+            </>
+          ) : null}
         </Tabs.Content>
         <Tabs.Content value="trace">
           {reverse(trace || []).map((t, i) => (
