@@ -66,6 +66,7 @@ export interface ProjectContext {
 
   folderHandle: FileSystemDirectoryHandle;
   trpcClient: AppTRPCClient;
+  dryRun: boolean;
 }
 
 export interface NodeRunnerContext {

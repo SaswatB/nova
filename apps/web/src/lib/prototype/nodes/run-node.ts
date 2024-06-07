@@ -1,3 +1,4 @@
+import { isDefined } from "@repo/shared";
 import ignore, { Ignore } from "ignore";
 import llamaTokenizer from "llama-tokenizer-js";
 import { uniq } from "lodash";
@@ -252,9 +253,10 @@ const runners: {
 
   [NNodeType.ProjectAnalysis]: projectAnalysis,
   [NNodeType.RelevantFileAnalysis]: async (value, nrc) => {
-    const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
-      type: NNodeType.TypescriptDepAnalysis,
-    });
+    // const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
+    //   type: NNodeType.TypescriptDepAnalysis,
+    // });
+    const typescriptResult = {} as Record<string, { fileName: string }[]>;
     const { result: researchResult } = await nrc.getOrAddDependencyForResult({ type: NNodeType.ProjectAnalysis }, true);
 
     const rawRelevantFiles = await nrc.aiChat("geminiFlash", [
@@ -279,7 +281,7 @@ ${xmlFileSystemResearch(researchResult, { showFileContent: true, showResearch: t
     const relevantFiles = uniq(
       directRelevantFiles.files.flatMap((f) => [
         f,
-        ...(typescriptResult[f]?.map((d) => d.fileName).filter(<T>(f: T | undefined): f is T => f !== undefined) || []),
+        ...(typescriptResult[f]?.map((d) => d.fileName).filter(isDefined) || []),
       ]),
     );
 

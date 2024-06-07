@@ -2,14 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAsync, useAsyncCallback } from "react-async-hook";
 import { SetValueConfig } from "react-hook-form";
 import { toast } from "react-toastify";
-import { Button, Dialog } from "@radix-ui/themes";
+import { Button, Checkbox, Dialog } from "@radix-ui/themes";
 import { VoiceStatusPriority } from "@repo/shared";
 import * as idb from "idb-keyval";
 import { produce } from "immer";
 import { reverse, sortBy } from "lodash";
 import { Pane } from "split-pane-react";
 import SplitPane from "split-pane-react/esm/SplitPane";
-import { Stack, styled } from "styled-system/jsx";
+import { Flex, Stack, styled } from "styled-system/jsx";
 import { stack } from "styled-system/patterns";
 import { VList } from "virtua";
 import { z } from "zod";
@@ -31,6 +31,7 @@ const getProjectContext = (
   projectId: string,
   folderHandle: FileSystemDirectoryHandle,
   trpcClient: AppTRPCClient,
+  dryRun: boolean,
 ): ProjectContext => ({
   projectId,
   systemPrompt: `
@@ -88,6 +89,7 @@ Provide useful responses, make sure to consider when to stay high level and when
 
   folderHandle,
   trpcClient,
+  dryRun,
 });
 
 function NewPlan({ onNewGoal }: { onNewGoal: (goal: string) => void }) {
@@ -152,6 +154,7 @@ export function SpaceEditor({
   spaceId: string;
 }) {
   const trpcClient = trpc.useUtils().client;
+  const [dryRun, setDryRun] = useState(false);
 
   const [sizes, setSizes] = useLocalStorage<number[]>("space:sizes", [60, 40]);
   const handle = useAsync(() => idb.get<FileSystemDirectoryHandle>(`project:${projectId}:root`), [projectId]);
@@ -172,9 +175,9 @@ export function SpaceEditor({
     () =>
       !!selectedPage?.graphData &&
       handle.result &&
-      GraphRunner.fromData(getProjectContext(projectId, handle.result, trpcClient), selectedPage.graphData),
+      GraphRunner.fromData(getProjectContext(projectId, handle.result, trpcClient, dryRun), selectedPage.graphData),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [!!selectedPage?.graphData, selectedPageId, handle.result, refreshIndex],
+    [!!selectedPage?.graphData, selectedPageId, handle.result, refreshIndex, dryRun],
   );
   (window as any).graphRunner = graphRunner; // for debugging
   useEffect(() => {
@@ -217,28 +220,41 @@ Currently working on the project "${projectName}".
         {selectedPage?.graphData ? (
           <GraphCanvas
             graphData={selectedPage.graphData}
-            actions={
-              <Button
-                loading={runGraph.loading}
-                onClick={() =>
-                  runGraph.execute().catch((error) => {
-                    console.error(error);
-                    toast.error(error.message);
-                  })
-                }
-              >
-                Run
-              </Button>
-            }
             selectedNodeId={selectedNodeId}
             setSelectedNodeId={setSelectedNodeId}
+            actions={
+              <Flex css={{ alignItems: "center", gap: 24 }}>
+                <label>
+                  <Flex css={{ alignItems: "center", gap: 8 }}>
+                    <Checkbox
+                      disabled={runGraph.loading}
+                      checked={dryRun}
+                      onCheckedChange={(c) => setDryRun(c === true)}
+                    />
+                    Dry Run
+                  </Flex>
+                </label>
+
+                <Button
+                  loading={runGraph.loading}
+                  onClick={() =>
+                    runGraph.execute().catch((error) => {
+                      console.error(error);
+                      toast.error(error.message);
+                    })
+                  }
+                >
+                  Run
+                </Button>
+              </Flex>
+            }
           />
         ) : (
           <Stack css={{ alignItems: "center", justifyContent: "center", height: "100%" }}>
             <NewPlan
               onNewGoal={(goal) => {
                 const graphData = GraphRunner.fromGoal(
-                  getProjectContext(projectId, handle.result!, trpcClient),
+                  getProjectContext(projectId, handle.result!, trpcClient, dryRun),
                   goal,
                 ).toData();
                 if (selectedPage) {

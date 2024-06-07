@@ -54,6 +54,7 @@ export type NNodeTraceEvent =
       type: "write-file";
       path: string;
       content: string;
+      dryRun?: boolean;
       timestamp: number;
     }
   | {
@@ -191,6 +192,11 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         return result;
       },
       writeFile: async (path, content) => {
+        if (this.projectContext.dryRun) {
+          console.log(`[Dry Run] Skipping write operation for: ${path}`);
+          this.addNodeTrace(node, { type: "write-file", path, content, dryRun: true });
+          return;
+        }
         console.log("[GraphRunner] Write file", path);
         const dir = dirname(path);
         const name = path.split("/").at(-1)!;
