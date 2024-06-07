@@ -9,7 +9,7 @@ import { z } from "zod";
 
 import { useZodForm } from "../lib/hooks/useZodForm";
 import { isNodeRef } from "../lib/prototype/nodes/ref-types";
-import { GraphRunnerData, resolveNodeRefAccessor } from "../lib/prototype/nodes/run-graph";
+import { GraphRunnerData, resolveNodeRef } from "../lib/prototype/nodes/run-graph";
 import { FormHelper } from "./base/FormHelper";
 
 export function ZodForm<T extends z.ZodObject<any>>({
@@ -151,7 +151,7 @@ function TextAreaRefField({
   });
   const isRef = isNodeRef(field.value);
   const refNode = isRef ? graphData.nodes[field.value.nodeId] : undefined;
-  const refValue = refNode ? resolveNodeRefAccessor(field.value, refNode) : undefined; // todo print if ref is broken?
+  const refValue = refNode ? resolveNodeRef(field.value, refNode) : undefined; // todo print if ref is broken?
 
   return (
     <Flex css={{ width: "100%" }}>
@@ -198,7 +198,7 @@ function TextAreaRefArrayField({
   });
   const isRef = isNodeRef(field.value);
   const refNode = isRef ? graphData.nodes[field.value.nodeId] : undefined;
-  const refValue = refNode ? resolveNodeRefAccessor(field.value, refNode) : undefined; // todo print if ref is broken?
+  const refValue = refNode ? resolveNodeRef(field.value, refNode) : undefined; // todo print if ref is broken?
 
   if (isRef) {
     return (

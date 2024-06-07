@@ -398,7 +398,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     ref: NNodeRef<T> | NNodeRefAccessorSchemaMap[T],
   ): NNodeRefAccessorSchemaMap[T] {
     if (isNodeRef(ref)) {
-      return resolveNodeRefAccessor<T>(ref as NNodeRef<T>, this.nodes[ref.nodeId]!);
+      return resolveNodeRef<T>(ref as NNodeRef<T>, this.nodes[ref.nodeId]!);
     }
     return ref as NNodeRefAccessorSchemaMap[T];
   }
@@ -412,7 +412,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 }
 export type GraphRunnerData = ReturnType<GraphRunner["toData"]>;
 
-export function resolveNodeRefAccessor<T extends NNodeRefAccessorSchema>(
+export function resolveNodeRef<T extends NNodeRefAccessorSchema>(
   ref: NNodeRef<T>,
   node: NNode,
 ): NNodeRefAccessorSchemaMap[T] {
@@ -425,4 +425,15 @@ export function resolveNodeRefAccessor<T extends NNodeRefAccessorSchema>(
     accessor.path,
   );
   return NNodeRefAccessorSchemaMap[accessor.schema]!.parse(val) as any;
+}
+
+export function resolveNodeRefOrValue<T extends NNodeRefAccessorSchema>(
+  v: NNodeRef<T> | NNodeRefAccessorSchemaMap[T],
+  graphData: GraphRunnerData,
+): NNodeRefAccessorSchemaMap[T] | null {
+  if (isNodeRef(v)) {
+    const refNode = graphData.nodes[v.nodeId];
+    return refNode ? (resolveNodeRef(v, refNode) as NNodeRefAccessorSchemaMap[T]) : null;
+  }
+  return v as NNodeRefAccessorSchemaMap[T];
 }
