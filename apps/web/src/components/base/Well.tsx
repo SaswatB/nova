@@ -10,11 +10,13 @@ export function Well({
   className,
   title,
   markdown,
+  copyText,
 }: {
   children: string;
   className?: string;
   title?: string;
   markdown?: boolean;
+  copyText?: string;
 }) {
   return (
     <styled.div
@@ -95,7 +97,7 @@ export function Well({
         <Button
           variant="ghost"
           onClick={() => {
-            navigator.clipboard.writeText(children);
+            navigator.clipboard.writeText(copyText ?? children);
             toast.success("Copied to clipboard");
           }}
         >

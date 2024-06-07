@@ -25,6 +25,7 @@ export function NodeViewer({
 }) {
   const { trace, ...otherState } = node.state || {};
   const [editInput, setEditInput] = useState(false);
+  const [hideInput, setHideInput] = useState(false);
 
   const renderNodeInputs = () =>
     match(node.value)
@@ -41,7 +42,7 @@ export function NodeViewer({
           <Well title="Instructions" markdown>
             {resolveNodeRefOrValue(v.instructions, graphData) || ""}
           </Well>
-          <Well title="Relevant Files" markdown>
+          <Well title="Relevant Files">
             {resolveNodeRefOrValue(v.relevantFiles, graphData)
               ?.map((file) => file)
               .join("\n") || ""}
@@ -62,6 +63,50 @@ export function NodeViewer({
       ))
       .exhaustive();
 
+  const renderNodeOutputs = () =>
+    match(node.state?.result)
+      .with(undefined, () => "No state yet")
+      .with({ type: NNodeType.Output }, () => null)
+      .with({ type: NNodeType.ProjectAnalysis }, (res) => (
+        <>
+          <Well title="Research" markdown>
+            {res.result.research}
+          </Well>
+          <Well title="Files" markdown>
+            {/* todo maybe allow looking at individual files? */}
+            {`${res.result.files.length} source files processed`}
+          </Well>
+        </>
+      ))
+      .with({ type: NNodeType.RelevantFileAnalysis }, (res) => (
+        <>
+          <Well title="Result" markdown>
+            {res.result}
+          </Well>
+          <Well title="Files">{res.files.join("\n")}</Well>
+        </>
+      ))
+      .with({ type: NNodeType.TypescriptDepAnalysis }, () => null) // todo lm_ec44d16eee restore ts deps
+      .with({ type: P.union(NNodeType.Plan, NNodeType.Execute) }, (res) => (
+        <Well title="Result" markdown>
+          {res.result}
+        </Well>
+      ))
+      .with(
+        { type: NNodeType.CreateChangeSet },
+        (
+          res, // todo maybe do this better by adding types to the result?
+        ) => <Well title="Result">{JSON.stringify(res.result, null, 2)}</Well>,
+      )
+      .with({ type: NNodeType.ApplyFileChanges }, (res) => (
+        <Well
+          title="Result"
+          markdown
+          copyText={res.result}
+        >{`\`\`\`${node.value.type === NNodeType.ApplyFileChanges ? resolveNodeRefOrValue(node.value.path, graphData)?.replace(/.*\./, "") || "" : ""}\n${res.result}\n\`\`\``}</Well>
+      ))
+      .exhaustive();
+
   return (
     <Stack css={{ p: 24, gap: 0, overflowY: "auto" }}>
       <Flex css={{ justifyContent: "space-between" }}>
@@ -78,19 +123,31 @@ export function NodeViewer({
           <Tabs.Trigger value="trace">Trace</Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="details">
-          <Flex css={{ justifyContent: "space-between" }}>
-            <styled.div css={{ mb: 8 }}>Inputs</styled.div>
-            {editInput ? (
-              <Button variant="soft" size="1" color="red" onClick={() => setEditInput(false)}>
-                Cancel
-              </Button>
-            ) : (
-              <Button variant="soft" size="1" onClick={() => setEditInput(true)}>
-                Edit
-              </Button>
-            )}
+          <Flex>
+            <styled.div css={{ mb: hideInput ? 0 : 8 }}>Inputs</styled.div>
+            <styled.div css={{ flex: 1 }} />
+            <Flex css={{ gap: 8 }}>
+              {editInput ? null : hideInput ? (
+                <Button variant="soft" size="1" onClick={() => setHideInput(false)}>
+                  Expand
+                </Button>
+              ) : (
+                <Button variant="soft" size="1" onClick={() => setHideInput(true)}>
+                  Collapse
+                </Button>
+              )}
+              {hideInput ? null : editInput ? (
+                <Button variant="soft" size="1" color="red" onClick={() => setEditInput(false)}>
+                  Cancel
+                </Button>
+              ) : (
+                <Button variant="soft" size="1" onClick={() => setEditInput(true)}>
+                  Edit
+                </Button>
+              )}
+            </Flex>
           </Flex>
-          {editInput ? (
+          {hideInput ? null : editInput ? (
             <ZodForm
               schema={NNodeValue.optionsMap.get(node.value.type)!}
               defaultValues={node.value}
@@ -119,11 +176,7 @@ export function NodeViewer({
           <styled.hr css={{ border: "1px solid #333", my: 8 }} />
           <styled.div css={{ mb: 8 }}>Outputs</styled.div>
 
-          {otherState ? (
-            <TextArea value={JSON.stringify(otherState, null, 2)} readOnly resize="vertical" rows={20} />
-          ) : (
-            "No state yet"
-          )}
+          <Stack>{renderNodeOutputs()}</Stack>
         </Tabs.Content>
         <Tabs.Content value="trace">
           {reverse(trace || []).map((t, i) => (

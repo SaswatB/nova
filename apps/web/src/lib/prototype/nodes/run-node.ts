@@ -108,6 +108,7 @@ ${showResearch ? `<research>\n${research}\n</research>\n` : ""}
 }
 
 async function projectAnalysis(value: NNodeValue & { type: NNodeType.ProjectAnalysis }, nrc: NodeRunnerContext) {
+  // todo lm_ec44d16eee restore ts deps
   // const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
   //   type: NNodeType.TypescriptDepAnalysis,
   // });
@@ -253,6 +254,7 @@ const runners: {
 
   [NNodeType.ProjectAnalysis]: projectAnalysis,
   [NNodeType.RelevantFileAnalysis]: async (value, nrc) => {
+    // todo lm_ec44d16eee restore ts deps
     // const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
     //   type: NNodeType.TypescriptDepAnalysis,
     // });
@@ -288,6 +290,7 @@ ${xmlFileSystemResearch(researchResult, { showFileContent: true, showResearch: t
     return { type: NNodeType.RelevantFileAnalysis, result: rawRelevantFiles, files: relevantFiles };
   },
   [NNodeType.TypescriptDepAnalysis]: async (value, nrc) => {
+    // todo lm_ec44d16eee restore ts deps
     // const result = getDepTree(nrc.projectContext.);
     // console.log("[TypescriptDepAnalysis] ", result);
     return { type: NNodeType.TypescriptDepAnalysis, result: {} };
