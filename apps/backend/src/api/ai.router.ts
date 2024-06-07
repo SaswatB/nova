@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { GenerativeModel, GoogleGenerativeAI } from "@google/generative-ai";
+import { writeFileSync } from "fs";
 import Groq from "groq-sdk";
 import { match } from "ts-pattern";
 import { container } from "tsyringe";
@@ -114,9 +115,19 @@ async function openaiJson(
     ],
     tool_choice: { type: "function", function: { name: "resolve" } },
   });
-  const out =
-    result.choices[0]?.message.tool_calls?.[0]?.function?.arguments ?? "{}";
-  return JSON.parse(out);
+  try {
+    const out =
+      result.choices[0]?.message.tool_calls?.[0]?.function?.arguments ?? "{}";
+    return JSON.parse(out);
+  } catch (error) {
+    console.error("Failed to parse output", error, result);
+    if (env.DOPPLER_ENVIRONMENT === "dev")
+      writeFileSync(
+        `error-${Date.now()}.json`,
+        JSON.stringify(result, null, 2)
+      );
+    throw error;
+  }
 }
 
 const anthropic = new Anthropic({ apiKey: env.CLAUDE_API_KEY });

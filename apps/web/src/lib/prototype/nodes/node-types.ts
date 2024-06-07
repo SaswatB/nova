@@ -59,6 +59,7 @@ export type NNodeResult =
   | { type: NNodeType.ApplyFileChanges; result: string };
 
 export interface ProjectContext {
+  projectId: string;
   systemPrompt: string;
   rules: string[];
   extensions: string[];
@@ -90,6 +91,9 @@ export interface NodeRunnerContext {
     path: string,
   ) => Promise<{ type: "not-found" } | { type: "file"; content: string } | { type: "directory"; files: string[] }>;
   writeFile: (path: string, content: string) => Promise<void>;
+
+  getCache: <T extends z.ZodSchema>(key: string, schema: T) => Promise<z.infer<T> | undefined>;
+  setCache: (key: string, value: unknown) => Promise<void>;
 
   aiChat: (
     model: "groq" | "gpt4o" | "opus" | "gemini" | "geminiFlash",

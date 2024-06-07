@@ -1,6 +1,6 @@
 import { toast } from "react-toastify";
 import { TextArea } from "@radix-ui/themes";
-import { startCase } from "lodash";
+import { reverse, startCase } from "lodash";
 import { Stack, styled } from "styled-system/jsx";
 
 import { NNodeValue } from "../lib/prototype/nodes/node-types";
@@ -49,7 +49,9 @@ export function NodeViewer({
       ) : (
         "No state yet"
       )}
-      {trace?.map((t, i) => <TraceElementView key={i} trace={{ ...t, [traceElementSourceSymbol]: node }} />) || null}
+      {reverse(trace || []).map((t, i) => (
+        <TraceElementView key={i} trace={{ ...t, [traceElementSourceSymbol]: node }} />
+      )) || null}
     </Stack>
   );
 }

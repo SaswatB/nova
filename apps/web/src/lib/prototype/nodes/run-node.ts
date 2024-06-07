@@ -4,6 +4,7 @@ import { uniq } from "lodash";
 import pLimit from "p-limit";
 import { z } from "zod";
 
+import { generateCacheKey } from "../../hash";
 import { getDepTree } from "../ts-utils";
 import {
   NNodeResult,
@@ -35,8 +36,7 @@ async function readFilesRecursively(
 ): Promise<{ path: string; content: string }[]> {
   if (checkIgnores(ignores, path)) return [];
 
-  const CONCURRENCY_LIMIT = 5;
-  const limit = pLimit(CONCURRENCY_LIMIT);
+  const limit = pLimit(5);
 
   const file = await nrc.readFile(path);
   // file is unexpected here, since directories are supposed to be provided to this function
@@ -114,13 +114,14 @@ async function projectAnalysis(value: NNodeValue & { type: NNodeType.ProjectAnal
   // const dependencies = typescriptResult;
 
   const rawFiles = await readFilesRecursively(nrc, "/", nrc.projectContext.extensions);
-  const files: ResearchedFile[] = [];
-  for (const f of rawFiles) {
-    console.log("filesystemResearch file", f.path);
-    const research = await nrc.aiChat("geminiFlash", [
-      {
-        role: "user",
-        content: `
+  const limit = pLimit(5);
+  const researchPromises = rawFiles.map((f) =>
+    limit(async (): Promise<ResearchedFile> => {
+      console.log("filesystemResearch file", f.path);
+      const research = await nrc.aiChat("geminiFlash", [
+        {
+          role: "user",
+          content: `
 Could you please provide the following information:
 - A brief description of the given file's purpose and contents.
 - An outline and a brief description for every export.
@@ -128,10 +129,41 @@ Could you please provide the following information:
 <file path="${f.path}">
 ${f.content}
 </file>
-  `.trim(),
-      },
-    ]);
-    files.push({ path: f.path, content: f.content, research });
+        `.trim(),
+        },
+      ]);
+      return { path: f.path, content: f.content, research };
+    }),
+  );
+  const files = await Promise.all(researchPromises);
+  const fileHashes = await Promise.all(
+    files.map(async (f) => ({ path: f.path, hash: await generateCacheKey({ content: f.content }) })),
+  );
+
+  const cachedProjectAnalysisSchema = z.object({
+    research: z.string(),
+    fileHashes: z.array(z.object({ path: z.string(), hash: z.string() })),
+    timestamp: z.number(),
+  });
+  const cachedProjectAnalysis = await nrc.getCache("project-analysis", cachedProjectAnalysisSchema);
+  if (cachedProjectAnalysis) {
+    const { fileHashes: cachedFileHashes } = cachedProjectAnalysis;
+    const changedFileCount = fileHashes.filter(
+      (f) => !cachedFileHashes.some((c) => f.path === c.path && f.hash === c.hash),
+    ).length;
+    const delFileCount = cachedFileHashes.filter((c) => !fileHashes.some((f) => f.path === c.path)).length;
+
+    console.log("Cached project analysis delta", { changedFileCount, delFileCount });
+
+    if (changedFileCount + delFileCount < 20) {
+      console.log("Using cached project analysis");
+      return {
+        type: NNodeType.ProjectAnalysis,
+        result: { files, research: cachedProjectAnalysis.research } satisfies ResearchedFileSystem,
+      } as const;
+    } else {
+      console.log("Revalidating project analysis");
+    }
   }
 
   function constructBatchPrompt(batch: ResearchedFile[]) {
@@ -200,6 +232,10 @@ ${docs.map((doc) => `<doc>${doc}</doc>`).join("\n")}
       },
     ]);
   }
+
+  await nrc.setCache("project-analysis", { research, fileHashes, timestamp: Date.now() } satisfies z.infer<
+    typeof cachedProjectAnalysisSchema
+  >);
   return { type: NNodeType.ProjectAnalysis, result: { files, research } satisfies ResearchedFileSystem } as const;
 }
 

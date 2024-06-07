@@ -27,7 +27,12 @@ import { TraceElement, traceElementSourceSymbol, TraceElementView } from "./Trac
 import { useAddVoiceFunction, useAddVoiceStatus } from "./VoiceChat";
 import { textAreaField, ZodForm } from "./ZodForm";
 
-const getProjectContext = (folderHandle: FileSystemDirectoryHandle, trpcClient: AppTRPCClient): ProjectContext => ({
+const getProjectContext = (
+  projectId: string,
+  folderHandle: FileSystemDirectoryHandle,
+  trpcClient: AppTRPCClient,
+): ProjectContext => ({
+  projectId,
   systemPrompt: `
 You are an expert staff level software engineer.
 Working with other staff level engineers on a project.
@@ -167,7 +172,7 @@ export function SpaceEditor({
     () =>
       !!selectedPage?.graphData &&
       handle.result &&
-      GraphRunner.fromData(getProjectContext(handle.result, trpcClient), selectedPage.graphData),
+      GraphRunner.fromData(getProjectContext(projectId, handle.result, trpcClient), selectedPage.graphData),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [!!selectedPage?.graphData, selectedPageId, handle.result, refreshIndex],
   );
@@ -232,7 +237,10 @@ Currently working on the project "${projectName}".
           <Stack css={{ alignItems: "center", justifyContent: "center", height: "100%" }}>
             <NewPlan
               onNewGoal={(goal) => {
-                const graphData = GraphRunner.fromGoal(getProjectContext(handle.result!, trpcClient), goal).toData();
+                const graphData = GraphRunner.fromGoal(
+                  getProjectContext(projectId, handle.result!, trpcClient),
+                  goal,
+                ).toData();
                 if (selectedPage) {
                   setPages(
                     produce((draft) => {

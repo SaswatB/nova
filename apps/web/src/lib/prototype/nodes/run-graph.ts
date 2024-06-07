@@ -1,5 +1,6 @@
 import { asyncToArray, dirname, isDefined, OmitUnion } from "@repo/shared";
 import { EventEmitter } from "events";
+import * as idb from "idb-keyval";
 import { cloneDeep, get, isEqual } from "lodash";
 import { match } from "ts-pattern";
 import zodToJsonSchema from "zod-to-json-schema";
@@ -31,6 +32,18 @@ export type NNodeTraceEvent =
       existing?: boolean;
     }
   | { type: "dependant"; node: NNode; timestamp: number }
+  | {
+      type: "get-cache";
+      key: string;
+      result: unknown;
+      timestamp: number;
+    }
+  | {
+      type: "set-cache";
+      key: string;
+      value: unknown;
+      timestamp: number;
+    }
   | {
       type: "read-file";
       path: string;
@@ -190,6 +203,20 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 
         this.addNodeTrace(node, { type: "write-file", path, content });
       },
+
+      getCache: async (key, schema) => {
+        const res = schema.safeParse(await idb.get(`project-${this.projectContext.projectId}:graph-cache:${key}`));
+        if (res.success) {
+          this.addNodeTrace(node, { type: "get-cache", key, result: res.data });
+          return res.data;
+        }
+        return undefined;
+      },
+      setCache: async (key, value) => {
+        this.addNodeTrace(node, { type: "set-cache", key, value });
+        return idb.set(`project-${this.projectContext.projectId}:graph-cache:${key}`, value);
+      },
+
       aiChat: async (model, messages) => {
         try {
           const result = await aiChat(this.projectContext, model, this.projectContext.systemPrompt, messages);
