@@ -1,7 +1,7 @@
 import { toast } from "react-toastify";
-import { TextArea } from "@radix-ui/themes";
+import { Button, TextArea } from "@radix-ui/themes";
 import { reverse, startCase } from "lodash";
-import { Stack, styled } from "styled-system/jsx";
+import { Flex, Stack, styled } from "styled-system/jsx";
 
 import { NNodeValue } from "../lib/prototype/nodes/node-types";
 import { GraphRunner, GraphRunnerData } from "../lib/prototype/nodes/run-graph";
@@ -22,7 +22,14 @@ export function NodeViewer({
   const { trace, ...otherState } = node.state || {};
   return (
     <Stack css={{ p: 24, overflowY: "auto" }}>
-      {startCase(node.value.type)}
+      <Flex css={{ justifyContent: "space-between" }}>
+        {startCase(node.value.type)}
+        {node.state ? (
+          <Button color="red" onClick={() => graphRunner?.resetNode(node.id)}>
+            Reset
+          </Button>
+        ) : null}
+      </Flex>
       <styled.hr css={{ border: "1px solid #333", my: 8 }} />
       <ZodForm
         schema={NNodeValue.optionsMap.get(node.value.type)!}

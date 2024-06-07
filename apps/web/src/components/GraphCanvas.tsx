@@ -1,5 +1,16 @@
-import { Dispatch, memo, ReactNode, SetStateAction, useEffect, useMemo, useRef } from "react";
+import {
+  createContext,
+  Dispatch,
+  memo,
+  ReactNode,
+  SetStateAction,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import Dagre from "@dagrejs/dagre";
+import { Badge } from "@radix-ui/themes";
 import {
   Background,
   Controls,
@@ -13,9 +24,9 @@ import {
   ReactFlowInstance,
 } from "@xyflow/react";
 import { startCase } from "lodash";
-import { Flex } from "styled-system/jsx";
+import { Flex, Stack } from "styled-system/jsx";
 
-import { GraphRunnerData } from "../lib/prototype/nodes/run-graph";
+import { GraphRunnerData, NNode } from "../lib/prototype/nodes/run-graph";
 
 const convertChatNodesToFlowElements = (graphNodes: GraphRunnerData["nodes"]): { nodes: Node[]; edges: Edge[] } => {
   const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
@@ -25,7 +36,7 @@ const convertChatNodesToFlowElements = (graphNodes: GraphRunnerData["nodes"]): {
     (node): Node => ({
       id: node.id,
       type: "default",
-      data: { label: startCase(node.value.type) },
+      data: { label: startCase(node.value.type), node },
       position: { x: 0, y: 0 },
       selectable: true,
     }),
@@ -49,11 +60,25 @@ const convertChatNodesToFlowElements = (graphNodes: GraphRunnerData["nodes"]): {
   return { nodes: nodes.map((node) => ({ ...node, position: { x: g.node(node.id).x, y: g.node(node.id).y } })), edges };
 };
 
-const CustomNodeView = memo(({ data }: NodeProps<Node<{ label: string }>>) => {
+const NodeContext = createContext({ isGraphRunning: false });
+
+const CustomNodeView = memo(({ data }: NodeProps<Node<{ label: string; node: NNode }>>) => {
+  const { isGraphRunning } = useContext(NodeContext);
+
+  const isStarted = !!data.node.state?.startedAt;
+  const isCompleted = !!data.node.state?.completedAt;
+
   return (
     <>
       <Handle type="target" position={Position.Left} />
-      <div>{data.label}</div>
+      <Stack css={{ alignItems: "center" }}>
+        {data.label}
+        {isCompleted ? (
+          <Badge color="green">Completed</Badge>
+        ) : isStarted && isGraphRunning ? (
+          <Badge>Running...</Badge>
+        ) : null}
+      </Stack>
       <Handle type="source" position={Position.Right} />
     </>
   );
@@ -62,11 +87,13 @@ CustomNodeView.displayName = "CustomNodeView";
 
 export function GraphCanvas({
   graphData,
+  isGraphRunning,
   actions,
   selectedNodeId,
   setSelectedNodeId,
 }: {
   graphData: GraphRunnerData;
+  isGraphRunning: boolean;
   actions: ReactNode;
   selectedNodeId: string | null;
   setSelectedNodeId: Dispatch<SetStateAction<string | null>>;
@@ -83,30 +110,34 @@ export function GraphCanvas({
     }, 100);
   }, [graphData]);
 
+  const nodeContext = useMemo(() => ({ isGraphRunning }), [isGraphRunning]);
+
   return (
-    <Flex css={{ flex: "1" }}>
-      <ReactFlow
-        onInit={(instance) => {
-          graphRef.current = instance;
-        }}
-        nodes={nodes}
-        edges={graphView.edges}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        colorMode="dark"
-        nodeTypes={{ default: CustomNodeView }}
-        fitView
-        onNodesChange={(changes) => {
-          const selected = changes.filter(
-            (change): change is typeof change & { type: "select" } => change.type === "select",
-          );
-          if (selected.length) setSelectedNodeId(selected.find((s) => s.selected)?.id || null);
-        }}
-      >
-        <Panel position="top-right">{actions}</Panel>
-        <Controls />
-        <Background />
-      </ReactFlow>
-    </Flex>
+    <NodeContext.Provider value={nodeContext}>
+      <Flex css={{ flex: "1" }}>
+        <ReactFlow
+          onInit={(instance) => {
+            graphRef.current = instance;
+          }}
+          nodes={nodes}
+          edges={graphView.edges}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          colorMode="dark"
+          nodeTypes={{ default: CustomNodeView }}
+          fitView
+          onNodesChange={(changes) => {
+            const selected = changes.filter(
+              (change): change is typeof change & { type: "select" } => change.type === "select",
+            );
+            if (selected.length) setSelectedNodeId(selected.find((s) => s.selected)?.id || null);
+          }}
+        >
+          <Panel position="top-right">{actions}</Panel>
+          <Controls />
+          <Background />
+        </ReactFlow>
+      </Flex>
+    </NodeContext.Provider>
   );
 }

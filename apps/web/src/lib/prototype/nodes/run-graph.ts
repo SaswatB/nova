@@ -58,19 +58,26 @@ export type NNodeTraceEvent =
       timestamp: number;
     }
   | {
-      type: "ai-chat";
+      type: "ai-chat-request";
+      chatId: string;
       model: string;
       messages: { role: "user" | "assistant"; content: string }[];
+      timestamp: number;
+    }
+  | {
+      type: "ai-chat-response";
+      chatId: string;
       result: string;
       timestamp: number;
     }
   | {
-      type: "ai-json";
+      type: "ai-json-request";
+      chatId: string;
       schema: unknown;
       input: string;
-      result: unknown;
       timestamp: number;
     }
+  | { type: "ai-json-response"; chatId: string; result: unknown; timestamp: number }
   | { type: "result"; result: NNodeResult; timestamp: number };
 
 export interface NNode {
@@ -83,6 +90,7 @@ export interface NNode {
     completedAt?: number;
     result?: NNodeResult;
     trace?: NNodeTraceEvent[];
+    createdNodes?: string[]; // node ids
   };
 }
 
@@ -129,12 +137,9 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       projectContext: this.projectContext,
       addDependantNode: (newNodeValue) => {
         console.log("[GraphRunner] Adding dependant node", newNodeValue);
-        const newNode: NNode = {
-          id: newId.graphNode(),
-          value: newNodeValue,
-          dependencies: [node.id],
-        };
+        const newNode: NNode = { id: newId.graphNode(), value: newNodeValue, dependencies: [node.id] };
         this.nodes[newNode.id] = newNode;
+        ((node.state ||= {}).createdNodes ||= []).push(newNode.id);
         addToRunStack(newNode);
         this.addNodeTrace(node, { type: "dependant", node: newNode });
       },
@@ -160,6 +165,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           };
           (node.dependencies ||= []).push(depNode.id);
           this.nodes[depNode.id] = depNode;
+          ((node.state ||= {}).createdNodes ||= []).push(depNode.id);
           this.addNodeTrace(node, { type: "dependency", node: depNode });
 
           subResult = await this.startNode(depNode, addToRunStack);
@@ -217,9 +223,11 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 
       aiChat: async (model, messages) => {
         try {
+          const traceId = newId.traceChat();
+          this.addNodeTrace(node, { type: "ai-chat-request", chatId: traceId, model, messages });
           const result = await aiChat(this.projectContext, model, this.projectContext.systemPrompt, messages);
           console.log("[GraphRunner] AI chat result", result);
-          this.addNodeTrace(node, { type: "ai-chat", model, messages, result });
+          this.addNodeTrace(node, { type: "ai-chat-response", chatId: traceId, result });
           return result;
         } catch (e) {
           console.error(e);
@@ -228,15 +236,27 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         }
       },
       aiJson: async (schema, input) => {
-        const result = await aiJson(this.projectContext, "gpt4o", schema, this.projectContext.systemPrompt, input);
-        console.log("[GraphRunner] AI JSON result", result);
-        this.addNodeTrace(node, {
-          type: "ai-json",
-          schema: zodToJsonSchema(schema, "S").definitions?.S,
-          input,
-          result,
-        });
-        return result;
+        try {
+          const traceId = newId.traceChat();
+          this.addNodeTrace(node, {
+            type: "ai-json-request",
+            chatId: traceId,
+            schema: zodToJsonSchema(schema, "S").definitions?.S,
+            input,
+          });
+          const result = await aiJson(this.projectContext, "gpt4o", schema, this.projectContext.systemPrompt, input);
+          console.log("[GraphRunner] AI JSON result", result);
+          this.addNodeTrace(node, {
+            type: "ai-json-response",
+            chatId: traceId,
+            result,
+          });
+          return result;
+        } catch (e) {
+          console.error(e);
+          console.error(JSON.stringify(e, null, 2));
+          throw e;
+        }
       },
     };
 
@@ -300,6 +320,31 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     const writable = await fileHandle.createWritable();
     await writable.write(content);
     await writable.close();
+  }
+
+  public async resetNode(nodeId: string) {
+    const node = this.nodes[nodeId];
+    if (!node) throw new Error("Node not found");
+
+    // delete all nodes created as a side effect of the node
+    const deletedNodes = new Set<string>();
+    const deleteNode = (subNodeId: string) => {
+      if (deletedNodes.has(subNodeId)) return;
+      deletedNodes.add(subNodeId);
+
+      this.nodes[subNodeId]?.state?.createdNodes?.forEach((id) => deleteNode(id));
+      delete this.nodes[subNodeId];
+    };
+    node.state?.createdNodes?.forEach((id) => deleteNode(id));
+
+    // clear node state
+    delete node.state;
+
+    // remove deleted nodes from other nodes' dependencies
+    Object.values(this.nodes).forEach((n) => {
+      n.dependencies = n.dependencies?.filter((id) => !deletedNodes.has(id));
+    });
+    this.emit("dataChanged");
   }
 
   private addTrace(event: OmitUnion<(typeof GraphRunner.prototype.trace)[number], "timestamp">) {

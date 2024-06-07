@@ -220,6 +220,7 @@ Currently working on the project "${projectName}".
         {selectedPage?.graphData ? (
           <GraphCanvas
             graphData={selectedPage.graphData}
+            isGraphRunning={runGraph.loading}
             selectedNodeId={selectedNodeId}
             setSelectedNodeId={setSelectedNodeId}
             actions={
