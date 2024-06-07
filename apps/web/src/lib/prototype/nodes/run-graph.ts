@@ -197,16 +197,8 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           this.addNodeTrace(node, { type: "write-file", path, content, dryRun: true });
           return;
         }
-        console.log("[GraphRunner] Write file", path);
-        const dir = dirname(path);
-        const name = path.split("/").at(-1)!;
-        const dirHandle = await this.getFileHandle(dir, undefined, true);
-        if (dirHandle?.kind !== "directory") throw new Error(`Directory not found: ${dir}`);
-        const fileHandle = await dirHandle.getFileHandle(name, { create: true });
-        const writable = await fileHandle.createWritable();
-        await writable.write(content);
-        await writable.close();
 
+        await this.writeFile(path, content);
         this.addNodeTrace(node, { type: "write-file", path, content });
       },
 
@@ -296,6 +288,18 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 
   public toData() {
     return { nodes: { ...this.nodes }, trace: [...this.trace] };
+  }
+
+  public async writeFile(path: string, content: string) {
+    console.log("[GraphRunner] Write file", path);
+    const dir = dirname(path);
+    const name = path.split("/").at(-1)!;
+    const dirHandle = await this.getFileHandle(dir, undefined, true);
+    if (dirHandle?.kind !== "directory") throw new Error(`Directory not found: ${dir}`);
+    const fileHandle = await dirHandle.getFileHandle(name, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(content);
+    await writable.close();
   }
 
   private addTrace(event: OmitUnion<(typeof GraphRunner.prototype.trace)[number], "timestamp">) {

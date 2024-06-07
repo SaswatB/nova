@@ -173,9 +173,9 @@ export function SpaceEditor({
   const [refreshIndex, setRefreshIndex] = useState(0); // refreshes the graph runner
   const graphRunner = useMemo(
     () =>
-      !!selectedPage?.graphData &&
-      handle.result &&
-      GraphRunner.fromData(getProjectContext(projectId, handle.result, trpcClient, dryRun), selectedPage.graphData),
+      !!selectedPage?.graphData && handle.result
+        ? GraphRunner.fromData(getProjectContext(projectId, handle.result, trpcClient, dryRun), selectedPage.graphData)
+        : undefined,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [!!selectedPage?.graphData, selectedPageId, handle.result, refreshIndex, dryRun],
   );
@@ -279,6 +279,7 @@ Currently working on the project "${projectName}".
           <NodeViewer
             key={selectedNodeId}
             graphData={selectedPage?.graphData!}
+            graphRunner={graphRunner}
             node={selectedNode}
             onChangeNode={(apply) => {
               setPages(
@@ -318,7 +319,7 @@ Currently working on the project "${projectName}".
                   "timestamp",
                 ),
               ).map((trace, i) => (
-                <TraceElementView key={i} trace={trace} />
+                <TraceElementView key={i} trace={trace} graphRunner={graphRunner} />
               ))}
             </VList>
           </Stack>

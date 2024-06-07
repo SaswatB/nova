@@ -1,15 +1,25 @@
 import { useState } from "react";
-import { Badge, Card, TextArea } from "@radix-ui/themes";
+import { useAsyncCallback } from "react-async-hook";
+import { toast } from "react-toastify";
+import { Badge, Button, Card, TextArea } from "@radix-ui/themes";
 import { startCase } from "lodash";
 import { css } from "styled-system/css";
 import { Flex, styled } from "styled-system/jsx";
 
-import { GraphTraceEvent, NNode, NNodeTraceEvent } from "../lib/prototype/nodes/run-graph";
+import { GraphRunner, GraphTraceEvent, NNode, NNodeTraceEvent } from "../lib/prototype/nodes/run-graph";
 
 export const traceElementSourceSymbol = Symbol("traceElementSource");
 export type TraceElement = GraphTraceEvent | (NNodeTraceEvent & { [traceElementSourceSymbol]: NNode });
-export function TraceElementView({ trace }: { trace: TraceElement }) {
+export function TraceElementView({ trace, graphRunner }: { trace: TraceElement; graphRunner?: GraphRunner }) {
   const [expanded, setExpanded] = useState(false);
+  const writeFileAsync = useAsyncCallback(
+    async (path: string, content: string) => graphRunner?.writeFile(path, content),
+    {
+      onSuccess: () => toast.success("File saved"),
+      onError: (error) => toast.error("Failed to save file: " + error),
+    },
+  );
+
   return (
     <Card className={css({ flex: "none", mx: 16, my: 8 })}>
       <Flex
@@ -36,13 +46,25 @@ export function TraceElementView({ trace }: { trace: TraceElement }) {
         </styled.div>
       </Flex>
       {expanded && (
-        <TextArea
-          className={css({ mt: 4 })}
-          value={JSON.stringify(trace, null, 2)}
-          readOnly
-          resize="vertical"
-          rows={20}
-        />
+        <>
+          {trace.type === "write-file" && (
+            <>
+              <Button
+                loading={writeFileAsync.loading}
+                onClick={() => void writeFileAsync.execute(trace.path, trace.content)}
+              >
+                Re-save
+              </Button>
+            </>
+          )}
+          <TextArea
+            className={css({ mt: 4 })}
+            value={JSON.stringify(trace, null, 2)}
+            readOnly
+            resize="vertical"
+            rows={20}
+          />
+        </>
       )}
     </Card>
   );

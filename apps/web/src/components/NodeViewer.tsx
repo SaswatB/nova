@@ -4,16 +4,18 @@ import { reverse, startCase } from "lodash";
 import { Stack, styled } from "styled-system/jsx";
 
 import { NNodeValue } from "../lib/prototype/nodes/node-types";
-import { GraphRunnerData } from "../lib/prototype/nodes/run-graph";
+import { GraphRunner, GraphRunnerData } from "../lib/prototype/nodes/run-graph";
 import { traceElementSourceSymbol, TraceElementView } from "./TraceElementView";
 import { createTextAreaRefArrayField, createTextAreaRefField, ZodForm } from "./ZodForm";
 
 export function NodeViewer({
   graphData,
+  graphRunner,
   node,
   onChangeNode,
 }: {
   graphData: GraphRunnerData;
+  graphRunner?: GraphRunner;
   node: GraphRunnerData["nodes"][number];
   onChangeNode: (apply: (draft: GraphRunnerData["nodes"][number]) => void) => void;
 }) {
@@ -50,7 +52,7 @@ export function NodeViewer({
         "No state yet"
       )}
       {reverse(trace || []).map((t, i) => (
-        <TraceElementView key={i} trace={{ ...t, [traceElementSourceSymbol]: node }} />
+        <TraceElementView key={i} trace={{ ...t, [traceElementSourceSymbol]: node }} graphRunner={graphRunner} />
       )) || null}
     </Stack>
   );
