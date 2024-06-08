@@ -8,8 +8,8 @@ import { Flex, Stack } from "styled-system/jsx";
 import { z } from "zod";
 
 import { useZodForm } from "../lib/hooks/useZodForm";
-import { isNodeRef } from "../lib/prototype/nodes/ref-types";
-import { GraphRunnerData, resolveNodeRef } from "../lib/prototype/nodes/run-graph";
+import { isNodeRef } from "../lib/nodes/ref-types";
+import { GraphRunnerData, resolveNodeRef } from "../lib/nodes/run-graph";
 import { FormHelper } from "./base/FormHelper";
 
 export function ZodForm<T extends z.ZodObject<any>>({

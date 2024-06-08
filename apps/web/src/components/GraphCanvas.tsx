@@ -26,7 +26,7 @@ import {
 import { startCase } from "lodash";
 import { Flex, Stack } from "styled-system/jsx";
 
-import { GraphRunnerData, NNode } from "../lib/prototype/nodes/run-graph";
+import { GraphRunnerData, NNode } from "../lib/nodes/run-graph";
 
 const convertChatNodesToFlowElements = (graphNodes: GraphRunnerData["nodes"]): { nodes: Node[]; edges: Edge[] } => {
   const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
@@ -88,13 +88,15 @@ CustomNodeView.displayName = "CustomNodeView";
 export function GraphCanvas({
   graphData,
   isGraphRunning,
-  actions,
+  topLeftActions,
+  topRightActions,
   selectedNodeId,
   setSelectedNodeId,
 }: {
   graphData: GraphRunnerData;
   isGraphRunning: boolean;
-  actions: ReactNode;
+  topLeftActions?: ReactNode;
+  topRightActions?: ReactNode;
   selectedNodeId: string | null;
   setSelectedNodeId: Dispatch<SetStateAction<string | null>>;
 }) {
@@ -133,7 +135,8 @@ export function GraphCanvas({
             if (selected.length) setSelectedNodeId(selected.find((s) => s.selected)?.id || null);
           }}
         >
-          <Panel position="top-right">{actions}</Panel>
+          <Panel position="top-left">{topLeftActions}</Panel>
+          <Panel position="top-right">{topRightActions}</Panel>
           <Controls />
           <Background />
         </ReactFlow>

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { AppTRPCClient } from "../../trpc-client";
+import { AppTRPCClient } from "../trpc-client";
 import { NNodeRef, NNodeRefAccessorSchema, NNodeRefAccessorSchemaMap, orRef } from "./ref-types";
 
 export enum NNodeType {

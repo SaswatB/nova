@@ -16,8 +16,8 @@ import { z } from "zod";
 
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
-import { ProjectContext } from "../lib/prototype/nodes/node-types";
-import { GraphRunner, GraphRunnerData } from "../lib/prototype/nodes/run-graph";
+import { ProjectContext } from "../lib/nodes/node-types";
+import { GraphRunner, GraphRunnerData } from "../lib/nodes/run-graph";
 import { AppTRPCClient, trpc } from "../lib/trpc-client";
 import { newId } from "../lib/uid";
 import { Loader } from "./base/Loader";
@@ -223,7 +223,7 @@ Currently working on the project "${projectName}".
             isGraphRunning={runGraph.loading}
             selectedNodeId={selectedNodeId}
             setSelectedNodeId={setSelectedNodeId}
-            actions={
+            topRightActions={
               <Flex css={{ alignItems: "center", gap: 24 }}>
                 <label>
                   <Flex css={{ alignItems: "center", gap: 8 }}>

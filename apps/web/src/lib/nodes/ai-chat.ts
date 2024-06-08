@@ -3,7 +3,7 @@ import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
 
 import { generateCacheKey } from "../hash";
-import { ProjectContext } from "./nodes/node-types";
+import { ProjectContext } from "./node-types";
 
 export async function aiChat(
   ctx: ProjectContext,

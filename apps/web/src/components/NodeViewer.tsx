@@ -6,8 +6,8 @@ import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 import { match, P } from "ts-pattern";
 
-import { NNodeType, NNodeValue } from "../lib/prototype/nodes/node-types";
-import { GraphRunner, GraphRunnerData, NNode, resolveNodeRefOrValue } from "../lib/prototype/nodes/run-graph";
+import { NNodeType, NNodeValue } from "../lib/nodes/node-types";
+import { GraphRunner, GraphRunnerData, NNode, resolveNodeRefOrValue } from "../lib/nodes/run-graph";
 import { Well } from "./base/Well";
 import { traceElementSourceSymbol, TraceElementView } from "./TraceElementView";
 import { createTextAreaRefArrayField, createTextAreaRefField, ZodForm } from "./ZodForm";

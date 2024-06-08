@@ -5,8 +5,8 @@ import { cloneDeep, get, isEqual } from "lodash";
 import { match } from "ts-pattern";
 import zodToJsonSchema from "zod-to-json-schema";
 
-import { newId } from "../../uid";
-import { aiChat, aiJson } from "../ai-chat";
+import { newId } from "../uid";
+import { aiChat, aiJson } from "./ai-chat";
 import { NNodeResult, NNodeType, NNodeValue, NodeRunnerContext, ProjectContext } from "./node-types";
 import {
   isNodeRef,

@@ -5,8 +5,7 @@ import { uniq } from "lodash";
 import pLimit from "p-limit";
 import { z } from "zod";
 
-import { generateCacheKey } from "../../hash";
-import { getDepTree } from "../ts-utils";
+import { generateCacheKey } from "../hash";
 import {
   NNodeResult,
   NNodeType,
@@ -16,6 +15,7 @@ import {
   ResearchedFileSystem,
 } from "./node-types";
 import { ResolveRefs } from "./ref-types";
+import { getDepTree } from "./ts-utils";
 
 function checkIgnores(ignores: { dir: string; ignore: Ignore }[], path: string) {
   for (const { dir, ignore } of ignores) {

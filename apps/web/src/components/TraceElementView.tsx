@@ -6,7 +6,7 @@ import { startCase } from "lodash";
 import { css } from "styled-system/css";
 import { Flex, styled } from "styled-system/jsx";
 
-import { GraphRunner, GraphTraceEvent, NNode, NNodeTraceEvent } from "../lib/prototype/nodes/run-graph";
+import { GraphRunner, GraphTraceEvent, NNode, NNodeTraceEvent } from "../lib/nodes/run-graph";
 
 export const traceElementSourceSymbol = Symbol("traceElementSource");
 export type TraceElement = GraphTraceEvent | (NNodeTraceEvent & { [traceElementSourceSymbol]: NNode });
