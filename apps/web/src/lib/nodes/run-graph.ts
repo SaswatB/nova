@@ -128,7 +128,8 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 
   private async startNode<T extends NNodeType>(
     node: NNode & { value: { type: T } },
-    addToRunStack: (node: NNode) => void,
+    queueNode: (node: NNode) => void,
+    startNode: <U extends NNodeType>(node: NNode & { value: { type: U } }) => Promise<NNodeResult & { type: U }>,
   ): Promise<NNodeResult & { type: T }> {
     console.log("[GraphRunner] Starting node", node.value);
     this.addTrace({ type: "start-node", node });
@@ -140,7 +141,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         const newNode: NNode = { id: newId.graphNode(), value: newNodeValue, dependencies: [node.id] };
         this.nodes[newNode.id] = newNode;
         ((node.state ||= {}).createdNodes ||= []).push(newNode.id);
-        addToRunStack(newNode);
+        queueNode(newNode);
         this.addNodeTrace(node, { type: "dependant", node: newNode });
       },
       getOrAddDependencyForResult: async (nodeValue, inheritDependencies) => {
@@ -168,7 +169,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           ((node.state ||= {}).createdNodes ||= []).push(depNode.id);
           this.addNodeTrace(node, { type: "dependency", node: depNode });
 
-          subResult = await this.startNode(depNode, addToRunStack);
+          subResult = await startNode(depNode);
         }
 
         console.log("[GraphRunner] Dependency result", subResult);
@@ -291,18 +292,34 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         delete node.state;
       }
     });
+    const nodePromises = new Map<string, Promise<NNodeResult>>();
+
+    const startNodeWrapped = (node: NNode): Promise<NNodeResult> => {
+      if (!nodePromises.has(node.id)) {
+        nodePromises.set(
+          node.id,
+          this.startNode(node, (newNode) => runStack.push(newNode), startNodeWrapped as any),
+        );
+      }
+      return nodePromises.get(node.id)!;
+    };
 
     this.addTrace({ type: "start" });
     // run the graph, keep consuming nodes until all nodes are completed
     while (runStack.length > 0) {
-      const node = runStack.pop()!;
-      if (node.state?.startedAt) continue;
-      if (node.dependencies?.some((id) => !this.nodes[id]?.state?.completedAt)) {
-        runStack.unshift(node); // todo do this better
-        continue;
-      }
-      await this.startNode(node, (newNode) => runStack.push(newNode));
+      const runnableNodes = runStack.filter(
+        (node) =>
+          !node.state?.startedAt &&
+          !node.state?.completedAt &&
+          !node.dependencies?.some((id) => !this.nodes[id]?.state?.completedAt),
+      );
+      if (runnableNodes.length === 0) throw new Error("No runnable nodes");
+      runnableNodes.forEach((node) => runStack.splice(runStack.indexOf(node), 1));
+
+      // run all runnable nodes in parallel
+      await Promise.all(runnableNodes.map(startNodeWrapped));
     }
+    // todo clean up any outstanding promises with rejects
     this.addTrace({ type: "end" });
   }
 
