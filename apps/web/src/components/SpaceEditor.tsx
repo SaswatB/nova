@@ -23,7 +23,7 @@ import { newId } from "../lib/uid";
 import { Loader } from "./base/Loader";
 import { GraphCanvas } from "./GraphCanvas";
 import { NodeViewer } from "./NodeViewer";
-import { TraceElement, traceElementSourceSymbol, TraceElementView } from "./TraceElementView";
+import { traceElementSourceSymbol, TraceElementView } from "./TraceElementView";
 import { useAddVoiceFunction, useAddVoiceStatus } from "./VoiceChat";
 import { textAreaField, ZodForm } from "./ZodForm";
 
@@ -325,11 +325,20 @@ Currently working on the project "${projectName}".
               <styled.h2 css={{ fontSize: 16, fontWeight: "bold", mt: 8, ml: 16, py: 8 }}>Graph Trace</styled.h2>
               {reverse(
                 sortBy(
-                  selectedPage.graphData.trace.flatMap((t): TraceElement[] =>
-                    t.type === "start-node"
-                      ? [t, ...(t.node.state?.trace || []).map((tr) => ({ ...tr, [traceElementSourceSymbol]: t.node }))]
-                      : [t],
-                  ),
+                  [
+                    ...selectedPage.graphData.trace,
+                    ...uniqBy(
+                      selectedPage.graphData.trace.filter(
+                        (t): t is GraphTraceEvent & { type: "start-node" } => t.type === "start-node",
+                      ),
+                      "node.id",
+                    ).flatMap((t) =>
+                      (selectedPage.graphData?.nodes[t.node.id]?.state?.trace || []).map((tr) => ({
+                        ...tr,
+                        [traceElementSourceSymbol]: selectedPage.graphData!.nodes[t.node.id]!,
+                      })),
+                    ),
+                  ],
                   "timestamp",
                 ),
               ).map((trace, i) => (
