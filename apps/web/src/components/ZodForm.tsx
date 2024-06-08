@@ -1,64 +1,71 @@
 import { Fragment, ReactNode, useImperativeHandle } from "react";
-import { Control, SetValueConfig, useController, UseFormRegisterReturn, UseFormReturn } from "react-hook-form";
+import {
+  Control,
+  DefaultValues,
+  Path,
+  PathValue,
+  SetValueConfig,
+  useController,
+  UseFormRegisterReturn,
+  UseFormReturn,
+} from "react-hook-form";
 import { Link1Icon, TrashIcon } from "@radix-ui/react-icons";
 import { Button, IconButton, TextArea, TextField, Tooltip } from "@radix-ui/themes";
 import { startCase } from "lodash";
 import { css } from "styled-system/css";
 import { Flex, Stack } from "styled-system/jsx";
-import { z } from "zod";
+import { UnknownKeysParam, z, ZodTypeAny } from "zod";
 
 import { useZodForm } from "../lib/hooks/useZodForm";
 import { isNodeRef } from "../lib/nodes/ref-types";
 import { GraphRunnerData, resolveNodeRef } from "../lib/nodes/run-graph";
 import { FormHelper } from "./base/FormHelper";
 
-export function ZodForm<T extends z.ZodObject<any>>({
+export type ZodFormRef<T extends Record<string, unknown>> = {
+  setValue: (name: Path<T>, value: PathValue<T, Path<T>>, options?: SetValueConfig) => void;
+  getValue: (name: Path<T>) => PathValue<T, Path<T>>;
+  reset: () => void;
+};
+
+export function ZodForm<T extends Record<string, unknown>>({
   formRef,
   defaultValues,
   schema,
   overrideFieldMap,
   onSubmit,
 }: {
-  formRef?: React.Ref<{
-    reset: () => void;
-    getValue: (name: keyof z.infer<T>) => unknown;
-    setValue: (name: keyof z.infer<T>, value: unknown, options?: SetValueConfig) => void;
-  }>;
-  defaultValues?: z.infer<T>;
-  schema: T;
+  formRef?: React.Ref<ZodFormRef<T>>;
+  defaultValues?: DefaultValues<T>;
+  schema: z.ZodObject<{ [K in keyof T]: z.ZodType<T[K]> }, UnknownKeysParam, ZodTypeAny, T, T>;
   overrideFieldMap?: Partial<
     Record<
-      keyof z.infer<T>,
+      keyof T,
       | {
           label?: string;
           renderField?: (options: {
             register: () => UseFormRegisterReturn;
             error?: string;
-            form: UseFormReturn<z.infer<T>>;
-            name: keyof z.infer<T>;
+            form: UseFormReturn<T>;
+            name: keyof T;
           }) => ReactNode;
           helper?: string;
         }
       | ((options: {
           register: () => UseFormRegisterReturn;
           error?: string;
-          form: UseFormReturn<z.infer<T>>;
-          name: keyof z.infer<T>;
+          form: UseFormReturn<T>;
+          name: keyof T;
         }) => ReactNode)
     >
   >;
-  onSubmit: (values: z.infer<T>) => void | Promise<void>;
+  onSubmit: (values: T) => void | Promise<void>;
 }) {
-  const form = useZodForm({ schema, defaultValues } as any);
-  useImperativeHandle(
-    formRef,
-    () => ({
-      setValue: form.setValue as any,
-      getValue: form.getValues,
-      reset: form.reset,
-    }),
-    [form.getValues, form.reset, form.setValue],
-  );
+  const form = useZodForm({ schema, defaultValues });
+  useImperativeHandle(formRef, () => ({ setValue: form.setValue, getValue: form.getValues, reset: form.reset }), [
+    form.getValues,
+    form.reset,
+    form.setValue,
+  ]);
   const handleSubmit = form.handleSubmit(async (values) => {
     await onSubmit(values);
     form.reset(values);
@@ -67,13 +74,13 @@ export function ZodForm<T extends z.ZodObject<any>>({
   const fields = Object.keys(schema.shape).map((key) => {
     let field = schema.shape[key];
     const error = form.formState.errors[key]?.message?.toString();
-    const register = () => form.register(key);
+    const register = () => form.register(key as Path<T>);
 
     let fieldNode: ReactNode | undefined;
     let helper: string | undefined;
-    let label = field.description || startCase(key);
+    let label = field?.description || startCase(key);
     if (overrideFieldMap && key in overrideFieldMap) {
-      const override = overrideFieldMap[key as keyof z.infer<T>]!;
+      const override = overrideFieldMap[key as keyof T]!;
       if (typeof override === "function")
         return <Fragment key={key}>{override({ register, error, form, name: key })}</Fragment>;
       fieldNode = override.renderField?.({ register, error, form, name: key });
@@ -82,17 +89,6 @@ export function ZodForm<T extends z.ZodObject<any>>({
     }
 
     if (!fieldNode) {
-      // if (
-      //   // remove union type for refs
-      //   field instanceof z.ZodUnion &&
-      //   isArray(field.options) &&
-      //   field.options.length === 2 &&
-      //   field.options[1] instanceof z.ZodObject &&
-      //   field.options[1].shape.sym instanceof z.ZodLiteral &&
-      //   field.options[1].shape.sym.value === nnodeRefSymbol
-      // ) {
-      //   field = field.options[0];
-      // }
       if (field instanceof z.ZodString) {
         fieldNode = <TextField.Root {...register()} />;
       } else {

@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAsync, useAsyncCallback } from "react-async-hook";
-import { SetValueConfig } from "react-hook-form";
 import { toast } from "react-toastify";
 import { Button, Checkbox, Dialog } from "@radix-ui/themes";
 import { VoiceStatusPriority } from "@repo/shared";
 import * as idb from "idb-keyval";
 import { produce } from "immer";
-import { reverse, sortBy } from "lodash";
+import { reverse, sortBy, uniqBy } from "lodash";
 import { Pane } from "split-pane-react";
 import SplitPane from "split-pane-react/esm/SplitPane";
 import { Flex, Stack, styled } from "styled-system/jsx";
@@ -17,7 +16,7 @@ import { z } from "zod";
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
 import { ProjectContext } from "../lib/nodes/node-types";
-import { GraphRunner, GraphRunnerData } from "../lib/nodes/run-graph";
+import { GraphRunner, GraphRunnerData, GraphTraceEvent } from "../lib/nodes/run-graph";
 import { AppTRPCClient, trpc } from "../lib/trpc-client";
 import { newId } from "../lib/uid";
 import { Loader } from "./base/Loader";
@@ -25,7 +24,7 @@ import { GraphCanvas } from "./GraphCanvas";
 import { NodeViewer } from "./NodeViewer";
 import { traceElementSourceSymbol, TraceElementView } from "./TraceElementView";
 import { useAddVoiceFunction, useAddVoiceStatus } from "./VoiceChat";
-import { textAreaField, ZodForm } from "./ZodForm";
+import { textAreaField, ZodForm, ZodFormRef } from "./ZodForm";
 
 const getProjectContext = (
   projectId: string,
@@ -92,19 +91,16 @@ Provide useful responses, make sure to consider when to stay high level and when
   dryRun,
 });
 
+const NewPlanSchema = z.object({ goal: z.string().min(1) });
 function NewPlan({ onNewGoal }: { onNewGoal: (goal: string) => void }) {
-  const [form, setForm] = useState<{
-    reset: () => void;
-    getValue: (name: "goal") => unknown;
-    setValue: (name: "goal", value: unknown, options?: SetValueConfig) => void;
-  } | null>(null);
+  const [form, setForm] = useState<ZodFormRef<z.infer<typeof NewPlanSchema>> | null>(null);
   const [open, setOpen] = useState(false);
 
   // super ugly hack, idk a better way
   const [goal, setGoal] = useState("");
   useEffect(() => {
     if (!open || !form) return;
-    const intervalId = setInterval(() => setGoal(`${form.getValue("goal") || ""}`), 500);
+    const intervalId = setInterval(() => setGoal(form.getValue("goal") || ""), 500);
     return () => clearInterval(intervalId);
   }, [open, form]);
 
@@ -137,7 +133,7 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
         <Dialog.Title>New Plan</Dialog.Title>
         <ZodForm
           formRef={setForm}
-          schema={z.object({ goal: z.string().min(1) })}
+          schema={NewPlanSchema}
           overrideFieldMap={{ goal: textAreaField }}
           onSubmit={({ goal }) => {
             onNewGoal(goal);
