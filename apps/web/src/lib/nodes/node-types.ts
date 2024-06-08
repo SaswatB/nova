@@ -56,7 +56,7 @@ export type NNodeResult =
   | { type: NNodeType.Plan; result: string }
   | { type: NNodeType.Execute; result: string }
   | { type: NNodeType.CreateChangeSet; result: unknown }
-  | { type: NNodeType.ApplyFileChanges; result: string };
+  | { type: NNodeType.ApplyFileChanges; original: string; result: string };
 
 export interface ProjectContext {
   projectId: string;

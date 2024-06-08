@@ -1,3 +1,4 @@
+import { toast } from "react-toastify";
 import { isDefined } from "@repo/shared";
 import ignore, { Ignore } from "ignore";
 import llamaTokenizer from "llama-tokenizer-js";
@@ -249,6 +250,7 @@ const runners: {
 } = {
   [NNodeType.Output]: async (value) => {
     console.log("[OutputNode] ", value.description, value.value);
+    toast.info(`[OutputNode] ${value.value}`, { autoClose: false });
     return { type: NNodeType.Output };
   },
 
@@ -432,6 +434,7 @@ ${value.rawChangeSet}`.trim(),
   [NNodeType.ApplyFileChanges]: async (value, nrc) => {
     const existingFile = await nrc.readFile(value.path);
     if (existingFile.type === "directory") throw new Error("Cannot apply changes to a directory");
+    const original = existingFile.type === "file" ? existingFile.content : "";
 
     let output = await nrc.aiChat("geminiFlash", [
       {
@@ -444,7 +447,7 @@ ${nrc.projectContext.rules.join("\n")}
 Please take the following change set and output the final file, if it looks like the changes are a full file overwrite, output just the changes.
 Your response will directly overwrite the file, so you MUST not omit any of the file content.
 <file path="${value.path}">
-${existingFile.type === "file" ? existingFile.content : ""}
+${original}
 </file>
 <changes>
 ${value.changes.map((change) => `<change>${change}</change>`).join("\n")}
@@ -460,7 +463,7 @@ ${value.changes.map((change) => `<change>${change}</change>`).join("\n")}
     }
 
     await nrc.writeFile(value.path, output);
-    return { type: NNodeType.ApplyFileChanges, result: output };
+    return { type: NNodeType.ApplyFileChanges, original, result: output };
   },
 };
 

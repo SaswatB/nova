@@ -2,7 +2,7 @@ import Markdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { toast } from "react-toastify";
-import { Button } from "@radix-ui/themes";
+import { Badge, Button } from "@radix-ui/themes";
 import { Flex, styled } from "styled-system/jsx";
 
 export function Well({
@@ -92,7 +92,7 @@ export function Well({
       }}
     >
       <Flex css={{ mb: "8px" }}>
-        {title && <styled.div css={{ fontSize: "16px", fontWeight: "bold" }}>{title}</styled.div>}
+        {title && <Badge>{title}</Badge>}
         <styled.div css={{ flex: 1, minW: 12 }} />
         <Button
           variant="ghost"

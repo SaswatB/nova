@@ -10,7 +10,7 @@ import {
   useRef,
 } from "react";
 import Dagre from "@dagrejs/dagre";
-import { Badge } from "@radix-ui/themes";
+import { Badge, Button } from "@radix-ui/themes";
 import {
   Background,
   Controls,
@@ -137,6 +137,13 @@ export function GraphCanvas({
         >
           <Panel position="top-left">{topLeftActions}</Panel>
           <Panel position="top-right">{topRightActions}</Panel>
+          <Panel position="bottom-right">
+            {selectedNodeId ? (
+              <Button variant="soft" onClick={() => setSelectedNodeId(null)}>
+                Clear Selection
+              </Button>
+            ) : null}
+          </Panel>
           <Controls />
           <Background />
         </ReactFlow>

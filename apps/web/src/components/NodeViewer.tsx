@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ReactDiffViewer from "react-diff-viewer";
 import { toast } from "react-toastify";
 import { Button, Tabs, TextArea } from "@radix-ui/themes";
 import { reverse, startCase } from "lodash";
@@ -99,11 +100,8 @@ export function NodeViewer({
         ) => <Well title="Result">{JSON.stringify(res.result, null, 2)}</Well>,
       )
       .with({ type: NNodeType.ApplyFileChanges }, (res) => (
-        <Well
-          title="Result"
-          markdown
-          copyText={res.result}
-        >{`\`\`\`${node.value.type === NNodeType.ApplyFileChanges ? resolveNodeRefOrValue(node.value.path, graphData)?.replace(/.*\./, "") || "" : ""}\n${res.result}\n\`\`\``}</Well>
+        // todo syntax highlighting
+        <ReactDiffViewer oldValue={res.original} newValue={res.result} splitView={false} useDarkTheme />
       ))
       .exhaustive();
 
