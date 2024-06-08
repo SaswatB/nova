@@ -51,6 +51,7 @@
     "split-pane-react": "patch:split-pane-react@npm%3A0.1.3#~/.yarn/patches/split-pane-react-npm-0.1.3-1cc8da6424.patch",
     "ts-pattern": "^5.1.2",
     "typescript": "^5.4.5",
+    "use-debounce": "^10.0.1",
     "virtua": "^0.31.0",
     "zod": "^3.22.5",
     "zod-to-json-schema": "^3.23.0"

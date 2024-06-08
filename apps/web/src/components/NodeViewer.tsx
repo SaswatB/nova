@@ -2,7 +2,7 @@ import { useState } from "react";
 import ReactDiffViewer from "react-diff-viewer";
 import { toast } from "react-toastify";
 import { Button, Tabs, TextArea } from "@radix-ui/themes";
-import { reverse, startCase } from "lodash";
+import { reverse, sortBy, startCase } from "lodash";
 import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 import { match, P } from "ts-pattern";
@@ -188,7 +188,7 @@ export function NodeViewer({
           ) : null}
         </Tabs.Content>
         <Tabs.Content value="trace">
-          {reverse(trace || []).map((t, i) => (
+          {reverse(sortBy(trace || [], "timestamp")).map((t, i) => (
             <TraceElementView key={i} trace={{ ...t, [traceElementSourceSymbol]: node }} graphRunner={graphRunner} />
           )) || null}
         </Tabs.Content>

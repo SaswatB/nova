@@ -285,7 +285,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       }
     }
 
-    const runStack = Object.values(this.nodes);
+    const runStack = Object.values(this.nodes).filter((node) => !node.state?.completedAt);
     runStack.forEach((node) => {
       if (node.state?.startedAt && !node.state.completedAt) {
         console.warn("[GraphRunner] Node started but not completed, clearing state", node.value);
@@ -313,7 +313,10 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           !node.state?.completedAt &&
           !node.dependencies?.some((id) => !this.nodes[id]?.state?.completedAt),
       );
-      if (runnableNodes.length === 0) throw new Error("No runnable nodes");
+      if (runnableNodes.length === 0) {
+        console.log("[GraphRunner] No runnable nodes", runStack);
+        throw new Error("No runnable nodes");
+      }
       runnableNodes.forEach((node) => runStack.splice(runStack.indexOf(node), 1));
 
       // run all runnable nodes in parallel

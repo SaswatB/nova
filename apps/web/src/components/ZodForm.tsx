@@ -19,8 +19,9 @@ export function ZodForm<T extends z.ZodObject<any>>({
   overrideFieldMap,
   onSubmit,
 }: {
-  formRef?: React.RefObject<{
+  formRef?: React.Ref<{
     reset: () => void;
+    getValue: (name: keyof z.infer<T>) => unknown;
     setValue: (name: keyof z.infer<T>, value: unknown, options?: SetValueConfig) => void;
   }>;
   defaultValues?: z.infer<T>;
@@ -49,10 +50,15 @@ export function ZodForm<T extends z.ZodObject<any>>({
   onSubmit: (values: z.infer<T>) => void | Promise<void>;
 }) {
   const form = useZodForm({ schema, defaultValues } as any);
-  useImperativeHandle(formRef, () => ({
-    setValue: form.setValue as any,
-    reset: form.reset,
-  }));
+  useImperativeHandle(
+    formRef,
+    () => ({
+      setValue: form.setValue as any,
+      getValue: form.getValues,
+      reset: form.reset,
+    }),
+    [form.getValues, form.reset, form.setValue],
+  );
   const handleSubmit = form.handleSubmit(async (values) => {
     await onSubmit(values);
     form.reset(values);

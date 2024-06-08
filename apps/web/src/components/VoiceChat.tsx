@@ -9,6 +9,7 @@ import { atom, useAtomValue, useSetAtom } from "jotai";
 import { throttle } from "lodash";
 import { io, Socket } from "socket.io-client";
 import { Flex, Stack, styled } from "styled-system/jsx";
+import { useDebounce } from "use-debounce";
 import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
 
@@ -172,11 +173,13 @@ export function useAddVoiceFunction<T extends z.ZodObject<any>>(
 
 export function useAddVoiceStatus(description: string, priority = VoiceStatusPriority.MEDIUM, enabled = true) {
   const setVoiceState = useSetAtom(voiceStateAtom);
+  const [debouncedDescription] = useDebounce(description, 300);
+
   useEffect(() => {
     if (!enabled) return;
     const id = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    const status = { id, description, priority };
+    const status = { id, description: debouncedDescription, priority };
     setVoiceState((prev) => ({ ...prev, status: [...prev.status, status] }));
     return () => setVoiceState((prev) => ({ ...prev, status: prev.status.filter((s) => s.id !== status.id) }));
-  }, [description, priority, setVoiceState, enabled]);
+  }, [debouncedDescription, priority, setVoiceState, enabled]);
 }

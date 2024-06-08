@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAsync, useAsyncCallback } from "react-async-hook";
 import { SetValueConfig } from "react-hook-form";
 import { toast } from "react-toastify";
@@ -93,15 +93,26 @@ Provide useful responses, make sure to consider when to stay high level and when
 });
 
 function NewPlan({ onNewGoal }: { onNewGoal: (goal: string) => void }) {
-  const formRef = useRef<{
+  const [form, setForm] = useState<{
     reset: () => void;
+    getValue: (name: "goal") => unknown;
     setValue: (name: "goal", value: unknown, options?: SetValueConfig) => void;
   } | null>(null);
   const [open, setOpen] = useState(false);
 
+  // super ugly hack, idk a better way
+  const [goal, setGoal] = useState("");
+  useEffect(() => {
+    if (!open || !form) return;
+    const intervalId = setInterval(() => setGoal(`${form.getValue("goal") || ""}`), 500);
+    return () => clearInterval(intervalId);
+  }, [open, form]);
+
   useAddVoiceStatus(
     `
-The user currently has a modal open to create a new change plan. They are currently need to enter a new goal for Nova to start generating a plan.
+The user currently has a modal open to create a new change plan.
+They are currently need to enter a new goal for Nova to start generating a plan.
+${goal ? `The currently entered goal is: ${goal}` : ""}
   `.trim(),
     VoiceStatusPriority.HIGH,
     open,
@@ -112,7 +123,7 @@ The user currently has a modal open to create a new change plan. They are curren
     "Propose a new goal. Example: 'Change the color of the navigation bar to purple'. The more detailed the goal, the better and feel free to use markdown.",
     z.object({ goal: z.string().min(1) }),
     ({ goal }) => {
-      formRef.current?.setValue("goal", goal, { shouldDirty: true });
+      form?.setValue("goal", goal, { shouldDirty: true });
     },
     open,
   );
@@ -125,7 +136,7 @@ The user currently has a modal open to create a new change plan. They are curren
       <Dialog.Content width="400px">
         <Dialog.Title>New Plan</Dialog.Title>
         <ZodForm
-          formRef={formRef}
+          formRef={setForm}
           schema={z.object({ goal: z.string().min(1) })}
           overrideFieldMap={{ goal: textAreaField }}
           onSubmit={({ goal }) => {
@@ -169,6 +180,8 @@ export function SpaceEditor({
   };
   const [selectedPageId, setSelectedPageId] = useLocalStorage<string | null>(`space:${spaceId}:selectedPageId`, null);
   const selectedPage = pagesRef.current?.find((page) => page.id === selectedPageId);
+  const [iterationActive, setIterationActive] = useState(false);
+  const [iterationPrompt, setIterationPrompt] = useState("");
 
   const [refreshIndex, setRefreshIndex] = useState(0); // refreshes the graph runner
   const graphRunner = useMemo(
