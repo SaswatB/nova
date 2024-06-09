@@ -133,7 +133,7 @@ export function ZodForm<T extends Record<string, unknown>>({
   );
 }
 
-export const textAreaField: FieldOverride = {
+export const textAreaField: FieldOverride<any> = {
   renderField: ({ register, onSubmit }) => (
     <TextArea resize="vertical" {...register()} onKeyDown={onSubmitEnter(onSubmit)} />
   ),
