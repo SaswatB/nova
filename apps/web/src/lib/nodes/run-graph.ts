@@ -6,6 +6,14 @@ import { match } from "ts-pattern";
 import zodToJsonSchema from "zod-to-json-schema";
 
 import { newId } from "../uid";
+import { ApplyFileChangesNNode } from "./defs/ApplyFileChangesNNode";
+import { CreateChangeSetNNode } from "./defs/CreateChangeSetNNode";
+import { ExecuteNNode } from "./defs/ExecuteNNode";
+import { OutputNNode } from "./defs/OutputNNode";
+import { PlanNNode } from "./defs/PlanNNode";
+import { ProjectAnalysisNNode } from "./defs/ProjectAnalysisNNode";
+import { RelevantFileAnalysisNNode } from "./defs/RelevantFileAnalysisNNode";
+import { TypescriptDepAnalysisNNode } from "./defs/TypescriptDepAnalysisNNode";
 import { aiChat, aiJson } from "./ai-chat";
 import { NNodeDef, NNodeResult, NNodeValue, NodeRunnerContext, ProjectContext } from "./node-types";
 import {
@@ -17,16 +25,6 @@ import {
   nnodeRefSymbol,
   ResolveRefs,
 } from "./ref-types";
-import {
-  ApplyFileChangesNNode,
-  CreateChangeSetNNode,
-  ExecuteNNode,
-  OutputNNode,
-  PlanNNode,
-  ProjectAnalysisNNode,
-  RelevantFileAnalysisNNode,
-  TypescriptDepAnalysisNNode,
-} from "./run-node";
 
 export type GraphTraceEvent =
   | { type: "start"; timestamp: number }
@@ -298,7 +296,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     this.addNodeTrace(node, { type: "result", result });
 
     this.addTrace({ type: "end-node", node });
-    console.log("[GraphRunner] Node completed", node.value);
+    console.log("[GraphRunner] Node completed", node.value, nodeResolvedValue);
     return result;
   }
 
