@@ -211,6 +211,29 @@ export function SpaceEditor({
   }, [graphRunner]);
   const runGraph = useAsyncCallback(async () => (graphRunner || undefined)?.run());
 
+  // todo lm_9616b7c13c add react router
+  // Use react-router-dom's useBlocker hook
+  // useBlocker(
+  //   (tx) => {
+  //     if (runGraph.loading) {
+  //       tx.block("Nova is currently running. Are you sure you want to navigate away?");
+  //     }
+  //   },
+  //   [runGraph.loading],
+  // );
+
+  // Use effect to handle browser navigation events
+  useEffect(() => {
+    if (!runGraph.loading) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      toast.warn("Nova is currently running.");
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [runGraph.loading]);
+
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const selectedNode = useMemo(
     () => selectedNodeId && selectedPage?.graphData?.nodes[selectedNodeId],
