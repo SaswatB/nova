@@ -27,6 +27,14 @@ export type ZodFormRef<T extends Record<string, unknown>> = {
   reset: () => void;
 };
 
+const onSubmitEnter = (onSubmit: () => void) => (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+    e.preventDefault();
+    e.currentTarget.blur();
+    onSubmit();
+  }
+};
+
 type FieldOverride<T extends Record<string, unknown> = Record<string, unknown>> =
   | {
       label?: string;
@@ -94,7 +102,7 @@ export function ZodForm<T extends Record<string, unknown>>({
 
     if (!fieldNode) {
       if (field instanceof z.ZodString) {
-        fieldNode = <TextField.Root {...register()} />;
+        fieldNode = <TextField.Root {...register()} onKeyDown={onSubmitEnter(handleSubmit)} />;
       } else {
         console.error("Unsupported field type", key, field);
         return null;
@@ -127,13 +135,7 @@ export function ZodForm<T extends Record<string, unknown>>({
 
 export const textAreaField: FieldOverride = {
   renderField: ({ register, onSubmit }) => (
-    <TextArea
-      resize="vertical"
-      {...register()}
-      onKeyDown={(e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") onSubmit();
-      }}
-    />
+    <TextArea resize="vertical" {...register()} onKeyDown={onSubmitEnter(onSubmit)} />
   ),
 };
 
@@ -182,9 +184,7 @@ function TextAreaRefField({
         readOnly={isRef}
         onBlur={field.onBlur}
         onChange={field.onChange}
-        onKeyDown={(e) => {
-          if ((e.ctrlKey || e.metaKey) && e.key === "Enter") onSubmit();
-        }}
+        onKeyDown={onSubmitEnter(onSubmit)}
       />
 
       {isRef ? <ResetRefButton onClick={() => field.onChange(refValue)} /> : null}
