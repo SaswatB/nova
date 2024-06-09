@@ -47,10 +47,14 @@ async function readFilesRecursively(
   if (file.type === "not-found" || file.type === "file") return [];
 
   const newIgnores = [...ignores];
-  const gitignore = await nrc.readFile(`${path}.gitignore`);
-  if (gitignore.type === "file") {
-    newIgnores.push({ dir: path, ignore: ignore().add(gitignore.content) });
-  }
+  await Promise.all(
+    [".gitignore", ".novaignore"].map(async (ignoreFileName) => {
+      const ignoreFile = await nrc.readFile(`${path}${ignoreFileName}`);
+      if (ignoreFile.type === "file") {
+        newIgnores.push({ dir: path, ignore: ignore().add(ignoreFile.content) });
+      }
+    }),
+  );
 
   const result: { path: string; content: string }[] = [];
 
