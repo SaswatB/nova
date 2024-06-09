@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Markdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -22,6 +22,42 @@ export function Well({
   copyText?: string;
 }) {
   const [markdown, setMarkdown] = useState(markdownPreferred);
+
+  const markdownContent = useMemo(() => {
+    if (!markdown) return children;
+    const lines = children.split("\n");
+    const finalLines = [];
+
+    // prompts use a lot of xml tags, so this tries to wrap them in code blocks to make them easier to read
+    let inCodeBlock = false;
+    let inXmlBlock: string | null = null;
+    for (let line of lines) {
+      if (line.trim().startsWith("```")) {
+        if (inXmlBlock) {
+          line = line.replace("```", "\\```"); // escape code blocks within xml
+        } else {
+          inCodeBlock = !inCodeBlock;
+        }
+      }
+      if (!inCodeBlock && !inXmlBlock) {
+        // todo try to block self closing tags
+        const match = line.match(/^<([a-zA-Z0-9_-]+)( .*)?>$/);
+        if (match) {
+          inXmlBlock = match[1]!;
+          finalLines.push("```xml");
+          console.log({ inXmlBlock, match });
+        }
+      }
+      finalLines.push(line);
+      if (inXmlBlock && line.match(new RegExp(`^</ *${inXmlBlock}>$`))) {
+        inXmlBlock = null;
+        finalLines.push("```");
+      }
+    }
+
+    return finalLines.join("\n");
+  }, [children, markdown]);
+
   return (
     <styled.div
       className={className}
@@ -47,6 +83,7 @@ export function Well({
           bg: "rgb(30, 30, 30)",
           px: "8px",
           py: "4px",
+          whiteSpace: "pre-wrap",
           borderRadius: "8px",
           overflowX: "auto",
           "& code": { bg: "unset" },
@@ -77,8 +114,15 @@ export function Well({
             code(props) {
               const { children, className, ref, node, ...rest } = props;
               const match = /language-(\w+)/.exec(className || "");
-              return match ? (
-                <SyntaxHighlighter {...rest} PreTag="div" language={match[1]} style={vscDarkPlus}>
+              const element = match ? (
+                <SyntaxHighlighter
+                  {...rest}
+                  PreTag="div"
+                  language={match[1]}
+                  style={vscDarkPlus}
+                  wrapLines
+                  wrapLongLines
+                >
                   {`${children}`.replace(/\n$/, "")}
                 </SyntaxHighlighter>
               ) : (
@@ -86,10 +130,14 @@ export function Well({
                   {children}
                 </code>
               );
+              if (!`${children}`.includes("\n")) {
+                return element;
+              }
+              return <CopyAndCollapsible copyText={`${children}`}>{element}</CopyAndCollapsible>;
             },
           }}
         >
-          {children}
+          {markdownContent}
         </Markdown>
       ) : code ? (
         <SyntaxHighlighter language={code} style={vscDarkPlus} wrapLines wrapLongLines>
@@ -98,6 +146,29 @@ export function Well({
       ) : (
         children
       )}
+    </styled.div>
+  );
+}
+
+function CopyAndCollapsible({ copyText, children }: { copyText: string; children: React.ReactNode }) {
+  const [collapsed, setCollapsed] = useState(false);
+  return (
+    <styled.div css={{ position: "relative", minH: "20px" }}>
+      <Flex css={{ position: "absolute", top: 0, right: 0, gap: 8 }}>
+        <Button variant="ghost" onClick={() => setCollapsed(!collapsed)}>
+          {collapsed ? "Expand" : "Collapse"}
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            navigator.clipboard.writeText(copyText);
+            toast.success("Copied to clipboard");
+          }}
+        >
+          Copy
+        </Button>
+      </Flex>
+      {collapsed ? null : children}
     </styled.div>
   );
 }

@@ -162,7 +162,7 @@ export function SpaceEditor({
   spaceId: string;
 }) {
   const trpcClient = trpc.useUtils().client;
-  const [dryRun, setDryRun] = useState(false);
+  const [dryRun, setDryRun] = useLocalStorage("dryRun", false);
 
   const [sizes, setSizes] = useLocalStorage<number[]>("space:sizes", [60, 40]);
   const handle = useAsync(() => idb.get<FileSystemDirectoryHandle>(`project:${projectId}:root`), [projectId]);
