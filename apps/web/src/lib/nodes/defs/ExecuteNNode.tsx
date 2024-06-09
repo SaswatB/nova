@@ -42,14 +42,14 @@ If creating a new file, please provide the full file content.`.trim(),
     },
     renderInputs: (v) => (
       <>
-        <Well title="Instructions" markdown>
+        <Well title="Instructions" markdownPreferred>
           {v.instructions}
         </Well>
         <Well title="Relevant Files">{v.relevantFiles.map((file) => file).join("\n") || ""}</Well>
       </>
     ),
     renderResult: (res) => (
-      <Well title="Result" markdown>
+      <Well title="Result" markdownPreferred>
         {res.result}
       </Well>
     ),

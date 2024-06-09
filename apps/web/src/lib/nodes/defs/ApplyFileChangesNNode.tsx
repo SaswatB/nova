@@ -45,7 +45,7 @@ ${value.changes.map((change) => `<change>${change}</change>`).join("\n")}
       return { original, result: output };
     },
     renderInputs: (v) => (
-      <Well title={`Changes ${v.path}`} markdown>
+      <Well title={`Changes ${v.path}`} markdownPreferred>
         {v.changes.map((change) => change).join("\n") || ""}
       </Well>
     ),

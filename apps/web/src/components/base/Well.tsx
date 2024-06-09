@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Markdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -9,15 +10,18 @@ export function Well({
   children,
   className,
   title,
-  markdown,
+  markdownPreferred,
+  code,
   copyText,
 }: {
   children: string;
   className?: string;
   title?: string;
-  markdown?: boolean;
+  markdownPreferred?: boolean;
+  code?: string; // if provided, will render as code with the language specified
   copyText?: string;
 }) {
+  const [markdown, setMarkdown] = useState(markdownPreferred);
   return (
     <styled.div
       className={className}
@@ -29,58 +33,16 @@ export function Well({
         whiteSpace: markdown ? "normal" : "pre-wrap",
 
         // styles for markdown
-        "& h1": {
-          fontSize: "24px",
-          fontWeight: "bold",
-          marginTop: "16px",
-          marginBottom: "8px",
-        },
-        "& h2": {
-          fontSize: "20px",
-          fontWeight: "bold",
-          marginTop: "14px",
-          marginBottom: "7px",
-        },
-        "& h3": {
-          fontSize: "18px",
-          fontWeight: "bold",
-          marginTop: "12px",
-          marginBottom: "6px",
-        },
-        "& h4": {
-          fontSize: "16px",
-          fontWeight: "bold",
-          marginTop: "10px",
-          marginBottom: "5px",
-        },
-        "& p": {
-          fontSize: "16px",
-          marginBottom: "10px",
-        },
-        "& ul": {
-          paddingLeft: "20px",
-          marginBottom: "10px",
-          listStyle: "revert",
-        },
-        "& ol": {
-          paddingLeft: "20px",
-          marginBottom: "10px",
-          listStyle: "revert",
-        },
-        "& li": {
-          fontSize: "16px",
-          marginBottom: "6px",
-        },
-        "& a": {
-          color: "blue",
-          textDecoration: "underline",
-        },
-        "& code": {
-          bg: "rgb(30, 30, 30)",
-          fontFamily: "monospace",
-          padding: "2px 4px",
-          borderRadius: "4px",
-        },
+        "& h1": { fontSize: "24px", fontWeight: "bold", marginTop: "16px", marginBottom: "8px" },
+        "& h2": { fontSize: "20px", fontWeight: "bold", marginTop: "14px", marginBottom: "7px" },
+        "& h3": { fontSize: "18px", fontWeight: "bold", marginTop: "12px", marginBottom: "6px" },
+        "& h4": { fontSize: "16px", fontWeight: "bold", marginTop: "10px", marginBottom: "5px" },
+        "& p": { fontSize: "16px", marginBottom: "10px" },
+        "& ul": { paddingLeft: "20px", marginBottom: "10px", listStyle: "revert" },
+        "& ol": { paddingLeft: "20px", marginBottom: "10px", listStyle: "revert" },
+        "& li": { fontSize: "16px", marginBottom: "6px" },
+        "& a": { color: "blue", textDecoration: "underline" },
+        "& code": { bg: "rgb(30, 30, 30)", fontFamily: "monospace", padding: "2px 4px", borderRadius: "4px" },
         "& pre": {
           bg: "rgb(30, 30, 30)",
           px: "8px",
@@ -91,9 +53,14 @@ export function Well({
         },
       }}
     >
-      <Flex css={{ mb: "8px" }}>
+      <Flex css={{ mb: "8px", gap: 16 }}>
         {title && <Badge>{title}</Badge>}
         <styled.div css={{ flex: 1, minW: 12 }} />
+        {markdownPreferred ? (
+          <Button variant="ghost" onClick={() => setMarkdown(!markdown)}>
+            {markdown ? "Markdown" : "Raw"}
+          </Button>
+        ) : null}
         <Button
           variant="ghost"
           onClick={() => {
@@ -124,9 +91,21 @@ export function Well({
         >
           {children}
         </Markdown>
+      ) : code ? (
+        <SyntaxHighlighter language={code} style={vscDarkPlus} wrapLines wrapLongLines>
+          {children}
+        </SyntaxHighlighter>
       ) : (
         children
       )}
     </styled.div>
+  );
+}
+
+export function renderJsonWell(title: string, json: unknown) {
+  return (
+    <Well title={title} code="json">
+      {JSON.stringify(json, null, 2)}
+    </Well>
   );
 }

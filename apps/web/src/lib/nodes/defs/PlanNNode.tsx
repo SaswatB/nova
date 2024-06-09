@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Well } from "../../../components/base/Well";
 import { createNodeDef } from "../node-types";
 import { orRef } from "../ref-types";
+import { ContextNNode, registerContextId } from "./ContextNNode";
 import { ExecuteNNode } from "./ExecuteNNode";
 import { ProjectAnalysisNNode, xmlFileSystemResearch } from "./ProjectAnalysisNNode";
 import { RelevantFileAnalysisNNode } from "./RelevantFileAnalysisNNode";
@@ -23,17 +24,22 @@ export const PlanNNode = createNodeDef(
         { goal: nrc.createNodeRef({ type: "value", path: "goal", schema: "string" }) },
         true,
       );
-      const res = await nrc.aiChat("gemini", [
+      const extraContext = await nrc.findNodeForResult(ContextNNode, (n) => n.contextId === PlanNNode_ContextId);
+      const res = await nrc.aiChat("opus", [
         {
           role: "user",
           content: `
 <context>
 ${nrc.projectContext.rules.join("\n")}
 </context>
+
+The following is an analysis of files that may be relevant to the goal.
+It may not be fully accurate as it was generated with heuristics and limited context, but it can be good context for planning.
 <relevantFilesAnalysis>
 ${relevantFilesAnalysis}
 </relevantFilesAnalysis>
-${xmlFileSystemResearch(researchResult, { showResearch: true, showFileContent: (f) => relevantFiles.includes(f) })}
+
+${xmlFileSystemResearch(researchResult, { showResearch: true, showFileContent: (f) => relevantFiles.includes(f) })}${extraContext ? `\n\n<extraContext>\n${extraContext.context}\n</extraContext>` : ""}
 
 Please create a plan for the following goal: ${value.goal}
 The plan should include a list of steps to achieve the goal, as well as any potential obstacles or challenges that may arise.
@@ -50,11 +56,17 @@ Contents for most files are omitted, but please comment on which files would be 
       });
       return { result: res };
     },
-    renderInputs: (v) => <Well title="Goal">{v.goal}</Well>,
+    renderInputs: (v) => (
+      <Well title="Goal" markdownPreferred>
+        {v.goal}
+      </Well>
+    ),
     renderResult: (res) => (
-      <Well title="Result" markdown>
+      <Well title="Result" markdownPreferred>
         {res.result}
       </Well>
     ),
   },
 );
+
+export const PlanNNode_ContextId = registerContextId(PlanNNode, "plan-context", "Extra context for plan creation");

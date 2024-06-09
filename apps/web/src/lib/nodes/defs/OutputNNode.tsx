@@ -1,7 +1,7 @@
 import { toast } from "react-toastify";
 import { z } from "zod";
 
-import { Well } from "../../../components/base/Well";
+import { renderJsonWell } from "../../../components/base/Well";
 import { createNodeDef } from "../node-types";
 import { orRef } from "../ref-types";
 
@@ -15,7 +15,7 @@ export const OutputNNode = createNodeDef(
       toast.info(`[OutputNode] ${value.value}`, { autoClose: false });
       return {};
     },
-    renderInputs: (v) => <Well title={v.description}>{JSON.stringify(v.value, null, 2)}</Well>,
+    renderInputs: (v) => renderJsonWell(v.description, v.value),
     renderResult: () => null,
   },
 );

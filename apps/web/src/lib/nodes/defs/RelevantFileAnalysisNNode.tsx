@@ -48,10 +48,14 @@ Goal: ${value.goal}
 
       return { result: rawRelevantFiles, files: relevantFiles };
     },
-    renderInputs: (v) => <Well title="Goal">{v.goal}</Well>,
+    renderInputs: (v) => (
+      <Well title="Goal" markdownPreferred>
+        {v.goal}
+      </Well>
+    ),
     renderResult: (res) => (
       <>
-        <Well title="Result" markdown>
+        <Well title="Result" markdownPreferred>
           {res.result}
         </Well>
         <Well title="Files">{res.files.join("\n")}</Well>

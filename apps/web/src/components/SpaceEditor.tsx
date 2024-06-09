@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAsync, useAsyncCallback } from "react-async-hook";
 import { toast } from "react-toastify";
-import { Button, Checkbox, Dialog } from "@radix-ui/themes";
+import { Button, Checkbox, Dialog, SegmentedControl, TextArea } from "@radix-ui/themes";
 import { VoiceStatusPriority } from "@repo/shared";
 import * as idb from "idb-keyval";
 import { produce } from "immer";
-import { reverse, sortBy, uniqBy } from "lodash";
+import { uniqBy } from "lodash";
 import { Pane } from "split-pane-react";
 import SplitPane from "split-pane-react/esm/SplitPane";
 import { Flex, Stack, styled } from "styled-system/jsx";
@@ -20,9 +20,10 @@ import { GraphRunner, GraphRunnerData, GraphTraceEvent } from "../lib/nodes/run-
 import { AppTRPCClient, trpc } from "../lib/trpc-client";
 import { newId } from "../lib/uid";
 import { Loader } from "./base/Loader";
+import { Select } from "./base/Select";
 import { GraphCanvas } from "./GraphCanvas";
 import { NodeViewer } from "./NodeViewer";
-import { traceElementSourceSymbol, TraceElementView } from "./TraceElementView";
+import { TraceElementList, traceElementSourceSymbol } from "./TraceElementView";
 import { useAddVoiceFunction, useAddVoiceStatus } from "./VoiceChat";
 import { textAreaField, ZodForm, ZodFormRef } from "./ZodForm";
 
@@ -116,7 +117,7 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
 
   useAddVoiceFunction(
     "propose_plan_goal",
-    "Propose a new goal. Example: 'Change the color of the navigation bar to purple'. The more detailed the goal, the better and feel free to use markdown.",
+    "Propose a new goal. Example: 'Change the color of the navigation bar to purple. Look at NavBar.tsx for a reference.'. The more detailed the goal, the better and feel free to use markdown. Make sure to include all the context that the user provides.",
     z.object({ goal: z.string().min(1) }),
     ({ goal }) => {
       form?.setValue("goal", goal, { shouldDirty: true });
@@ -276,7 +277,7 @@ Currently working on the project "${projectName}".
                   );
                 } else {
                   const id = newId.spacePage();
-                  setPages((p) => [...p, { id, name: `Page ${p.length + 1}`, graphData }]);
+                  setPages((p) => [...p, { id, name: `Iteration ${p.length + 1}`, graphData }]);
                   setSelectedPageId(id);
                 }
               }}
@@ -302,6 +303,7 @@ Currently working on the project "${projectName}".
               );
               setRefreshIndex(refreshIndex + 1);
             }}
+            onNodeNav={(node) => setSelectedNodeId(node.id)}
           />
         ) : !selectedPage?.graphData?.trace.length ? (
           <Stack
@@ -319,27 +321,24 @@ Currently working on the project "${projectName}".
           <Stack css={{ flex: 1 }}>
             <VList>
               <styled.h2 css={{ fontSize: 16, fontWeight: "bold", mt: 8, ml: 16, py: 8 }}>Graph Trace</styled.h2>
-              {reverse(
-                sortBy(
-                  [
-                    ...selectedPage.graphData.trace,
-                    ...uniqBy(
-                      selectedPage.graphData.trace.filter(
-                        (t): t is GraphTraceEvent & { type: "start-node" } => t.type === "start-node",
-                      ),
-                      "node.id",
-                    ).flatMap((t) =>
-                      (selectedPage.graphData?.nodes[t.node.id]?.state?.trace || []).map((tr) => ({
-                        ...tr,
-                        [traceElementSourceSymbol]: selectedPage.graphData!.nodes[t.node.id]!,
-                      })),
+              <TraceElementList
+                trace={[
+                  ...selectedPage.graphData.trace,
+                  ...uniqBy(
+                    selectedPage.graphData.trace.filter(
+                      (t): t is GraphTraceEvent & { type: "start-node" } => t.type === "start-node",
                     ),
-                  ],
-                  "timestamp",
-                ),
-              ).map((trace, i) => (
-                <TraceElementView key={i} trace={trace} graphRunner={graphRunner} />
-              ))}
+                    "node.id",
+                  ).flatMap((t) =>
+                    (selectedPage.graphData?.nodes[t.node.id]?.state?.trace || []).map((tr) => ({
+                      ...tr,
+                      [traceElementSourceSymbol]: selectedPage.graphData!.nodes[t.node.id]!,
+                    })),
+                  ),
+                ]}
+                graphRunner={graphRunner}
+                onNodeNav={(node) => setSelectedNodeId(node.id)}
+              />
             </VList>
           </Stack>
         )}

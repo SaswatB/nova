@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { Button, Tabs } from "@radix-ui/themes";
-import { reverse, sortBy, startCase } from "lodash";
+import { startCase } from "lodash";
 import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 
 import { GraphRunner, GraphRunnerData, NNode, resolveNodeValueRefs } from "../lib/nodes/run-graph";
-import { traceElementSourceSymbol, TraceElementView } from "./TraceElementView";
+import { TraceElementList, traceElementSourceSymbol } from "./TraceElementView";
 import { createTextAreaRefArrayField, createTextAreaRefField, ZodForm } from "./ZodForm";
 
 export function NodeViewer({
@@ -14,11 +14,13 @@ export function NodeViewer({
   graphRunner,
   node,
   onChangeNode,
+  onNodeNav,
 }: {
   graphData: GraphRunnerData;
   graphRunner?: GraphRunner;
   node: NNode;
   onChangeNode: (apply: (draft: NNode) => void) => void;
+  onNodeNav: (node: NNode) => void;
 }) {
   const [editInput, setEditInput] = useState(false);
   const [hideInput, setHideInput] = useState(false);
@@ -114,9 +116,11 @@ export function NodeViewer({
           ) : null}
         </Tabs.Content>
         <Tabs.Content value="trace">
-          {reverse(sortBy(node.state?.trace || [], "timestamp")).map((t, i) => (
-            <TraceElementView key={i} trace={{ ...t, [traceElementSourceSymbol]: node }} graphRunner={graphRunner} />
-          )) || null}
+          <TraceElementList
+            trace={(node.state?.trace || []).map((t) => ({ ...t, [traceElementSourceSymbol]: node }))}
+            graphRunner={graphRunner}
+            onNodeNav={onNodeNav}
+          />
         </Tabs.Content>
       </Tabs.Root>
     </Stack>

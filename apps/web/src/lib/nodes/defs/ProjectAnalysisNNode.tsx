@@ -254,10 +254,10 @@ export const ProjectAnalysisNNode = createNodeDef(
     renderInputs: () => null,
     renderResult: (res) => (
       <>
-        <Well title="Research" markdown>
+        <Well title="Research" markdownPreferred>
           {res.result.research}
         </Well>
-        <Well title="Files" markdown>
+        <Well title="Files" markdownPreferred>
           {/* todo maybe allow looking at individual files? */}
           {`${res.result.files.length} source files processed`}
         </Well>

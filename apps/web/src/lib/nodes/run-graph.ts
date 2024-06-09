@@ -34,12 +34,20 @@ export type GraphTraceEvent =
 export type NNodeTraceEvent =
   | { type: "start"; resolvedValue: ResolveRefs<NNodeValue<NNodeDef>>; timestamp: number }
   | {
-      type: "dependency" | "dependency-result";
+      // used when creating a node for a dependency
+      type: "dependency";
       node: NNode;
       timestamp: number;
-      existing?: boolean;
+    }
+  | {
+      type: "dependency-result";
+      node: NNode;
+      existing?: boolean; // whether a node needed to be created
+      result: NNodeResult<NNodeDef>;
+      timestamp: number;
     }
   | { type: "dependant"; node: NNode; timestamp: number }
+  | { type: "find-node"; node: NNode; result: NNodeResult<NNodeDef>; timestamp: number }
   | {
       type: "get-cache";
       key: string;
@@ -105,21 +113,16 @@ export interface NNode<D extends NNodeDef = NNodeDef> {
   };
 }
 
-function findNodeByValue<D extends NNodeDef>(
+function findNode<D extends NNodeDef>(
   nodes: NNode[],
   def: D,
-  value: NNodeValue<D>,
+  filter: (node: NNode) => boolean,
   nodeMap: Record<string, NNode<D>>, // used to look up nodes by node ids
 ): NNode<D> | undefined {
-  const directDep = nodes.find((n): n is NNode<D> => n.typeId === def.typeId && isEqual(n.value, value));
+  const directDep = nodes.find((n): n is NNode<D> => n.typeId === def.typeId && filter(n));
   if (directDep) return directDep;
   for (const node of nodes) {
-    const found = findNodeByValue(
-      (node.dependencies || []).map((id) => nodeMap[id]).filter(isDefined),
-      def,
-      value,
-      nodeMap,
-    );
+    const found = findNode((node.dependencies || []).map((id) => nodeMap[id]).filter(isDefined), def, filter, nodeMap);
     if (found) return found;
   }
   return undefined;
@@ -156,10 +159,18 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     return graphRunner;
   }
 
+  /**
+   * Start a node. This doesn't do any checks to ensure the node is runnable.
+   *
+   * @param node The node to start
+   * @param queueNode Queue a node for execution, usually used to track new nodes
+   * @param waitForNode Wait for the given node to complete, starting it if necessary. Can be used on new nodes
+   * @returns The result of the node
+   */
   private async startNode<D extends NNodeDef>(
     node: NNode<D>,
     queueNode: (node: NNode) => void,
-    startNode: <D2 extends NNodeDef>(node: NNode<D2>) => Promise<NNodeResult<D2>>,
+    waitForNode: <D2 extends NNodeDef>(node: NNode<D2>) => Promise<NNodeResult<D2>>,
   ): Promise<NNodeResult<D>> {
     console.log("[GraphRunner] Starting node", node.value);
     this.addTrace({ type: "start-node", node });
@@ -174,10 +185,10 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         this.addNodeTrace(node, { type: "dependant", node: newNode });
       },
       getOrAddDependencyForResult: async (nodeDef, nodeValue, inheritDependencies) => {
-        let depNode = findNodeByValue(
+        let depNode = findNode(
           (node.dependencies || []).map((id) => this.nodes[id]).filter(isDefined),
           nodeDef,
-          nodeValue,
+          (n) => isEqual(n.value, nodeValue),
           this.nodes,
         );
         let subResult: NNodeResult<typeof nodeDef>;
@@ -194,14 +205,31 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           ((node.state ||= {}).createdNodes ||= []).push(depNode.id);
           this.addNodeTrace(node, { type: "dependency", node: depNode });
 
-          subResult = await startNode(depNode);
+          subResult = await waitForNode(depNode);
         }
 
         console.log("[GraphRunner] Dependency result", subResult);
-        this.addNodeTrace(node, { type: "dependency-result", node: depNode, existing });
+        this.addNodeTrace(node, { type: "dependency-result", node: depNode, existing, result: subResult });
 
         const createNodeRef: CreateNodeRef = (accessor) => ({ sym: nnodeRefSymbol, nodeId: depNode.id, accessor });
         return { ...subResult, createNodeRef };
+      },
+      findNodeForResult: async (nodeDef, filter) => {
+        // prefer deps, then search whole graph
+        const foundNode =
+          findNode(
+            (node.dependencies || []).map((id) => this.nodes[id]).filter(isDefined),
+            nodeDef,
+            (n) => filter(n.value),
+            this.nodes,
+          ) || Object.values(this.nodes).find((n) => n.typeId === nodeDef.typeId && filter(n.value));
+        if (!foundNode) return null;
+
+        (node.dependencies ||= []).push(foundNode.id);
+        const result = foundNode.state?.result || (await waitForNode(foundNode));
+
+        this.addNodeTrace(node, { type: "find-node", node: foundNode, result });
+        return result;
       },
       createNodeRef: (accessor) => ({ sym: nnodeRefSymbol, nodeId: node.id, accessor }),
 
@@ -318,6 +346,10 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 
     const startNodeWrapped = (node: NNode): Promise<NNodeResult<NNodeDef>> => {
       if (!nodePromises.has(node.id)) {
+        if (!this.isNodeRunnable(node)) {
+          console.error("[GraphRunner] Node is not runnable", node.value);
+          throw new Error("Node is not runnable");
+        }
         nodePromises.set(
           node.id,
           this.startNode(node, (newNode) => runStack.push(newNode), startNodeWrapped as any),
@@ -329,12 +361,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     this.addTrace({ type: "start" });
     // run the graph, keep consuming nodes until all nodes are completed
     while (runStack.length > 0) {
-      const runnableNodes = runStack.filter(
-        (node) =>
-          !node.state?.startedAt &&
-          !node.state?.completedAt &&
-          !node.dependencies?.some((id) => !this.nodes[id]?.state?.completedAt),
-      );
+      const runnableNodes = runStack.filter((node) => this.isNodeRunnable(node));
       if (runnableNodes.length === 0) {
         console.log("[GraphRunner] No runnable nodes", runStack);
         throw new Error("No runnable nodes");
@@ -350,6 +377,14 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 
   public toData() {
     return { nodes: { ...this.nodes }, trace: [...this.trace] };
+  }
+
+  public isNodeRunnable(node: NNode) {
+    return (
+      !node.state?.startedAt &&
+      !node.state?.completedAt &&
+      !node.dependencies?.some((id) => !this.nodes[id]?.state?.completedAt)
+    );
   }
 
   public async writeFile(path: string, content: string) {

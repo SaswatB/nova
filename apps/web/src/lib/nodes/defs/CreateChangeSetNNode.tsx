@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { Well } from "../../../components/base/Well";
+import { renderJsonWell, Well } from "../../../components/base/Well";
 import { createNodeDef } from "../node-types";
 import { orRef } from "../ref-types";
 import { ApplyFileChangesNNode } from "./ApplyFileChangesNNode";
@@ -68,11 +68,11 @@ ${value.rawChangeSet}`.trim(),
       return { result: changeSet };
     },
     renderInputs: (v) => (
-      <Well title="Raw Change Set" markdown>
+      <Well title="Raw Change Set" markdownPreferred>
         {v.rawChangeSet}
       </Well>
     ),
     // todo maybe do this better
-    renderResult: (res) => <Well title="Result">{JSON.stringify(res.result, null, 2)}</Well>,
+    renderResult: (res) => renderJsonWell("Result", res.result),
   },
 );

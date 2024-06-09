@@ -61,6 +61,10 @@ export interface NodeRunnerContext {
     nodeValue: NNodeValue<T>,
     inheritDependencies?: boolean,
   ) => Promise<NNodeResult<T> & { createNodeRef: CreateNodeRef /* create a reference to the dependency node */ }>;
+  findNodeForResult: <T extends NNodeDef>(
+    nodeDef: T,
+    filter: (node: NNodeValue<T>) => boolean,
+  ) => Promise<NNodeResult<T> | null>;
   createNodeRef: CreateNodeRef; // create a reference to the current node
 
   readFile: (

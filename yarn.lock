@@ -2785,6 +2785,7 @@ __metadata:
     react-spinners: "npm:^0.13.8"
     react-syntax-highlighter: "npm:^15.5.0"
     react-toastify: "npm:^10.0.5"
+    rxjs: "npm:^7.8.1"
     socket.io-client: "npm:^4.7.5"
     split-pane-react: "patch:split-pane-react@npm%3A0.1.3#~/.yarn/patches/split-pane-react-npm-0.1.3-1cc8da6424.patch"
     ts-pattern: "npm:^5.1.2"
