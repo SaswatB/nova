@@ -33,12 +33,6 @@ export const PlanNNode = createNodeDef(
 ${nrc.projectContext.rules.join("\n")}
 </context>
 
-The following is an analysis of files that may be relevant to the goal.
-It may not be fully accurate as it was generated with heuristics and limited context, but it can be good context for planning.
-<relevantFilesAnalysis>
-${relevantFilesAnalysis}
-</relevantFilesAnalysis>
-
 ${xmlFileSystemResearch(researchResult, { showResearch: true, showFileContent: (f) => relevantFiles.includes(f) })}${extraContext ? `\n\n<extraContext>\n${extraContext.context}\n</extraContext>` : ""}
 
 Please create a plan for the following goal: ${value.goal}
