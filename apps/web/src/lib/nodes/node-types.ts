@@ -1,62 +1,45 @@
-import { z } from "zod";
+import { UnknownKeysParam, z, ZodTypeAny } from "zod";
 
 import { AppTRPCClient } from "../trpc-client";
-import { NNodeRef, NNodeRefAccessorSchema, NNodeRefAccessorSchemaMap, orRef } from "./ref-types";
+import { CreateNodeRef, ResolveRefs } from "./ref-types";
 
-export enum NNodeType {
-  Output = "output",
-
-  ProjectAnalysis = "project-analysis",
-  RelevantFileAnalysis = "relevant-file-analysis",
-  TypescriptDepAnalysis = "typescript-dep-analysis",
-
-  Plan = "plan",
-  Execute = "execute",
-  CreateChangeSet = "create-change-set",
-  ApplyFileChanges = "apply-file-changes",
+export interface NNodeDef<
+  TypeId extends string = string,
+  Value extends Record<string, unknown> = any,
+  Result extends Record<string, unknown> = any,
+> {
+  typeId: TypeId;
+  valueSchema: z.ZodObject<{ [K in keyof Value]: z.ZodType<Value[K]> }, UnknownKeysParam, ZodTypeAny, Value, Value>;
+  resultSchema: z.ZodObject<
+    { [K in keyof Result]: z.ZodType<Result[K]> },
+    UnknownKeysParam,
+    ZodTypeAny,
+    Result,
+    Result
+  >;
+  run: (value: ResolveRefs<Value>, nrc: NodeRunnerContext) => Promise<Result>;
+  renderInputs: (value: ResolveRefs<Value>) => React.ReactNode;
+  renderResult: (result: Result) => React.ReactNode;
 }
+export type NNodeValue<T extends NNodeDef> = T extends NNodeDef<string, infer Value, any> ? Value : never;
+export type NNodeResult<T extends NNodeDef> = T extends NNodeDef<string, any, infer Result> ? Result : never;
 
-export interface ResearchedFile {
-  path: string;
-  content: string;
-  research: string;
+export function createNodeDef<
+  TypeId extends string,
+  Value extends Record<string, unknown>,
+  Result extends Record<string, unknown>,
+>(
+  typeId: TypeId,
+  valueSchema: NNodeDef<TypeId, Value, Result>["valueSchema"],
+  resultSchema: NNodeDef<TypeId, Value, Result>["resultSchema"],
+  funcs: {
+    run: NNodeDef<TypeId, Value, Result>["run"];
+    renderInputs: NNodeDef<TypeId, Value, Result>["renderInputs"];
+    renderResult: NNodeDef<TypeId, Value, Result>["renderResult"];
+  },
+): NNodeDef<TypeId, Value, Result> {
+  return { typeId, valueSchema, resultSchema, ...funcs };
 }
-export interface ResearchedFileSystem {
-  files: ResearchedFile[];
-  research: string;
-}
-
-export const NNodeValue = z.discriminatedUnion("type", [
-  z.object({ type: z.literal(NNodeType.Output), description: z.string(), value: orRef(z.unknown()) }),
-  z.object({ type: z.literal(NNodeType.ProjectAnalysis) }),
-  z.object({ type: z.literal(NNodeType.RelevantFileAnalysis), goal: orRef(z.string().min(1)) }),
-  z.object({ type: z.literal(NNodeType.TypescriptDepAnalysis) }),
-  z.object({ type: z.literal(NNodeType.Plan), goal: orRef(z.string()) }),
-  z.object({
-    type: z.literal(NNodeType.Execute),
-    instructions: orRef(z.string()),
-    relevantFiles: orRef(z.array(z.string())),
-  }),
-  z.object({ type: z.literal(NNodeType.CreateChangeSet), rawChangeSet: orRef(z.string()) }),
-  z.object({
-    type: z.literal(NNodeType.ApplyFileChanges),
-    path: orRef(z.string()),
-    changes: orRef(z.array(z.string())),
-  }),
-]);
-export type NNodeValue = z.infer<typeof NNodeValue>;
-export type NNodeResult =
-  | { type: NNodeType.Output }
-  | { type: NNodeType.ProjectAnalysis; result: ResearchedFileSystem }
-  | { type: NNodeType.RelevantFileAnalysis; result: string; files: string[] }
-  | {
-      type: NNodeType.TypescriptDepAnalysis;
-      result: Record<string, { fileName?: string | undefined; moduleSpecifier: string }[]>;
-    }
-  | { type: NNodeType.Plan; result: string }
-  | { type: NNodeType.Execute; result: string }
-  | { type: NNodeType.CreateChangeSet; result: unknown }
-  | { type: NNodeType.ApplyFileChanges; original: string; result: string };
 
 export interface ProjectContext {
   projectId: string;
@@ -72,21 +55,13 @@ export interface ProjectContext {
 export interface NodeRunnerContext {
   projectContext: ProjectContext;
 
-  addDependantNode: (node: NNodeValue) => void;
-  getOrAddDependencyForResult: <T extends NNodeType>(
-    nodeValue: NNodeValue & { type: T },
+  addDependantNode: <V extends {}>(nodeDef: NNodeDef<string, V>, nodeValue: V) => void;
+  getOrAddDependencyForResult: <T extends NNodeDef>(
+    nodeDef: T,
+    nodeValue: NNodeValue<T>,
     inheritDependencies?: boolean,
-  ) => Promise<
-    NNodeResult & { type: T } & {
-      createNodeRef: <T extends NNodeRefAccessorSchema>(
-        accessor: NNodeRef<T>["accessor"] & { type: "result" },
-      ) => NNodeRef<T>; // create a reference to the dependency node
-    }
-  >;
-  createNodeRef: <T extends NNodeRefAccessorSchema>(accessor: NNodeRef<T>["accessor"]) => NNodeRef<T>; // create a reference to the current node
-  resolveNodeRef: <T extends NNodeRefAccessorSchema>(
-    ref: NNodeRef<T> | NNodeRefAccessorSchemaMap[T],
-  ) => NNodeRefAccessorSchemaMap[T];
+  ) => Promise<NNodeResult<T> & { createNodeRef: CreateNodeRef /* create a reference to the dependency node */ }>;
+  createNodeRef: CreateNodeRef; // create a reference to the current node
 
   readFile: (
     path: string,

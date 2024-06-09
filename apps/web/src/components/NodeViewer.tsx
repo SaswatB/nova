@@ -1,15 +1,11 @@
-import { useState } from "react";
-import ReactDiffViewer from "react-diff-viewer";
+import { useMemo, useState } from "react";
 import { toast } from "react-toastify";
-import { Button, Tabs, TextArea } from "@radix-ui/themes";
+import { Button, Tabs } from "@radix-ui/themes";
 import { reverse, sortBy, startCase } from "lodash";
 import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
-import { match, P } from "ts-pattern";
 
-import { NNodeType, NNodeValue } from "../lib/nodes/node-types";
-import { GraphRunner, GraphRunnerData, NNode, resolveNodeRefOrValue } from "../lib/nodes/run-graph";
-import { Well } from "./base/Well";
+import { GraphRunner, GraphRunnerData, NNode, resolveNodeValueRefs } from "../lib/nodes/run-graph";
 import { traceElementSourceSymbol, TraceElementView } from "./TraceElementView";
 import { createTextAreaRefArrayField, createTextAreaRefField, ZodForm } from "./ZodForm";
 
@@ -24,94 +20,24 @@ export function NodeViewer({
   node: NNode;
   onChangeNode: (apply: (draft: NNode) => void) => void;
 }) {
-  const { trace, ...otherState } = node.state || {};
   const [editInput, setEditInput] = useState(false);
   const [hideInput, setHideInput] = useState(false);
 
-  const renderNodeInputs = () =>
-    match(node.value)
-      .with({ type: NNodeType.Output }, (v) => (
-        <Well title={v.description}>{JSON.stringify(resolveNodeRefOrValue(v.value, graphData), null, 2)}</Well>
-      ))
-      .with({ type: NNodeType.ProjectAnalysis }, () => null)
-      .with({ type: P.union(NNodeType.RelevantFileAnalysis, NNodeType.Plan) }, (v) => (
-        <Well title="Goal">{resolveNodeRefOrValue(v.goal, graphData) || ""}</Well>
-      ))
-      .with({ type: NNodeType.TypescriptDepAnalysis }, () => null)
-      .with({ type: NNodeType.Execute }, (v) => (
-        <>
-          <Well title="Instructions" markdown>
-            {resolveNodeRefOrValue(v.instructions, graphData) || ""}
-          </Well>
-          <Well title="Relevant Files">
-            {resolveNodeRefOrValue(v.relevantFiles, graphData)
-              ?.map((file) => file)
-              .join("\n") || ""}
-          </Well>
-        </>
-      ))
-      .with({ type: NNodeType.CreateChangeSet }, (v) => (
-        <Well title="Raw Change Set" markdown>
-          {resolveNodeRefOrValue(v.rawChangeSet, graphData) || ""}
-        </Well>
-      ))
-      .with({ type: NNodeType.ApplyFileChanges }, (v) => (
-        <Well title="Changes" markdown>
-          {resolveNodeRefOrValue(v.changes, graphData)
-            ?.map((change) => change)
-            .join("\n") || ""}
-        </Well>
-      ))
-      .exhaustive();
+  const nodeDef = useMemo(() => graphRunner?.getNodeDef(node), [graphRunner, node]);
 
-  const renderNodeOutputs = () =>
-    match(node.state?.result)
-      .with(undefined, () => "No state yet")
-      .with({ type: NNodeType.Output }, () => null)
-      .with({ type: NNodeType.ProjectAnalysis }, (res) => (
-        <>
-          <Well title="Research" markdown>
-            {res.result.research}
-          </Well>
-          <Well title="Files" markdown>
-            {/* todo maybe allow looking at individual files? */}
-            {`${res.result.files.length} source files processed`}
-          </Well>
-        </>
-      ))
-      .with({ type: NNodeType.RelevantFileAnalysis }, (res) => (
-        <>
-          <Well title="Result" markdown>
-            {res.result}
-          </Well>
-          <Well title="Files">{res.files.join("\n")}</Well>
-        </>
-      ))
-      .with({ type: NNodeType.TypescriptDepAnalysis }, () => null) // todo lm_ec44d16eee restore ts deps
-      .with({ type: P.union(NNodeType.Plan, NNodeType.Execute) }, (res) => (
-        <Well title="Result" markdown>
-          {res.result}
-        </Well>
-      ))
-      .with(
-        { type: NNodeType.CreateChangeSet },
-        (
-          res, // todo maybe do this better by adding types to the result?
-        ) => <Well title="Result">{JSON.stringify(res.result, null, 2)}</Well>,
-      )
-      .with({ type: NNodeType.ApplyFileChanges }, (res) => (
-        // todo syntax highlighting
-        <ReactDiffViewer oldValue={res.original} newValue={res.result} splitView={false} useDarkTheme />
-      ))
-      .exhaustive();
-
-  const nodeInputs = renderNodeInputs();
-  const nodeOutputs = renderNodeOutputs();
+  const nodeInputs = useMemo(
+    () => nodeDef?.renderInputs(resolveNodeValueRefs(node.value, graphData.nodes)) ?? null,
+    [nodeDef, node.value, graphData],
+  );
+  const nodeOutputs = useMemo(
+    () => (node.state ? nodeDef?.renderResult(node.state.result) : "No state yet"),
+    [nodeDef, node.state],
+  );
 
   return (
     <Stack css={{ p: 24, gap: 0, overflowY: "auto" }}>
       <Flex css={{ justifyContent: "space-between" }}>
-        {startCase(node.value.type)}
+        {startCase(node.typeId)}
         {node.state ? (
           <Button color="red" onClick={() => graphRunner?.resetNode(node.id)}>
             Reset
@@ -150,9 +76,9 @@ export function NodeViewer({
                   )}
                 </Flex>
               </Flex>
-              {hideInput ? null : editInput ? (
+              {hideInput || !nodeDef ? null : editInput ? (
                 <ZodForm
-                  schema={NNodeValue.optionsMap.get(node.value.type)!}
+                  schema={nodeDef.valueSchema}
                   defaultValues={node.value}
                   overrideFieldMap={{
                     type: () => null,
@@ -167,7 +93,7 @@ export function NodeViewer({
                   }}
                   onSubmit={(values) => {
                     onChangeNode((draft) => {
-                      draft.value = values as NNodeValue;
+                      draft.value = values;
                     });
                     setEditInput(false);
                     toast.success("Node updated");
@@ -188,7 +114,7 @@ export function NodeViewer({
           ) : null}
         </Tabs.Content>
         <Tabs.Content value="trace">
-          {reverse(sortBy(trace || [], "timestamp")).map((t, i) => (
+          {reverse(sortBy(node.state?.trace || [], "timestamp")).map((t, i) => (
             <TraceElementView key={i} trace={{ ...t, [traceElementSourceSymbol]: node }} graphRunner={graphRunner} />
           )) || null}
         </Tabs.Content>

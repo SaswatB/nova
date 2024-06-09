@@ -36,7 +36,7 @@ const convertChatNodesToFlowElements = (graphNodes: GraphRunnerData["nodes"]): {
     (node): Node => ({
       id: node.id,
       type: "default",
-      data: { label: startCase(node.value.type), node },
+      data: { label: startCase(node.typeId), node },
       position: { x: 0, y: 0 },
       selectable: true,
     }),

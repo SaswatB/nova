@@ -7,8 +7,9 @@ import zodToJsonSchema from "zod-to-json-schema";
 
 import { newId } from "../uid";
 import { aiChat, aiJson } from "./ai-chat";
-import { NNodeResult, NNodeType, NNodeValue, NodeRunnerContext, ProjectContext } from "./node-types";
+import { NNodeDef, NNodeResult, NNodeValue, NodeRunnerContext, ProjectContext } from "./node-types";
 import {
+  CreateNodeRef,
   isNodeRef,
   NNodeRef,
   NNodeRefAccessorSchema,
@@ -16,7 +17,16 @@ import {
   nnodeRefSymbol,
   ResolveRefs,
 } from "./ref-types";
-import { runNode } from "./run-node";
+import {
+  ApplyFileChangesNNode,
+  CreateChangeSetNNode,
+  ExecuteNNode,
+  OutputNNode,
+  PlanNNode,
+  ProjectAnalysisNNode,
+  RelevantFileAnalysisNNode,
+  TypescriptDepAnalysisNNode,
+} from "./run-node";
 
 export type GraphTraceEvent =
   | { type: "start"; timestamp: number }
@@ -24,7 +34,7 @@ export type GraphTraceEvent =
   | { type: "end-node"; node: NNode; timestamp: number }
   | { type: "end"; timestamp: number };
 export type NNodeTraceEvent =
-  | { type: "start"; resolvedValue: ResolveRefs<NNodeValue>; timestamp: number }
+  | { type: "start"; resolvedValue: ResolveRefs<NNodeValue<NNodeDef>>; timestamp: number }
   | {
       type: "dependency" | "dependency-result";
       node: NNode;
@@ -78,27 +88,40 @@ export type NNodeTraceEvent =
       timestamp: number;
     }
   | { type: "ai-json-response"; chatId: string; result: unknown; timestamp: number }
-  | { type: "result"; result: NNodeResult; timestamp: number };
+  | { type: "result"; result: NNodeResult<NNodeDef>; timestamp: number };
 
-export interface NNode {
+export interface NNode<D extends NNodeDef = NNodeDef> {
   id: string;
-  dependencies?: string[]; // node ids
-  value: NNodeValue;
 
+  typeId: D["typeId"];
+  value: NNodeValue<D>;
+
+  dependencies?: string[]; // node ids
   state?: {
+    result?: NNodeResult<D>;
+
     startedAt?: number;
     completedAt?: number;
-    result?: NNodeResult;
-    trace?: NNodeTraceEvent[];
     createdNodes?: string[]; // node ids
+    trace?: NNodeTraceEvent[];
   };
 }
 
-function findNodeByValue(nodes: NNode[], value: NNodeValue, nodeMap: Record<string, NNode>): NNode | undefined {
-  const directDep = nodes.find((n) => isEqual(n.value, value));
+function findNodeByValue<D extends NNodeDef>(
+  nodes: NNode[],
+  def: D,
+  value: NNodeValue<D>,
+  nodeMap: Record<string, NNode<D>>, // used to look up nodes by node ids
+): NNode<D> | undefined {
+  const directDep = nodes.find((n): n is NNode<D> => n.typeId === def.typeId && isEqual(n.value, value));
   if (directDep) return directDep;
   for (const node of nodes) {
-    const found = findNodeByValue((node.dependencies || []).map((id) => nodeMap[id]).filter(isDefined), value, nodeMap);
+    const found = findNodeByValue(
+      (node.dependencies || []).map((id) => nodeMap[id]).filter(isDefined),
+      def,
+      value,
+      nodeMap,
+    );
     if (found) return found;
   }
   return undefined;
@@ -107,6 +130,16 @@ function findNodeByValue(nodes: NNode[], value: NNodeValue, nodeMap: Record<stri
 export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
   private nodes: Record<string, NNode> = {}; // id -> node
   private trace: GraphTraceEvent[] = [];
+  private nodeDefs: Record<string, NNodeDef> = {
+    [ApplyFileChangesNNode.typeId]: ApplyFileChangesNNode,
+    [CreateChangeSetNNode.typeId]: CreateChangeSetNNode,
+    [ExecuteNNode.typeId]: ExecuteNNode,
+    [OutputNNode.typeId]: OutputNNode,
+    [PlanNNode.typeId]: PlanNNode,
+    [ProjectAnalysisNNode.typeId]: ProjectAnalysisNNode,
+    [RelevantFileAnalysisNNode.typeId]: RelevantFileAnalysisNNode,
+    [TypescriptDepAnalysisNNode.typeId]: TypescriptDepAnalysisNNode,
+  };
 
   private constructor(private projectContext: ProjectContext) {
     super();
@@ -114,8 +147,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 
   public static fromGoal(projectContext: ProjectContext, goal: string) {
     const graphRunner = new GraphRunner(projectContext);
-    const id = newId.graphNode();
-    graphRunner.nodes = { [id]: { id, value: { type: NNodeType.Plan, goal } } };
+    graphRunner.addNode(PlanNNode, { goal });
     return graphRunner;
   }
 
@@ -126,31 +158,31 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     return graphRunner;
   }
 
-  private async startNode<T extends NNodeType>(
-    node: NNode & { value: { type: T } },
+  private async startNode<D extends NNodeDef>(
+    node: NNode<D>,
     queueNode: (node: NNode) => void,
-    startNode: <U extends NNodeType>(node: NNode & { value: { type: U } }) => Promise<NNodeResult & { type: U }>,
-  ): Promise<NNodeResult & { type: T }> {
+    startNode: <D2 extends NNodeDef>(node: NNode<D2>) => Promise<NNodeResult<D2>>,
+  ): Promise<NNodeResult<D>> {
     console.log("[GraphRunner] Starting node", node.value);
     this.addTrace({ type: "start-node", node });
 
     const nodeRunnerContext: NodeRunnerContext = {
       projectContext: this.projectContext,
-      addDependantNode: (newNodeValue) => {
+      addDependantNode: (newNodeDef, newNodeValue) => {
         console.log("[GraphRunner] Adding dependant node", newNodeValue);
-        const newNode: NNode = { id: newId.graphNode(), value: newNodeValue, dependencies: [node.id] };
-        this.nodes[newNode.id] = newNode;
+        const newNode = this.addNode(newNodeDef, newNodeValue, [node.id]);
         ((node.state ||= {}).createdNodes ||= []).push(newNode.id);
         queueNode(newNode);
         this.addNodeTrace(node, { type: "dependant", node: newNode });
       },
-      getOrAddDependencyForResult: async (nodeValue, inheritDependencies) => {
+      getOrAddDependencyForResult: async (nodeDef, nodeValue, inheritDependencies) => {
         let depNode = findNodeByValue(
           (node.dependencies || []).map((id) => this.nodes[id]).filter(isDefined),
+          nodeDef,
           nodeValue,
           this.nodes,
         );
-        let subResult;
+        let subResult: NNodeResult<typeof nodeDef>;
         let existing = undefined;
         if (depNode) {
           console.log("[GraphRunner] Found existing node", depNode.value);
@@ -159,13 +191,8 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           subResult = depNode.state.result; // todo should this add the node as a direct dependency?
         } else {
           console.log("[GraphRunner] Adding dependency node", nodeValue);
-          depNode = {
-            id: newId.graphNode(),
-            value: nodeValue,
-            dependencies: inheritDependencies ? [...(node.dependencies || [])] : undefined,
-          };
+          depNode = this.addNode(nodeDef, nodeValue, inheritDependencies ? [...(node.dependencies || [])] : undefined);
           (node.dependencies ||= []).push(depNode.id);
-          this.nodes[depNode.id] = depNode;
           ((node.state ||= {}).createdNodes ||= []).push(depNode.id);
           this.addNodeTrace(node, { type: "dependency", node: depNode });
 
@@ -175,13 +202,10 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         console.log("[GraphRunner] Dependency result", subResult);
         this.addNodeTrace(node, { type: "dependency-result", node: depNode, existing });
 
-        return {
-          ...(subResult as any),
-          createNodeRef: (accessor) => ({ sym: nnodeRefSymbol, nodeId: depNode!.id, accessor }),
-        };
+        const createNodeRef: CreateNodeRef = (accessor) => ({ sym: nnodeRefSymbol, nodeId: depNode.id, accessor });
+        return { ...subResult, createNodeRef };
       },
       createNodeRef: (accessor) => ({ sym: nnodeRefSymbol, nodeId: node.id, accessor }),
-      resolveNodeRef: this.resolveNodeRef.bind(this),
 
       readFile: async (path) => {
         console.log("[GraphRunner] Read file", path);
@@ -261,13 +285,13 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       },
     };
 
-    const nodeResolvedValue = this.resolveNodeValueRefs(node.value); // resolve refs in input
+    const nodeResolvedValue = resolveNodeValueRefs(node.value, this.nodes); // resolve refs in input
 
     (node.state ||= {}).startedAt = Date.now();
     this.addNodeTrace(node, { type: "start", resolvedValue: nodeResolvedValue });
 
     // todo error handling
-    const result = await runNode<T>(nodeResolvedValue, nodeRunnerContext);
+    const result = await this.getNodeDef(node).run(nodeResolvedValue, nodeRunnerContext);
 
     node.state.completedAt = Date.now();
     node.state.result = result;
@@ -292,9 +316,9 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         delete node.state;
       }
     });
-    const nodePromises = new Map<string, Promise<NNodeResult>>();
+    const nodePromises = new Map<string, Promise<NNodeResult<NNodeDef>>>();
 
-    const startNodeWrapped = (node: NNode): Promise<NNodeResult> => {
+    const startNodeWrapped = (node: NNode): Promise<NNodeResult<NNodeDef>> => {
       if (!nodePromises.has(node.id)) {
         nodePromises.set(
           node.id,
@@ -342,6 +366,12 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     await writable.close();
   }
 
+  public addNode<D extends NNodeDef>(nodeDef: D, nodeValue: NNodeValue<D>, dependencies?: string[]) {
+    const node: NNode<D> = { id: newId.graphNode(), typeId: nodeDef.typeId, value: nodeValue, dependencies };
+    this.nodes[node.id] = node;
+    return node;
+  }
+
   public async resetNode(nodeId: string) {
     const node = this.nodes[nodeId];
     if (!node) throw new Error("Node not found");
@@ -365,6 +395,12 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       n.dependencies = n.dependencies?.filter((id) => !deletedNodes.has(id));
     });
     this.emit("dataChanged");
+  }
+
+  public getNodeDef<D extends NNodeDef>(node: NNode<D>) {
+    const nodeDef = this.nodeDefs[node.typeId];
+    if (!nodeDef) throw new Error(`Node type not found: ${node.typeId}`);
+    return nodeDef as D;
   }
 
   private addTrace(event: OmitUnion<(typeof GraphRunner.prototype.trace)[number], "timestamp">) {
@@ -413,29 +449,18 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 
     return null;
   }
-
-  private resolveNodeRef<T extends NNodeRefAccessorSchema>(
-    ref: NNodeRef<T> | NNodeRefAccessorSchemaMap[T],
-  ): NNodeRefAccessorSchemaMap[T] {
-    if (isNodeRef(ref)) {
-      return resolveNodeRef<T>(ref as NNodeRef<T>, this.nodes[ref.nodeId]!);
-    }
-    return ref as NNodeRefAccessorSchemaMap[T];
-  }
-  private resolveNodeValueRefs<T extends NNodeValue>(value: T): ResolveRefs<T> {
-    const resolved: any = { ...value };
-    Object.entries(value).forEach(([key, val]) => {
-      if (isNodeRef(val)) resolved[key as keyof T] = this.resolveNodeRef(val);
-    });
-    return resolved;
-  }
 }
 export type GraphRunnerData = ReturnType<GraphRunner["toData"]>;
 
 export function resolveNodeRef<T extends NNodeRefAccessorSchema>(
-  ref: NNodeRef<T>,
-  node: NNode,
+  ref: NNodeRef<T> | NNodeRefAccessorSchemaMap[T],
+  nodeMap: Record<string, NNode>,
 ): NNodeRefAccessorSchemaMap[T] {
+  if (!isNodeRef<T>(ref)) return ref;
+
+  const node = nodeMap[ref.nodeId];
+  if (!node) throw new Error(`Node for ref not found: ${ref.nodeId}`);
+
   const accessor = ref.accessor as NNodeRef<NNodeRefAccessorSchema>["accessor"];
   const val = get(
     match(accessor.type)
@@ -444,16 +469,16 @@ export function resolveNodeRef<T extends NNodeRefAccessorSchema>(
       .exhaustive(),
     accessor.path,
   );
-  return NNodeRefAccessorSchemaMap[accessor.schema]!.parse(val) as any;
+  return NNodeRefAccessorSchemaMap[accessor.schema]!.parse(val) as NNodeRefAccessorSchemaMap[T];
 }
 
-export function resolveNodeRefOrValue<T extends NNodeRefAccessorSchema>(
-  v: NNodeRef<T> | NNodeRefAccessorSchemaMap[T],
-  graphData: GraphRunnerData,
-): NNodeRefAccessorSchemaMap[T] | null {
-  if (isNodeRef(v)) {
-    const refNode = graphData.nodes[v.nodeId];
-    return refNode ? (resolveNodeRef(v, refNode) as NNodeRefAccessorSchemaMap[T]) : null;
-  }
-  return v as NNodeRefAccessorSchemaMap[T];
+export function resolveNodeValueRefs<T extends NNodeDef>(
+  value: NNodeValue<T>,
+  nodeMap: Record<string, NNode>,
+): ResolveRefs<NNodeValue<T>> {
+  const resolved = {} as ResolveRefs<NNodeValue<T>>;
+  Object.entries(value).forEach(([key, val]) => {
+    resolved[key as keyof NNodeValue<T>] = resolveNodeRef<NNodeValue<T>[keyof NNodeValue<T>]>(val, nodeMap);
+  });
+  return resolved;
 }

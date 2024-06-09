@@ -1,3 +1,4 @@
+import ReactDiffViewer from "react-diff-viewer";
 import { toast } from "react-toastify";
 import { isDefined } from "@repo/shared";
 import ignore, { Ignore } from "ignore";
@@ -6,17 +7,24 @@ import { uniq } from "lodash";
 import pLimit from "p-limit";
 import { z } from "zod";
 
+import { Well } from "../../components/base/Well";
 import { generateCacheKey } from "../hash";
-import {
-  NNodeResult,
-  NNodeType,
-  NNodeValue,
-  NodeRunnerContext,
-  ResearchedFile,
-  ResearchedFileSystem,
-} from "./node-types";
-import { ResolveRefs } from "./ref-types";
+import { createNodeDef, NodeRunnerContext } from "./node-types";
+import { orRef } from "./ref-types";
 import { getDepTree } from "./ts-utils";
+
+const ResearchedFile = z.object({
+  path: z.string(),
+  content: z.string(),
+  research: z.string(),
+});
+type ResearchedFile = z.infer<typeof ResearchedFile>;
+
+const ResearchedFileSystem = z.object({
+  files: z.array(ResearchedFile),
+  research: z.string(),
+});
+type ResearchedFileSystem = z.infer<typeof ResearchedFileSystem>;
 
 function checkIgnores(ignores: { dir: string; ignore: Ignore }[], path: string) {
   for (const { dir, ignore } of ignores) {
@@ -108,7 +116,7 @@ ${showResearch ? `<research>\n${research}\n</research>\n` : ""}
         `.trim();
 }
 
-async function projectAnalysis(value: NNodeValue & { type: NNodeType.ProjectAnalysis }, nrc: NodeRunnerContext) {
+async function projectAnalysis(nrc: NodeRunnerContext): Promise<ResearchedFileSystem> {
   // todo lm_ec44d16eee restore ts deps
   // const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
   //   type: NNodeType.TypescriptDepAnalysis,
@@ -160,10 +168,7 @@ ${f.content}
 
     if (changedFileCount + delFileCount < 20) {
       console.log("Using cached project analysis");
-      return {
-        type: NNodeType.ProjectAnalysis,
-        result: { files, research: cachedProjectAnalysis.research } satisfies ResearchedFileSystem,
-      } as const;
+      return { files, research: cachedProjectAnalysis.research };
     } else {
       console.log("Revalidating project analysis");
     }
@@ -239,34 +244,62 @@ ${docs.map((doc) => `<doc>${doc}</doc>`).join("\n")}
   await nrc.setCache("project-analysis", { research, fileHashes, timestamp: Date.now() } satisfies z.infer<
     typeof cachedProjectAnalysisSchema
   >);
-  return { type: NNodeType.ProjectAnalysis, result: { files, research } satisfies ResearchedFileSystem } as const;
+  return { files, research };
 }
 
-const runners: {
-  [T in NNodeType]: (
-    value: ResolveRefs<NNodeValue & { type: T }>,
-    nrc: NodeRunnerContext,
-  ) => Promise<NNodeResult & { type: T }>;
-} = {
-  [NNodeType.Output]: async (value) => {
-    console.log("[OutputNode] ", value.description, value.value);
-    toast.info(`[OutputNode] ${value.value}`, { autoClose: false });
-    return { type: NNodeType.Output };
+export const OutputNNode = createNodeDef(
+  "output",
+  z.object({ description: z.string(), value: orRef(z.unknown()) }),
+  z.object({}),
+  {
+    run: async (value) => {
+      console.log("[OutputNode] ", value.description, value.value);
+      toast.info(`[OutputNode] ${value.value}`, { autoClose: false });
+      return {};
+    },
+    renderInputs: (v) => <Well title={v.description}>{JSON.stringify(v.value, null, 2)}</Well>,
+    renderResult: () => null,
   },
+);
 
-  [NNodeType.ProjectAnalysis]: projectAnalysis,
-  [NNodeType.RelevantFileAnalysis]: async (value, nrc) => {
-    // todo lm_ec44d16eee restore ts deps
-    // const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
-    //   type: NNodeType.TypescriptDepAnalysis,
-    // });
-    const typescriptResult = {} as Record<string, { fileName: string }[]>;
-    const { result: researchResult } = await nrc.getOrAddDependencyForResult({ type: NNodeType.ProjectAnalysis }, true);
+export const ProjectAnalysisNNode = createNodeDef(
+  "project-analysis",
+  z.object({}),
+  z.object({ result: ResearchedFileSystem }),
+  {
+    run: async (value, nrc) => ({ result: await projectAnalysis(nrc) }),
+    renderInputs: () => null,
+    renderResult: (res) => (
+      <>
+        <Well title="Research" markdown>
+          {res.result.research}
+        </Well>
+        <Well title="Files" markdown>
+          {/* todo maybe allow looking at individual files? */}
+          {`${res.result.files.length} source files processed`}
+        </Well>
+      </>
+    ),
+  },
+);
 
-    const rawRelevantFiles = await nrc.aiChat("geminiFlash", [
-      {
-        role: "user",
-        content: `
+export const RelevantFileAnalysisNNode = createNodeDef(
+  "relevant-file-analysis",
+  z.object({ goal: orRef(z.string()) }),
+  z.object({ result: z.string(), files: z.array(z.string()) }),
+  {
+    run: async (value, nrc) => {
+      // todo lm_ec44d16eee restore ts deps
+      // const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
+      //   type: NNodeType.TypescriptDepAnalysis,
+      // });
+      const typescriptResult = {} as Record<string, { fileName: string }[]>;
+      const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {}, true);
+
+      const rawRelevantFiles = await nrc.aiChat("geminiFlash", [
+        {
+          role: "user",
+          content: `
 ${xmlFileSystemResearch(researchResult, { showResearch: true })}
 
 Based on the research, please identify the relevant files for the goal.
@@ -274,47 +307,71 @@ The relevant files are the ones that are most likely to be impacted by the goal 
 Related files may also include files that would be useful to reference or provide context for the changes.
 Goal: ${value.goal}
 `.trim(),
-      },
-    ]);
+        },
+      ]);
 
-    const RelevantFilesSchema = z.object({ files: z.array(z.string()) });
-    const directRelevantFiles = await nrc.aiJson(
-      RelevantFilesSchema,
-      `Extract all the absolute paths for the relevant files from the following:\n\n${rawRelevantFiles}`,
-    );
-    const relevantFiles = uniq(
-      directRelevantFiles.files.flatMap((f) => [
-        f,
-        ...(typescriptResult[f]?.map((d) => d.fileName).filter(isDefined) || []),
-      ]),
-    );
+      const RelevantFilesSchema = z.object({ files: z.array(z.string()) });
+      const directRelevantFiles = await nrc.aiJson(
+        RelevantFilesSchema,
+        `Extract all the absolute paths for the relevant files from the following:\n\n${rawRelevantFiles}`,
+      );
+      const relevantFiles = uniq(
+        directRelevantFiles.files.flatMap((f) => [
+          f,
+          ...(typescriptResult[f]?.map((d) => d.fileName).filter(isDefined) || []),
+        ]),
+      );
 
-    return { type: NNodeType.RelevantFileAnalysis, result: rawRelevantFiles, files: relevantFiles };
+      return { result: rawRelevantFiles, files: relevantFiles };
+    },
+    renderInputs: (v) => <Well title="Goal">{v.goal}</Well>,
+    renderResult: (res) => (
+      <>
+        <Well title="Result" markdown>
+          {res.result}
+        </Well>
+        <Well title="Files">{res.files.join("\n")}</Well>
+      </>
+    ),
   },
-  [NNodeType.TypescriptDepAnalysis]: async (value, nrc) => {
-    // todo lm_ec44d16eee restore ts deps
-    // const result = getDepTree(nrc.projectContext.);
-    // console.log("[TypescriptDepAnalysis] ", result);
-    return { type: NNodeType.TypescriptDepAnalysis, result: {} };
-  },
+);
 
-  [NNodeType.Plan]: async (value, nrc) => {
-    const { result: researchResult } = await nrc.getOrAddDependencyForResult({ type: NNodeType.ProjectAnalysis });
-    const {
-      result: relevantFilesAnalysis,
-      files: relevantFiles,
-      createNodeRef: createRelevantFilesRef,
-    } = await nrc.getOrAddDependencyForResult(
-      {
-        type: NNodeType.RelevantFileAnalysis,
-        goal: nrc.createNodeRef({ type: "value", path: "goal", schema: "string" }),
-      },
-      true,
-    );
-    const res = await nrc.aiChat("gemini", [
-      {
-        role: "user",
-        content: `
+export const TypescriptDepAnalysisNNode = createNodeDef(
+  "typescript-dep-analysis",
+  z.object({}),
+  z.object({ result: z.record(z.array(z.object({ fileName: z.string().optional(), moduleSpecifier: z.string() }))) }),
+  {
+    run: async (value, nrc) => {
+      // todo lm_ec44d16eee restore ts deps
+      // const result = getDepTree(nrc.projectContext.);
+      // console.log("[TypescriptDepAnalysis] ", result);
+      return { result: {} };
+    },
+    renderInputs: () => null,
+    renderResult: () => null, // todo lm_ec44d16eee restore ts deps
+  },
+);
+
+export const PlanNNode = createNodeDef(
+  "plan",
+  z.object({ goal: orRef(z.string()) }),
+  z.object({ result: z.string() }),
+  {
+    run: async (value, nrc) => {
+      const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
+      const {
+        result: relevantFilesAnalysis,
+        files: relevantFiles,
+        createNodeRef: createRelevantFilesRef,
+      } = await nrc.getOrAddDependencyForResult(
+        RelevantFileAnalysisNNode,
+        { goal: nrc.createNodeRef({ type: "value", path: "goal", schema: "string" }) },
+        true,
+      );
+      const res = await nrc.aiChat("gemini", [
+        {
+          role: "user",
+          content: `
 <context>
 ${nrc.projectContext.rules.join("\n")}
 </context>
@@ -329,22 +386,35 @@ Call out specific areas of the codebase that may need to be modified or extended
 If using short file names, please include a legend at the top of the file with the absolute path to the file.
 Contents for most files are omitted, but please comment on which files would be helpful to provide to improve the plan.
                      `.trim(),
-      },
-    ]);
+        },
+      ]);
 
-    nrc.addDependantNode({
-      type: NNodeType.Execute,
-      instructions: nrc.createNodeRef({ type: "result", path: "result", schema: "string" }),
-      relevantFiles: createRelevantFilesRef({ type: "result", path: "files", schema: "string[]" }),
-    });
-    return { type: NNodeType.Plan, result: res };
+      nrc.addDependantNode(ExecuteNNode, {
+        instructions: nrc.createNodeRef({ type: "result", path: "result", schema: "string" }),
+        relevantFiles: createRelevantFilesRef({ type: "result", path: "files", schema: "string[]" }),
+      });
+      return { result: res };
+    },
+    renderInputs: (v) => <Well title="Goal">{v.goal}</Well>,
+    renderResult: (res) => (
+      <Well title="Result" markdown>
+        {res.result}
+      </Well>
+    ),
   },
-  [NNodeType.Execute]: async (value, nrc) => {
-    const { result: researchResult } = await nrc.getOrAddDependencyForResult({ type: NNodeType.ProjectAnalysis });
-    const res = await nrc.aiChat("gpt4o", [
-      {
-        role: "user",
-        content: `
+);
+
+export const ExecuteNNode = createNodeDef(
+  "execute",
+  z.object({ instructions: orRef(z.string()), relevantFiles: orRef(z.array(z.string())) }),
+  z.object({ result: z.string() }),
+  {
+    run: async (value, nrc) => {
+      const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
+      const res = await nrc.aiChat("gpt4o", [
+        {
+          role: "user",
+          content: `
 <context>
 ${nrc.projectContext.rules.join("\n")}
 </context>
@@ -360,35 +430,51 @@ Make sure to be very clear about which file is changing and what the change is.
 Please include a legend at the top of the file with the absolute path to the files you are changing. (Example: /root/project/src/file.ts)
 Suggest adding imports in distinct, standalone snippets from the code changes.
 If creating a new file, please provide the full file content.`.trim(),
-      },
-    ]);
+        },
+      ]);
 
-    nrc.addDependantNode({
-      type: NNodeType.CreateChangeSet,
-      rawChangeSet: nrc.createNodeRef({ type: "result", path: "result", schema: "string" }),
-    });
-    return { type: NNodeType.Execute, result: res };
+      nrc.addDependantNode(CreateChangeSetNNode, {
+        rawChangeSet: nrc.createNodeRef({ type: "result", path: "result", schema: "string" }),
+      });
+      return { result: res };
+    },
+    renderInputs: (v) => (
+      <>
+        <Well title="Instructions" markdown>
+          {v.instructions}
+        </Well>
+        <Well title="Relevant Files">{v.relevantFiles.map((file) => file).join("\n") || ""}</Well>
+      </>
+    ),
+    renderResult: (res) => (
+      <Well title="Result" markdown>
+        {res.result}
+      </Well>
+    ),
   },
-  [NNodeType.CreateChangeSet]: async (value, nrc) => {
-    const ChangeSetSchema = z.object({
-      generalNoteList: z
-        .string({
-          description:
-            "General notes for the project, such as packages to install. This should not be used for file changes.",
-        })
-        .array()
-        .optional(),
-      filesToChange: z.array(
-        z.object({
-          absolutePathIncludingFileName: z.string(),
-          steps: z.array(z.string()),
-        }),
-      ),
-    });
-    type ChangeSet = z.infer<typeof ChangeSetSchema>;
-    const changeSet = await nrc.aiJson(
-      ChangeSetSchema,
-      `
+);
+
+const ChangeSet = z.object({
+  generalNoteList: z
+    .string({
+      description:
+        "General notes for the project, such as packages to install. This should not be used for file changes.",
+    })
+    .array()
+    .optional(),
+  filesToChange: z.array(z.object({ absolutePathIncludingFileName: z.string(), steps: z.array(z.string()) })),
+});
+type ChangeSet = z.infer<typeof ChangeSet>;
+
+export const CreateChangeSetNNode = createNodeDef(
+  "create-change-set",
+  z.object({ rawChangeSet: orRef(z.string()) }),
+  z.object({ result: ChangeSet }),
+  {
+    run: async (value, nrc) => {
+      const changeSet = await nrc.aiJson(
+        ChangeSet,
+        `
 I have a document detailing changes to a project. Please transform the information into a JSON format with the following structure:
 
 1.	General notes for the project, such as packages to install.
@@ -409,37 +495,50 @@ ${JSON.stringify({
 
 Here's the document content:
 ${value.rawChangeSet}`.trim(),
-    );
+      );
 
-    if (changeSet.generalNoteList?.length) {
-      nrc.addDependantNode({
-        type: NNodeType.Output,
-        description: "General notes for the project",
-        value: nrc.createNodeRef({ type: "result", path: "result.generalNoteList", schema: "string[]" }),
-      });
-    }
-    for (let i = 0; i < changeSet.filesToChange.length; i++) {
-      nrc.addDependantNode({
-        type: NNodeType.ApplyFileChanges,
-        path: nrc.createNodeRef({
-          type: "result",
-          path: `result.filesToChange[${i}].absolutePathIncludingFileName`,
-          schema: "string",
-        }),
-        changes: nrc.createNodeRef({ type: "result", path: `result.filesToChange[${i}].steps`, schema: "string[]" }),
-      });
-    }
-    return { type: NNodeType.CreateChangeSet, result: changeSet };
+      if (changeSet.generalNoteList?.length) {
+        nrc.addDependantNode(OutputNNode, {
+          description: "General notes for the project",
+          value: nrc.createNodeRef({ type: "result", path: "result.generalNoteList", schema: "string[]" }),
+        });
+      }
+      for (let i = 0; i < changeSet.filesToChange.length; i++) {
+        nrc.addDependantNode(ApplyFileChangesNNode, {
+          path: nrc.createNodeRef({
+            type: "result",
+            path: `result.filesToChange[${i}].absolutePathIncludingFileName`,
+            schema: "string",
+          }),
+          changes: nrc.createNodeRef({ type: "result", path: `result.filesToChange[${i}].steps`, schema: "string[]" }),
+        });
+      }
+      return { result: changeSet };
+    },
+    renderInputs: (v) => (
+      <Well title="Raw Change Set" markdown>
+        {v.rawChangeSet}
+      </Well>
+    ),
+    // todo maybe do this better
+    renderResult: (res) => <Well title="Result">{JSON.stringify(res.result, null, 2)}</Well>,
   },
-  [NNodeType.ApplyFileChanges]: async (value, nrc) => {
-    const existingFile = await nrc.readFile(value.path);
-    if (existingFile.type === "directory") throw new Error("Cannot apply changes to a directory");
-    const original = existingFile.type === "file" ? existingFile.content : "";
+);
 
-    let output = await nrc.aiChat("geminiFlash", [
-      {
-        role: "user",
-        content: `
+export const ApplyFileChangesNNode = createNodeDef(
+  "apply-file-changes",
+  z.object({ path: orRef(z.string()), changes: orRef(z.array(z.string())) }),
+  z.object({ original: z.string(), result: z.string() }),
+  {
+    run: async (value, nrc) => {
+      const existingFile = await nrc.readFile(value.path);
+      if (existingFile.type === "directory") throw new Error("Cannot apply changes to a directory");
+      const original = existingFile.type === "file" ? existingFile.content : "";
+
+      let output = await nrc.aiChat("geminiFlash", [
+        {
+          role: "user",
+          content: `
 <context>
 ${nrc.projectContext.rules.join("\n")}
 </context>
@@ -453,23 +552,26 @@ ${original}
 ${value.changes.map((change) => `<change>${change}</change>`).join("\n")}
 </changes>
           `.trim(),
-      },
-    ]);
+        },
+      ]);
 
-    if (output.includes("```")) {
-      const startIndex = output.indexOf("\n", output.indexOf("```"));
-      const endIndex = output.lastIndexOf("\n", output.lastIndexOf("```"));
-      output = output.slice(startIndex + 1, endIndex);
-    }
+      if (output.includes("```")) {
+        const startIndex = output.indexOf("\n", output.indexOf("```"));
+        const endIndex = output.lastIndexOf("\n", output.lastIndexOf("```"));
+        output = output.slice(startIndex + 1, endIndex);
+      }
 
-    await nrc.writeFile(value.path, output);
-    return { type: NNodeType.ApplyFileChanges, original, result: output };
+      await nrc.writeFile(value.path, output);
+      return { original, result: output };
+    },
+    renderInputs: (v) => (
+      <Well title={`Changes ${v.path}`} markdown>
+        {v.changes.map((change) => change).join("\n") || ""}
+      </Well>
+    ),
+    // todo syntax highlighting
+    renderResult: (res) => (
+      <ReactDiffViewer oldValue={res.original} newValue={res.result} splitView={false} useDarkTheme />
+    ),
   },
-};
-
-export function runNode<T extends NNodeType>(
-  nodeValue: ResolveRefs<NNodeValue & { type: T }>,
-  nrc: NodeRunnerContext,
-): Promise<NNodeResult & { type: T }> {
-  return (runners as any)[nodeValue.type](nodeValue, nrc);
-}
+);

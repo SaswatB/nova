@@ -56,11 +56,13 @@ export function orRef<T extends z.ZodString | z.ZodArray<z.ZodString> | z.ZodNum
     ) as any,
   ]);
 }
-export function isNodeRef(value: unknown): value is NNodeRef<NNodeRefAccessorSchema> {
+export function isNodeRef<T extends NNodeRefAccessorSchema>(
+  value: NNodeRef<T> | NNodeRefAccessorSchemaMap[T],
+): value is NNodeRef<T> {
   return typeof value === "object" && value !== null && "sym" in value && value.sym === nnodeRefSymbol;
 }
 
 export type ResolveRef<T> = T extends NNodeRef<infer U> ? NNodeRefAccessorSchemaMap[U] : T;
-export type ResolveRefs<T> = {
-  [K in keyof T]: ResolveRef<T[K]>;
-};
+export type ResolveRefs<T> = { [K in keyof T]: ResolveRef<T[K]> };
+
+export type CreateNodeRef = <T extends NNodeRefAccessorSchema>(accessor: NNodeRef<T>["accessor"]) => NNodeRef<T>;

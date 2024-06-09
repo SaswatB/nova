@@ -39,14 +39,14 @@ export function ZodForm<T extends Record<string, unknown>>({
   schema: z.ZodObject<{ [K in keyof T]: z.ZodType<T[K]> }, UnknownKeysParam, ZodTypeAny, T, T>;
   overrideFieldMap?: Partial<
     Record<
-      keyof T,
+      Path<T>,
       | {
           label?: string;
           renderField?: (options: {
             register: () => UseFormRegisterReturn;
             error?: string;
             form: UseFormReturn<T>;
-            name: keyof T;
+            name: Path<T>;
           }) => ReactNode;
           helper?: string;
         }
@@ -54,7 +54,7 @@ export function ZodForm<T extends Record<string, unknown>>({
           register: () => UseFormRegisterReturn;
           error?: string;
           form: UseFormReturn<T>;
-          name: keyof T;
+          name: Path<T>;
         }) => ReactNode)
     >
   >;
@@ -80,10 +80,10 @@ export function ZodForm<T extends Record<string, unknown>>({
     let helper: string | undefined;
     let label = field?.description || startCase(key);
     if (overrideFieldMap && key in overrideFieldMap) {
-      const override = overrideFieldMap[key as keyof T]!;
+      const override = overrideFieldMap[key as Path<T>]!;
       if (typeof override === "function")
-        return <Fragment key={key}>{override({ register, error, form, name: key })}</Fragment>;
-      fieldNode = override.renderField?.({ register, error, form, name: key });
+        return <Fragment key={key}>{override({ register, error, form, name: key as Path<T> })}</Fragment>;
+      fieldNode = override.renderField?.({ register, error, form, name: key as Path<T> });
       helper = override.helper;
       label = override.label || label;
     }
@@ -153,7 +153,7 @@ function TextAreaRefField({
   });
   const isRef = isNodeRef(field.value);
   const refNode = isRef ? graphData.nodes[field.value.nodeId] : undefined;
-  const refValue = refNode ? resolveNodeRef(field.value, refNode) : undefined; // todo print if ref is broken?
+  const refValue = refNode ? resolveNodeRef(field.value, graphData.nodes) : undefined; // todo print if ref is broken?
 
   return (
     <Flex css={{ width: "100%" }}>
@@ -164,7 +164,7 @@ function TextAreaRefField({
         name={field.name}
         value={
           isRef
-            ? `<ref node="${refNode?.value?.type}" accessor="${JSON.stringify(field.value.accessor)}">\n${refValue}\n</ref>`
+            ? `<ref node="${refNode?.typeId}" accessor="${JSON.stringify(field.value.accessor)}">\n${refValue}\n</ref>`
             : field.value
         }
         readOnly={isRef}
@@ -200,7 +200,7 @@ function TextAreaRefArrayField({
   });
   const isRef = isNodeRef(field.value);
   const refNode = isRef ? graphData.nodes[field.value.nodeId] : undefined;
-  const refValue = refNode ? resolveNodeRef(field.value, refNode) : undefined; // todo print if ref is broken?
+  const refValue = refNode ? resolveNodeRef(field.value, graphData.nodes) : undefined; // todo print if ref is broken?
 
   if (isRef) {
     return (
@@ -210,7 +210,7 @@ function TextAreaRefArrayField({
           className={css({ flex: 1 })}
           resize="vertical"
           name={field.name}
-          value={`<ref node="${refNode?.value?.type}" accessor="${JSON.stringify(field.value.accessor)}">\n${(refValue as string[]).join("\n")}\n</ref>`}
+          value={`<ref node="${refNode?.typeId}" accessor="${JSON.stringify(field.value.accessor)}">\n${(refValue as string[]).join("\n")}\n</ref>`}
           readOnly
           onBlur={field.onBlur}
           onChange={field.onChange}

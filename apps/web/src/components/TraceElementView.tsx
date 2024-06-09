@@ -34,7 +34,7 @@ export function TraceElementView({ trace, graphRunner }: { trace: TraceElement; 
         onClick={() => setExpanded(!expanded)}
       >
         {traceElementSourceSymbol in trace ? (
-          <Badge className={css({ mr: 12 })}>{startCase(trace[traceElementSourceSymbol].value.type)}</Badge>
+          <Badge className={css({ mr: 12 })}>{startCase(trace[traceElementSourceSymbol].typeId)}</Badge>
         ) : (
           ""
         )}
