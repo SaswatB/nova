@@ -27,6 +27,26 @@ export type ZodFormRef<T extends Record<string, unknown>> = {
   reset: () => void;
 };
 
+type FieldOverride<T extends Record<string, unknown> = Record<string, unknown>> =
+  | {
+      label?: string;
+      renderField?: (options: {
+        register: () => UseFormRegisterReturn;
+        error?: string;
+        form: UseFormReturn<T>;
+        name: Path<T>;
+        onSubmit: () => void;
+      }) => ReactNode;
+      helper?: string;
+    }
+  | ((options: {
+      register: () => UseFormRegisterReturn;
+      error?: string;
+      form: UseFormReturn<T>;
+      name: Path<T>;
+      onSubmit: () => void;
+    }) => ReactNode);
+
 export function ZodForm<T extends Record<string, unknown>>({
   formRef,
   defaultValues,
@@ -37,27 +57,7 @@ export function ZodForm<T extends Record<string, unknown>>({
   formRef?: React.Ref<ZodFormRef<T>>;
   defaultValues?: DefaultValues<T>;
   schema: z.ZodObject<{ [K in keyof T]: z.ZodType<T[K]> }, UnknownKeysParam, ZodTypeAny, T, T>;
-  overrideFieldMap?: Partial<
-    Record<
-      Path<T>,
-      | {
-          label?: string;
-          renderField?: (options: {
-            register: () => UseFormRegisterReturn;
-            error?: string;
-            form: UseFormReturn<T>;
-            name: Path<T>;
-          }) => ReactNode;
-          helper?: string;
-        }
-      | ((options: {
-          register: () => UseFormRegisterReturn;
-          error?: string;
-          form: UseFormReturn<T>;
-          name: Path<T>;
-        }) => ReactNode)
-    >
-  >;
+  overrideFieldMap?: Partial<Record<Path<T>, FieldOverride<T>>>;
   onSubmit: (values: T) => void | Promise<void>;
 }) {
   const form = useZodForm({ schema, defaultValues });
@@ -82,8 +82,12 @@ export function ZodForm<T extends Record<string, unknown>>({
     if (overrideFieldMap && key in overrideFieldMap) {
       const override = overrideFieldMap[key as Path<T>]!;
       if (typeof override === "function")
-        return <Fragment key={key}>{override({ register, error, form, name: key as Path<T> })}</Fragment>;
-      fieldNode = override.renderField?.({ register, error, form, name: key as Path<T> });
+        return (
+          <Fragment key={key}>
+            {override({ register, error, form, name: key as Path<T>, onSubmit: handleSubmit })}
+          </Fragment>
+        );
+      fieldNode = override.renderField?.({ register, error, form, name: key as Path<T>, onSubmit: handleSubmit });
       helper = override.helper;
       label = override.label || label;
     }
@@ -121,9 +125,15 @@ export function ZodForm<T extends Record<string, unknown>>({
   );
 }
 
-export const textAreaField = {
-  renderField: ({ register }: { register: () => UseFormRegisterReturn }) => (
-    <TextArea resize="vertical" {...register()} />
+export const textAreaField: FieldOverride = {
+  renderField: ({ register, onSubmit }) => (
+    <TextArea
+      resize="vertical"
+      {...register()}
+      onKeyDown={(e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") onSubmit();
+      }}
+    />
   ),
 };
 
@@ -141,10 +151,12 @@ function TextAreaRefField({
   control,
   name,
   graphData,
+  onSubmit,
 }: {
   control: Control;
   name: string;
   graphData: GraphRunnerData;
+  onSubmit: () => void;
 }) {
   const { field } = useController({
     name,
@@ -170,6 +182,9 @@ function TextAreaRefField({
         readOnly={isRef}
         onBlur={field.onBlur}
         onChange={field.onChange}
+        onKeyDown={(e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === "Enter") onSubmit();
+        }}
       />
 
       {isRef ? <ResetRefButton onClick={() => field.onChange(refValue)} /> : null}
@@ -177,10 +192,10 @@ function TextAreaRefField({
   );
 }
 
-export const createTextAreaRefField = (graphData: GraphRunnerData) => ({
+export const createTextAreaRefField = (graphData: GraphRunnerData): FieldOverride => ({
   // for string fields
-  renderField: ({ form, name }: { form: UseFormReturn; name: string }) => (
-    <TextAreaRefField control={form.control} name={name} graphData={graphData} />
+  renderField: ({ form, name, onSubmit }) => (
+    <TextAreaRefField control={form.control} name={name} graphData={graphData} onSubmit={onSubmit} />
   ),
 });
 
@@ -241,7 +256,7 @@ function TextAreaRefArrayField({
   );
 }
 
-export const createTextAreaRefArrayField = (graphData: GraphRunnerData) => ({
+export const createTextAreaRefArrayField = (graphData: GraphRunnerData): FieldOverride => ({
   // for string array fields
   renderField: ({ form, name }: { form: UseFormReturn; name: string }) => (
     <TextAreaRefArrayField control={form.control} name={name} graphData={graphData} />
