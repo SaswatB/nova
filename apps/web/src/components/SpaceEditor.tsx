@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAsync, useAsyncCallback } from "react-async-hook";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Button, Checkbox, Dialog, SegmentedControl, TextArea } from "@radix-ui/themes";
 import { VoiceStatusPriority } from "@repo/shared";
@@ -17,6 +18,7 @@ import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
 import { ProjectContext } from "../lib/nodes/node-types";
 import { GraphRunner, GraphRunnerData, GraphTraceEvent } from "../lib/nodes/run-graph";
+import { routes } from "../lib/routes";
 import { AppTRPCClient, trpc } from "../lib/trpc-client";
 import { newId } from "../lib/uid";
 import { Loader } from "./base/Loader";
@@ -156,14 +158,17 @@ export function SpaceEditor({
   projectName,
   projectId,
   spaceId,
+  pageId,
 }: {
   projectName: string;
   projectId: string;
   spaceId: string;
+  pageId?: string;
 }) {
+  const navigate = useNavigate();
+
   const trpcClient = trpc.useUtils().client;
   const [dryRun, setDryRun] = useLocalStorage("dryRun", false);
-
   const [sizes, setSizes] = useLocalStorage<number[]>("space:sizes", [60, 40]);
   const handle = useAsync(() => idb.get<FileSystemDirectoryHandle>(`project:${projectId}:root`), [projectId]);
 
@@ -175,8 +180,23 @@ export function SpaceEditor({
     pagesRef.current = newPages;
     void idb.set(`space:${spaceId}:pages`, newPages).catch(console.error);
   };
-  const [selectedPageId, setSelectedPageId] = useLocalStorage<string | null>(`space:${spaceId}:selectedPageId`, null);
-  const selectedPage = pagesRef.current?.find((page) => page.id === selectedPageId);
+
+  const selectedPage = pagesRef.current?.find((page) => page.id === pageId);
+
+  // track the last page id for this space
+  const [lastPageId, setLastPageId] = useLocalStorage<string | null>(`space:${spaceId}:lastPageId`, null);
+  useEffect(() => {
+    if (selectedPage) setLastPageId(selectedPage.id);
+  }, [selectedPage, setLastPageId]);
+
+  // navigate to the last page if no page is selected
+  useEffect(() => {
+    if (selectedPage) return;
+    const newPageId = lastPageId || pagesAsync.result?.at(-1)?.id;
+    if (!newPageId) return;
+    navigate(routes.projectSpacePage.getPath({ projectId, spaceId, pageId: newPageId }), { replace: true });
+  }, [selectedPage, navigate, projectId, spaceId, pagesAsync.result, lastPageId]);
+
   const [iterationActive, setIterationActive] = useState(false);
   const [iterationPrompt, setIterationPrompt] = useState("");
 
@@ -187,7 +207,7 @@ export function SpaceEditor({
         ? GraphRunner.fromData(getProjectContext(projectId, handle.result, trpcClient, dryRun), selectedPage.graphData)
         : undefined,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [!!selectedPage?.graphData, selectedPageId, handle.result, refreshIndex, dryRun],
+    [!!selectedPage?.graphData, pageId, handle.result, refreshIndex, dryRun],
   );
   (window as any).graphRunner = graphRunner; // for debugging
   useEffect(() => {
@@ -198,7 +218,7 @@ export function SpaceEditor({
       if (cancelled) return;
       setPages(
         produce((draft) => {
-          const page = draft.find((p) => p.id === selectedPageId);
+          const page = draft.find((p) => p.id === pageId);
           if (page) page.graphData = graphRunner.toData();
         }),
       );
@@ -301,7 +321,7 @@ Currently working on the project "${projectName}".
                 } else {
                   const id = newId.spacePage();
                   setPages((p) => [...p, { id, name: `Iteration ${p.length + 1}`, graphData }]);
-                  setSelectedPageId(id);
+                  navigate(routes.projectSpacePage.getPath({ projectId, spaceId, pageId: id }), { replace: true });
                 }
               }}
             />
@@ -318,7 +338,7 @@ Currently working on the project "${projectName}".
             onChangeNode={(apply) => {
               setPages(
                 produce((draft) => {
-                  const page = draft.find((p) => p.id === selectedPageId);
+                  const page = draft.find((p) => p.id === pageId);
                   const node = selectedNodeId && page?.graphData?.nodes[selectedNodeId];
                   if (!node) return;
                   apply(node);

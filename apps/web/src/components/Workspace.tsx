@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
+import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { UserButton } from "@clerk/clerk-react";
 import { Link2Icon, PlusCircledIcon } from "@radix-ui/react-icons";
 import { Button, Dialog, IconButton, TextField, Tooltip } from "@radix-ui/themes";
@@ -13,6 +14,7 @@ import { stack } from "styled-system/patterns";
 import { z } from "zod";
 
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
+import { routes, RoutesPathParams } from "../lib/routes";
 import { newId } from "../lib/uid";
 import { Select } from "./base/Select";
 import { SpaceEditor } from "./SpaceEditor";
@@ -78,15 +80,9 @@ function AddProject({ onAdd }: { onAdd: (project: { name: string; handle: FileSy
 
 const getSpacesId = (projectId: string) => `spaces:${projectId}`;
 
-function SpaceSelector({
-  projectId,
-  selectedSpaceId,
-  setSelectedSpaceId,
-}: {
-  projectId: string;
-  selectedSpaceId: string | null;
-  setSelectedSpaceId: (id: string | null) => void;
-}) {
+function SpaceSelector({ projectId, spaceId }: { projectId: string; spaceId?: string }) {
+  const navigate = useNavigate();
+
   const [spacesImpl, setSpaces] = useLocalStorage<{ id: string; name: string | null; timestamp: number }[]>(
     getSpacesId(projectId),
     [],
@@ -94,10 +90,11 @@ function SpaceSelector({
   const spaces = useMemo(() => spacesImpl.sort((a, b) => b.timestamp - a.timestamp), [spacesImpl]);
 
   useEffect(() => {
-    if (selectedSpaceId && !spaces.find((space) => space.id === selectedSpaceId)) {
-      setSelectedSpaceId(spaces[0]?.id || null);
+    if (!spaces.find((space) => space.id === spaceId)) {
+      const newSpaceId = spaces[0]?.id || null;
+      if (newSpaceId) navigate(routes.projectSpace.getPath({ projectId, spaceId: newSpaceId }));
     }
-  }, [selectedSpaceId, setSelectedSpaceId, spaces]);
+  }, [spaceId, spaces, navigate, projectId]);
 
   return (
     <>
@@ -107,7 +104,7 @@ function SpaceSelector({
         onClick={() => {
           const id = newId.space();
           setSpaces([...spaces, { id, name: `Space ${spaces.length + 1}`, timestamp: Date.now() }]);
-          setSelectedSpaceId(id);
+          navigate(routes.projectSpace.getPath({ projectId, spaceId: id }));
         }}
       >
         New Space
@@ -115,14 +112,15 @@ function SpaceSelector({
 
       <Stack css={{ gap: 8 }}>
         {spaces.map((space) => (
-          <Button
-            key={space.id}
-            className={css({ borderColor: "transparent", outlineColor: "transparent", boxShadow: "none" })}
-            variant={selectedSpaceId === space.id ? "soft" : "outline"}
-            onClick={() => setSelectedSpaceId(space.id)}
-          >
-            {space.name || "Unnamed Space"}
-          </Button>
+          <NavLink key={space.id} to={routes.projectSpace.getPath({ projectId, spaceId: space.id })}>
+            <Button
+              key={space.id}
+              className={css({ w: "100%", borderColor: "transparent", outlineColor: "transparent", boxShadow: "none" })}
+              variant={spaceId === space.id ? "soft" : "outline"}
+            >
+              {space.name || "Unnamed Space"}
+            </Button>
+          </NavLink>
         ))}
       </Stack>
     </>
@@ -130,15 +128,24 @@ function SpaceSelector({
 }
 
 export function Workspace() {
+  const navigate = useNavigate();
+  const { projectId, spaceId, pageId } = useParams<Partial<RoutesPathParams["projectSpacePage"]>>();
+
   const [sizes, setSizes] = useLocalStorage<number[]>("workspace:sizes", [15, 85]);
 
   const [projects, setProjects] = useLocalStorage<{ id: string; name: string }[]>("projects", []);
-  const [selectedProjectId, setSelectedProjectIdImpl] = useLocalStorage<string | null>("selectedProjectId", null);
-  const [selectedSpaceId, setSelectedSpaceId] = useLocalStorage<string | null>("selectedSpaceId", null);
-  const setSelectedProjectId = (id: string | null) => {
-    setSelectedProjectIdImpl(id);
-    setSelectedSpaceId(null);
-  };
+
+  // track the most recent project
+  const [lastProjectId, setLastProjectId] = useState<string | null>(projectId || null);
+  useEffect(() => {
+    if (projectId) setLastProjectId(projectId);
+  }, [projectId]);
+
+  // if no project is selected, navigate to the most recent project
+  useEffect(() => {
+    const newProjectId = lastProjectId || projects[0]?.id || null;
+    if (!projectId && newProjectId) navigate(routes.project.getPath({ projectId: newProjectId }), { replace: true });
+  }, [projectId, lastProjectId, navigate, projects]);
 
   return (
     <SplitPane split="vertical" sizes={sizes} onChange={setSizes}>
@@ -148,28 +155,21 @@ export function Workspace() {
             <Select
               className={css({ flex: 1 })}
               placeholder="Select a project"
-              value={selectedProjectId || ""}
+              value={projectId || ""}
               options={projects.map((project) => ({ value: project.id, label: project.name }))}
-              onChange={(e) => setSelectedProjectId(e)}
+              onChange={(e) => navigate(routes.project.getPath({ projectId: e }))}
             />
             <AddProject
               onAdd={(project) => {
                 const id = newId.project();
                 idb.set(`project:${id}:root`, project.handle).catch(console.error);
                 setProjects([...projects, { id, name: project.name }]);
-                setSelectedProjectId(id);
+                navigate(routes.project.getPath({ projectId: id }));
               }}
             />
           </Flex>
           <Stack css={{ flex: 1, overflowY: "auto" }}>
-            {selectedProjectId ? (
-              <SpaceSelector
-                key={selectedProjectId}
-                projectId={selectedProjectId}
-                selectedSpaceId={selectedSpaceId}
-                setSelectedSpaceId={setSelectedSpaceId}
-              />
-            ) : null}
+            {projectId ? <SpaceSelector key={projectId} projectId={projectId} spaceId={spaceId} /> : null}
           </Stack>
           <VoiceChat />
           <Flex css={{ justifyContent: "center" }}>
@@ -178,12 +178,13 @@ export function Workspace() {
         </Stack>
       </Pane>
       <Pane minSize={20} className={stack()}>
-        {selectedSpaceId && selectedProjectId ? (
+        {projectId && spaceId ? (
           <SpaceEditor
-            key={selectedSpaceId}
-            projectName={projects.find((project) => project.id === selectedProjectId)?.name || ""}
-            projectId={selectedProjectId}
-            spaceId={selectedSpaceId}
+            key={spaceId}
+            projectId={projectId}
+            projectName={projects.find((project) => project.id === projectId)?.name || ""}
+            spaceId={spaceId}
+            pageId={pageId}
           />
         ) : null}
       </Pane>

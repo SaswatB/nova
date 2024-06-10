@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import { ClerkProvider, RedirectToSignIn, SignedIn, SignedOut } from "@clerk/clerk-react";
 import { VoiceProvider } from "@humeai/voice-react";
@@ -11,6 +12,7 @@ import { Loader } from "./components/base/Loader";
 import { BrowserGate } from "./components/BrowserGate";
 import { Workspace } from "./components/Workspace";
 import { env } from "./lib/env";
+import { routes } from "./lib/routes";
 import { frontendSessionIdAtom } from "./lib/state";
 import { trpc } from "./lib/trpc-client";
 
@@ -28,7 +30,14 @@ function AppContent() {
       }
       sessionSettings={{ customSessionId: frontendSessionId }}
     >
-      <Workspace />
+      <BrowserRouter>
+        <Routes>
+          <Route path={routes.home.path} element={<Workspace />} />
+          <Route path={routes.project.path} element={<Workspace />} />
+          <Route path={routes.projectSpace.path} element={<Workspace />} />
+          <Route path={routes.projectSpacePage.path} element={<Workspace />} />
+        </Routes>
+      </BrowserRouter>
     </VoiceProvider>
   );
 }
