@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider, Routes } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import { ClerkProvider, RedirectToSignIn, SignedIn, SignedOut } from "@clerk/clerk-react";
 import { VoiceProvider } from "@humeai/voice-react";
@@ -16,6 +16,15 @@ import { routes } from "./lib/routes";
 import { frontendSessionIdAtom } from "./lib/state";
 import { trpc } from "./lib/trpc-client";
 
+const router = createBrowserRouter(
+  createRoutesFromElements([
+    <Route key={routes.home.path} path={routes.home.path} element={<Workspace />} />,
+    <Route key={routes.project.path} path={routes.project.path} element={<Workspace />} />,
+    <Route key={routes.projectSpace.path} path={routes.projectSpace.path} element={<Workspace />} />,
+    <Route key={routes.projectSpacePage.path} path={routes.projectSpacePage.path} element={<Workspace />} />,
+  ]),
+);
+
 function AppContent() {
   const [voiceAccessToken] = trpc.voice.accessToken.useSuspenseQuery();
   const frontendSessionId = useAtomValue(frontendSessionIdAtom);
@@ -30,14 +39,7 @@ function AppContent() {
       }
       sessionSettings={{ customSessionId: frontendSessionId }}
     >
-      <BrowserRouter>
-        <Routes>
-          <Route path={routes.home.path} element={<Workspace />} />
-          <Route path={routes.project.path} element={<Workspace />} />
-          <Route path={routes.projectSpace.path} element={<Workspace />} />
-          <Route path={routes.projectSpacePage.path} element={<Workspace />} />
-        </Routes>
-      </BrowserRouter>
+      <RouterProvider router={router} />
     </VoiceProvider>
   );
 }

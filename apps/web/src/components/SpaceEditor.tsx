@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAsync, useAsyncCallback } from "react-async-hook";
-import { useNavigate } from "react-router-dom";
+import { useBlocker, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Button, Checkbox, Dialog, SegmentedControl, TextArea } from "@radix-ui/themes";
 import { VoiceStatusPriority } from "@repo/shared";
@@ -231,18 +231,14 @@ export function SpaceEditor({
   }, [graphRunner]);
   const runGraph = useAsyncCallback(async () => (graphRunner || undefined)?.run());
 
-  // todo lm_9616b7c13c add react router
-  // Use react-router-dom's useBlocker hook
-  // useBlocker(
-  //   (tx) => {
-  //     if (runGraph.loading) {
-  //       tx.block("Nova is currently running. Are you sure you want to navigate away?");
-  //     }
-  //   },
-  //   [runGraph.loading],
-  // );
-
-  // Use effect to handle browser navigation events
+  // block browser navigation when Nova is running
+  useBlocker(() => {
+    if (runGraph.loading) {
+      toast.warn("Nova is currently running.");
+      return true;
+    }
+    return false;
+  });
   useEffect(() => {
     if (!runGraph.loading) return;
 

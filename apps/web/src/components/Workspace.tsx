@@ -9,7 +9,7 @@ import { startCase } from "lodash";
 import { Pane } from "split-pane-react";
 import SplitPane from "split-pane-react/esm/SplitPane";
 import { css } from "styled-system/css";
-import { Flex, Stack } from "styled-system/jsx";
+import { Flex, Stack, styled } from "styled-system/jsx";
 import { stack } from "styled-system/patterns";
 import { z } from "zod";
 
@@ -73,6 +73,9 @@ function AddProject({ onAdd }: { onAdd: (project: { name: string; handle: FileSy
           }}
           onSubmit={onSubmit}
         />
+        <styled.div css={{ fontSize: "10px", color: "text.secondary", textAlign: "center", mt: 8 }}>
+          Nova uploads all your source files to our backend to process them with AI. We don't store any of your files.
+        </styled.div>
       </Dialog.Content>
     </Dialog.Root>
   );
