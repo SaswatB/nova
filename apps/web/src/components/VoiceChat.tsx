@@ -3,11 +3,12 @@ import { toast } from "react-toastify";
 import { faMicrophone, faMicrophoneSlash, faPhone, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useVoice, VoiceReadyState } from "@humeai/voice-react";
-import { Button, IconButton, Tooltip } from "@radix-ui/themes";
+import { Badge, Button, IconButton, Tooltip } from "@radix-ui/themes";
 import { SIOClientToServerEvents, SIOServerToClientEvents, VoiceState, VoiceStatusPriority } from "@repo/shared";
 import { atom, useAtomValue, useSetAtom } from "jotai";
-import { throttle } from "lodash";
+import { startCase, throttle } from "lodash";
 import { io, Socket } from "socket.io-client";
+import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 import { useDebounce } from "use-debounce";
 import { z } from "zod";
@@ -29,15 +30,20 @@ export function VoiceChat() {
     if (!container || !portalContainer) return;
 
     function refresh() {
-      const documentHeight = document.documentElement.scrollHeight;
+      const portalRect = portalContainer!.getBoundingClientRect();
+      container!.style.height = `${portalRect.height}px`;
+
       const containerRect = container!.getBoundingClientRect();
       portalContainer!.style.width = `${containerRect.width}px`;
       portalContainer!.style.left = `${containerRect.left}px`;
-      portalContainer!.style.bottom = `${documentHeight - containerRect.top - containerRect.height}px`;
+
+      const documentHeight = document.documentElement.scrollHeight;
+      portalContainer!.style.bottom = `${documentHeight - containerRect.top - portalRect.height}px`;
     }
 
     const observer = new ResizeObserver(throttle(refresh, 15, { leading: true, trailing: true }));
     observer.observe(container);
+    observer.observe(portalContainer);
     setTimeout(refresh, 100);
     setTimeout(refresh, 300);
     if (container.parentElement) observer.observe(container.parentElement);
@@ -69,7 +75,7 @@ export function VoiceChat() {
   // #endregion
 
   return (
-    <Stack ref={setContainer} css={{ w: "100%", h: "72px", alignSelf: "center" }}>
+    <Stack ref={setContainer} css={{ w: "100%", alignSelf: "center" }}>
       <Portal>
         <Stack
           ref={setPortalContainer}
@@ -77,9 +83,9 @@ export function VoiceChat() {
             position: "fixed",
             zIndex: 1,
             pointerEvents: "auto",
-            py: 20,
-            px: 5,
-            rounded: 20,
+            py: enabled ? 20 : 0,
+            px: enabled ? 5 : 0,
+            rounded: enabled ? 20 : 0,
             bg: enabled ? "#444" : undefined,
           }}
           onPointerDown={(e) => e.stopPropagation()}
@@ -89,6 +95,7 @@ export function VoiceChat() {
               <styled.span css={{ textAlign: "center" }}>
                 {isPlaying ? "Playing" : isMuted ? "Muted" : "Listening..."}
               </styled.span>
+              <VoiceStatusDisplay />
               <Flex css={{ justifyContent: "space-evenly" }}>
                 <Tooltip content="Clear History">
                   <IconButton variant="surface" onClick={() => clearMessages()}>
@@ -140,6 +147,18 @@ const voiceStateAtom = atom<VoiceState>({
   functions: [],
 });
 const voiceFunctionMapAtom = atom<Record<string, ((arg: unknown) => unknown) | undefined>>({});
+
+function VoiceStatusDisplay() {
+  const voiceState = useAtomValue(voiceStateAtom);
+
+  return (
+    <Tooltip content={voiceState.functions.map((f) => startCase(f.name)).join(", ") || "No functions available"}>
+      <Badge className={css({ alignSelf: "center" })}>
+        {voiceState.functions.length} function{voiceState.functions.length === 1 ? "" : "s"} available
+      </Badge>
+    </Tooltip>
+  );
+}
 
 export function useAddVoiceFunction<T extends z.ZodObject<any>>(
   name: string,

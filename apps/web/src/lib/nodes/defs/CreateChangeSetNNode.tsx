@@ -55,6 +55,18 @@ ${value.rawChangeSet}`.trim(),
           value: nrc.createNodeRef({ type: "result", path: "result.generalNoteList", schema: "string[]" }),
         });
       }
+
+      // Deduplicate files to change by their paths and merge their steps
+      changeSet.filesToChange = changeSet.filesToChange.reduce(
+        (acc, file) => {
+          const existingFile = acc.find((f) => f.absolutePathIncludingFileName === file.absolutePathIncludingFileName);
+          if (existingFile) existingFile.steps = [...existingFile.steps, ...file.steps];
+          else acc.push({ ...file });
+          return acc;
+        },
+        [] as ChangeSet["filesToChange"],
+      );
+
       for (let i = 0; i < changeSet.filesToChange.length; i++) {
         nrc.addDependantNode(ApplyFileChangesNNode, {
           path: nrc.createNodeRef({

@@ -153,8 +153,8 @@ export function Workspace() {
   return (
     <SplitPane split="vertical" sizes={sizes} onChange={setSizes}>
       <Pane minSize="200px">
-        <Stack css={{ p: 24, bg: "background.secondary", maxH: "100vh", h: "100vh" }}>
-          <Flex css={{ alignItems: "center", gap: 8, mb: 24 }}>
+        <Stack css={{ p: 24, gap: 0, bg: "background.secondary", maxH: "100vh", h: "100vh" }}>
+          <Flex css={{ alignItems: "center", gap: 8 }}>
             <Select
               className={css({ flex: 1 })}
               placeholder="Select a project"
@@ -171,11 +171,11 @@ export function Workspace() {
               }}
             />
           </Flex>
-          <Stack css={{ flex: 1, overflowY: "auto" }}>
+          <Stack css={{ flex: 1, overflowY: "auto", pt: 24 }}>
             {projectId ? <SpaceSelector key={projectId} projectId={projectId} spaceId={spaceId} /> : null}
           </Stack>
           <VoiceChat />
-          <Flex css={{ justifyContent: "center" }}>
+          <Flex css={{ justifyContent: "center", mt: 24 }}>
             <UserButton />
           </Flex>
         </Stack>
