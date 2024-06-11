@@ -1,19 +1,42 @@
+import { uniq } from "lodash";
+import pLimit from "p-limit";
 import { z } from "zod";
 
-import { Well } from "../../../components/base/Well";
+import { renderJsonWell, Well } from "../../../components/base/Well";
 import { createNodeDef } from "../node-types";
 import { orRef } from "../ref-types";
-import { CreateChangeSetNNode } from "./CreateChangeSetNNode";
+import { ApplyFileChangesNNode } from "./ApplyFileChangesNNode";
+import { ContextNNode, registerContextId } from "./ContextNNode";
+import { OutputNNode } from "./OutputNNode";
 import { ProjectAnalysisNNode, xmlFileSystemResearch } from "./ProjectAnalysisNNode";
 
-export const ExecuteNNode = createNodeDef(
-  "execute",
-  z.object({ instructions: orRef(z.string()), relevantFiles: orRef(z.array(z.string())) }),
-  z.object({ result: z.string() }),
+const ExecuteResult = z.object({
+  rawChangeSet: z.string(),
+  generalNoteList: z
+    .string({
+      description:
+        "General notes for the project, such as packages to install. This should not be used for file changes.",
+    })
+    .array()
+    .optional(),
+  filesToChange: z.array(z.object({ absolutePathIncludingFileName: z.string(), steps: z.string() })),
+});
+type ExecuteResult = z.infer<typeof ExecuteResult>;
+
+const typeId = "execute";
+const inputsSchema = z.object({ instructions: orRef(z.string()), relevantFiles: orRef(z.array(z.string())) });
+const outputsSchema = z.object({ result: ExecuteResult });
+
+export const ExecuteNNode = createNodeDef<typeof typeId, z.infer<typeof inputsSchema>, z.infer<typeof outputsSchema>>(
+  typeId,
+  inputsSchema,
+  outputsSchema,
   {
     run: async (value, nrc) => {
       const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
-      const res = await nrc.aiChat("gpt4o", [
+      const extraContext = await nrc.findNodeForResult(ContextNNode, (n) => n.contextId === ExecuteNNode_ContextId);
+
+      const rawChangeSet = await nrc.aiChat("gpt4o", [
         {
           role: "user",
           content: `
@@ -23,11 +46,11 @@ ${nrc.projectContext.rules.join("\n")}
 ${xmlFileSystemResearch(researchResult, { showResearch: true, showFileContent: true, filterFiles: (f) => value.relevantFiles.includes(f) })}
 <instructions>
 ${value.instructions}
-</instructions>
+</instructions>${extraContext ? `\n\n<extraContext>\n${extraContext.context}\n</extraContext>` : ""}
 
 Please suggest changes to the provided files based on the plan.
-Suggestions may either be snippets or full files, it should be clear enough for a junior engineer to understand and apply.
-Prefer snippets unless the file is small or the change is very large.
+Suggestions may either be snippets or full files (but not both), and it should be clear enough for a junior engineer to understand and apply.
+Prefer snippets unless the file is small (about 50 lines or less) or the change is very large.
 Make sure to be very clear about which file is changing and what the change is.
 Please include a legend at the top of the file with the absolute path to the files you are changing. (Example: /root/project/src/file.ts)
 Suggest adding imports in distinct, standalone snippets from the code changes.
@@ -35,10 +58,76 @@ If creating a new file, please provide the full file content.`.trim(),
         },
       ]);
 
-      nrc.addDependantNode(CreateChangeSetNNode, {
-        rawChangeSet: nrc.createNodeRef({ type: "result", path: "result", schema: "string" }),
+      const ChangeSetSchema = z.object({
+        generalNoteList: z
+          .string({
+            description:
+              "General notes for the project, such as packages to install. This should not be used for file changes.",
+          })
+          .array()
+          .optional(),
+        filesToChange: z.array(z.object({ absolutePathIncludingFileName: z.string() })),
       });
-      return { result: res };
+      const changeSet = await nrc.aiJson(
+        ChangeSetSchema,
+        `
+I have a document detailing changes to a project. Please transform the information into a JSON format with the following structure:
+
+1.	General notes for the project, such as packages to install.
+2.	A list of all files to change, each containing a list of changes. Only include files that have changes.
+
+Example:
+${JSON.stringify({
+  generalNoteList: ["This is a general note"],
+  filesToChange: [{ absolutePathIncludingFileName: "/root/project/src/file.ts" }],
+} satisfies z.infer<typeof ChangeSetSchema>)}
+
+Here's the document content:
+${rawChangeSet}`.trim(),
+      );
+
+      // Deduplicate files to change by their paths
+      const limit = pLimit(5);
+      const filesToChange = await Promise.all(
+        uniq(changeSet.filesToChange.map((f) => f.absolutePathIncludingFileName)).map((path) =>
+          limit(async () => {
+            const steps = await nrc.aiChat("geminiFlash", [
+              {
+                role: "user",
+                content: `
+<change_set>
+${rawChangeSet}
+</change_set>
+
+Please extract and output only the sections of the given change set relevant to the file at "${path}".
+Do not calculate or output a diff.
+Ensure the output retains the original markdown format, but only includes the relevant sections for the specified file.
+`.trim(),
+              },
+            ]);
+
+            return { absolutePathIncludingFileName: path, steps };
+          }),
+        ),
+      );
+
+      if (changeSet.generalNoteList?.length) {
+        nrc.addDependantNode(OutputNNode, {
+          description: "General notes for the project",
+          value: nrc.createNodeRef({ type: "result", path: "result.generalNoteList", schema: "string[]" }),
+        });
+      }
+      for (let i = 0; i < changeSet.filesToChange.length; i++) {
+        nrc.addDependantNode(ApplyFileChangesNNode, {
+          path: nrc.createNodeRef({
+            type: "result",
+            path: `result.filesToChange[${i}].absolutePathIncludingFileName`,
+            schema: "string",
+          }),
+          changes: nrc.createNodeRef({ type: "result", path: `result.filesToChange[${i}].steps`, schema: "string" }),
+        });
+      }
+      return { result: { generalNoteList: changeSet.generalNoteList, rawChangeSet, filesToChange: filesToChange } };
     },
     renderInputs: (v) => (
       <>
@@ -48,10 +137,20 @@ If creating a new file, please provide the full file content.`.trim(),
         <Well title="Relevant Files">{v.relevantFiles.map((file) => file).join("\n") || ""}</Well>
       </>
     ),
-    renderResult: (res) => (
-      <Well title="Result" markdownPreferred>
-        {res.result}
-      </Well>
+    renderResult: ({ result: { rawChangeSet, ...rest } }) => (
+      <>
+        <Well title="Raw Result" markdownPreferred>
+          {rawChangeSet}
+        </Well>
+        {/* todo maybe do this better */}
+        {renderJsonWell("Result", rest)}
+      </>
     ),
   },
+);
+
+export const ExecuteNNode_ContextId = registerContextId(
+  ExecuteNNode,
+  "execute-context",
+  "Extra context for change set creation",
 );

@@ -5,6 +5,7 @@ import { startCase } from "lodash";
 import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 
+import { formatError } from "../lib/err";
 import { GraphRunner, GraphRunnerData, NNode, resolveNodeValueRefs } from "../lib/nodes/run-graph";
 import { TraceElementList, traceElementSourceSymbol } from "./TraceElementView";
 import { createTextAreaRefArrayField, createTextAreaRefField, ZodForm } from "./ZodForm";
@@ -12,14 +13,16 @@ import { createTextAreaRefArrayField, createTextAreaRefField, ZodForm } from "./
 export function NodeViewer({
   graphData,
   graphRunner,
+  isGraphRunning,
   node,
   onChangeNode,
   onNodeNav,
 }: {
   graphData: GraphRunnerData;
   graphRunner?: GraphRunner;
+  isGraphRunning: boolean;
   node: NNode;
-  onChangeNode: (apply: (draft: NNode) => void) => void;
+  onChangeNode: (apply: (draft: NNode) => void) => Promise<void> | void;
   onNodeNav: (node: NNode) => void;
 }) {
   const [editInput, setEditInput] = useState(false);
@@ -41,13 +44,20 @@ export function NodeViewer({
 
   return (
     <Stack css={{ p: 24, gap: 0, overflowY: "auto" }}>
-      <Flex css={{ justifyContent: "space-between" }}>
+      <Flex css={{ gap: 8 }}>
         {startCase(node.typeId)}
-        {node.state ? (
-          <Button color="red" onClick={() => graphRunner?.resetNode(node.id)}>
-            Reset
-          </Button>
-        ) : null}
+        <styled.div css={{ flex: 1 }} />
+        <Button color="red" variant="soft" disabled={isGraphRunning} onClick={() => graphRunner?.deleteNode(node.id)}>
+          Delete
+        </Button>
+        <Button
+          color="red"
+          variant="soft"
+          disabled={!node.state || isGraphRunning}
+          onClick={() => graphRunner?.resetNode(node.id)}
+        >
+          Reset
+        </Button>
       </Flex>
       <Tabs.Root defaultValue="details">
         <Tabs.List className={css({ mb: 8 })}>
@@ -94,15 +104,17 @@ export function NodeViewer({
                     relevantFiles: createTextAreaRefArrayField(graphData),
                     rawChangeSet: createTextAreaRefField(graphData),
                     path: createTextAreaRefField(graphData),
-                    changes: createTextAreaRefArrayField(graphData),
+                    changes: createTextAreaRefField(graphData),
+                    context: createTextAreaRefField(graphData),
                   }}
-                  onSubmit={(values) => {
-                    onChangeNode((draft) => {
+                  onSubmit={async (values) => {
+                    await onChangeNode((draft) => {
                       draft.value = values;
                     });
                     setEditInput(false);
                     toast.success("Node updated");
                   }}
+                  saveButtonText="Save & Reset Node"
                 />
               ) : (
                 <Stack>{nodeInputs}</Stack>

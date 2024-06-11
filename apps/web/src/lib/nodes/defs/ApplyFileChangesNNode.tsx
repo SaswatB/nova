@@ -7,7 +7,7 @@ import { orRef } from "../ref-types";
 
 export const ApplyFileChangesNNode = createNodeDef(
   "apply-file-changes",
-  z.object({ path: orRef(z.string()), changes: orRef(z.array(z.string())) }),
+  z.object({ path: orRef(z.string()), changes: orRef(z.string()) }),
   z.object({ original: z.string(), result: z.string() }),
   {
     run: async (value, nrc) => {
@@ -23,14 +23,17 @@ export const ApplyFileChangesNNode = createNodeDef(
 ${nrc.projectContext.rules.join("\n")}
 </context>
 
-Please take the following change set and output the final file, if it looks like the changes are a full file overwrite, output just the changes.
-Your response will directly overwrite the file, so you MUST not omit any of the file content.
 <file path="${value.path}">
 ${original}
 </file>
-<changes>
-${value.changes.map((change) => `<change>${change}</change>`).join("\n")}
-</changes>
+<change_plan>
+${value.changes}
+</change_plan>
+
+Please take the changes relevant for the given file and output the final file.
+Do not output a diff, just the final file.
+Your response will directly overwrite the file, so you MUST not omit any of the file content.
+The file you are operating on is "${value.path}".
           `.trim(),
         },
       ]);
@@ -46,7 +49,7 @@ ${value.changes.map((change) => `<change>${change}</change>`).join("\n")}
     },
     renderInputs: (v) => (
       <Well title={`Changes ${v.path}`} markdownPreferred>
-        {v.changes.map((change) => change).join("\n") || ""}
+        {v.changes || ""}
       </Well>
     ),
     // todo syntax highlighting

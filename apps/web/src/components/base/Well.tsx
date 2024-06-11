@@ -4,6 +4,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { toast } from "react-toastify";
 import { Badge, Button } from "@radix-ui/themes";
+import { css } from "styled-system/css";
 import { Flex, styled } from "styled-system/jsx";
 
 export function Well({
@@ -91,7 +92,18 @@ export function Well({
       }}
     >
       <Flex css={{ mb: "8px", gap: 16 }}>
-        {title && <Badge>{title}</Badge>}
+        {title && (
+          <Badge
+            className={css({
+              textWrap: "wrap",
+              wordBreak: "break-all",
+              flexBasis: "content",
+              flexShrink: 1,
+            })}
+          >
+            {title}
+          </Badge>
+        )}
         <styled.div css={{ flex: 1, minW: 12 }} />
         {markdownPreferred ? (
           <Button variant="ghost" onClick={() => setMarkdown(!markdown)}>

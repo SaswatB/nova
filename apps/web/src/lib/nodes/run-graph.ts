@@ -1,17 +1,20 @@
-import { asyncToArray, dirname, isDefined, OmitUnion } from "@repo/shared";
+import { toast } from "react-toastify";
+import { asyncToArray, dirname, isDefined, IterationMode, OmitUnion } from "@repo/shared";
 import { EventEmitter } from "events";
 import * as idb from "idb-keyval";
-import { cloneDeep, get, isEqual } from "lodash";
+import { produce } from "immer";
+import { cloneDeep, get, isEqual, uniq } from "lodash";
 import { match } from "ts-pattern";
 import zodToJsonSchema from "zod-to-json-schema";
 
+import { RevertFilesDialog } from "../../components/RevertFilesDialog";
 import { formatError, throwError } from "../err";
 import { newId } from "../uid";
 import { ApplyFileChangesNNode } from "./defs/ApplyFileChangesNNode";
-import { CreateChangeSetNNode } from "./defs/CreateChangeSetNNode";
-import { ExecuteNNode } from "./defs/ExecuteNNode";
+import { ContextNNode } from "./defs/ContextNNode";
+import { ExecuteNNode, ExecuteNNode_ContextId } from "./defs/ExecuteNNode";
 import { OutputNNode } from "./defs/OutputNNode";
-import { PlanNNode } from "./defs/PlanNNode";
+import { PlanNNode, PlanNNode_ContextId } from "./defs/PlanNNode";
 import { ProjectAnalysisNNode } from "./defs/ProjectAnalysisNNode";
 import { RelevantFileAnalysisNNode } from "./defs/RelevantFileAnalysisNNode";
 import { TypescriptDepAnalysisNNode } from "./defs/TypescriptDepAnalysisNNode";
@@ -137,7 +140,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
   private trace: GraphTraceEvent[] = [];
   private nodeDefs: Record<string, NNodeDef> = {
     [ApplyFileChangesNNode.typeId]: ApplyFileChangesNNode,
-    [CreateChangeSetNNode.typeId]: CreateChangeSetNNode,
+    [ContextNNode.typeId]: ContextNNode,
     [ExecuteNNode.typeId]: ExecuteNNode,
     [OutputNNode.typeId]: OutputNNode,
     [PlanNNode.typeId]: PlanNNode,
@@ -201,7 +204,8 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           console.log("[GraphRunner] Found existing node", depNode.value);
           if (!depNode.state?.result) throw new Error("Node result not found"); // this shouldn't happen since deps are processed first
           existing = true;
-          subResult = depNode.state.result; // todo should this add the node as a direct dependency?
+          subResult = depNode.state.result;
+          node.dependencies = uniq([...(node.dependencies || []), depNode.id]);
         } else {
           console.log("[GraphRunner] Adding dependency node", nodeValue);
           depNode = this.addNode(nodeDef, nodeValue, inheritDependencies ? [...(node.dependencies || [])] : undefined);
@@ -229,7 +233,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           ) || Object.values(this.nodes).find((n) => n.typeId === nodeDef.typeId && filter(n.value));
         if (!foundNode) return null;
 
-        (node.dependencies ||= []).push(foundNode.id);
+        node.dependencies = uniq([...(node.dependencies || []), foundNode.id]);
         const result = foundNode.state?.result || (await waitForNode(foundNode));
 
         this.addNodeTrace(node, { type: "find-node", node: foundNode, result });
@@ -315,7 +319,9 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       },
     };
 
-    const nodeResolvedValue = resolveNodeValueRefs(node.value, this.nodes); // resolve refs in input
+    const accessedNodeIds = new Set<string>();
+    const nodeResolvedValue = resolveNodeValueRefs(node.value, this.nodes, accessedNodeIds); // resolve refs in input
+    node.dependencies = uniq([...(node.dependencies || []), ...Array.from(accessedNodeIds)]); // add all nodes that were accessed as direct deps
 
     (node.state ||= {}).startedAt = Date.now();
     this.addNodeTrace(node, { type: "start", resolvedValue: nodeResolvedValue });
@@ -421,35 +427,143 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     return node;
   }
 
-  public async resetNode(nodeId: string) {
+  public async editNode(nodeId: string, apply: (node: NNode) => void) {
     const node = this.nodes[nodeId];
     if (!node) throw new Error("Node not found");
 
-    // delete all nodes created as a side effect of the node
-    const deletedNodes = new Set<string>();
-    const deleteNode = (subNodeId: string) => {
-      if (deletedNodes.has(subNodeId)) return;
-      deletedNodes.add(subNodeId);
+    this.nodes[nodeId] = produce(node, apply);
+    await this.resetNode(nodeId);
+  }
 
-      this.nodes[subNodeId]?.state?.createdNodes?.forEach((id) => deleteNode(id));
-      delete this.nodes[subNodeId];
+  public async resetNode(nodeId: string) {
+    const fileWrites: (NNodeTraceEvent & { type: "write-file" })[] = [];
+
+    const reset = (rNode: NNode) => {
+      // track file writes
+      fileWrites.push(
+        ...(rNode.state?.trace?.filter((t): t is NNodeTraceEvent & { type: "write-file" } => t.type === "write-file") ||
+          []),
+      );
+
+      // delete all nodes created as a side effect of this node
+      const deletedNodes = new Set<string>();
+      const deleteNode = (subNodeId: string) => {
+        if (deletedNodes.has(subNodeId)) return;
+        deletedNodes.add(subNodeId);
+
+        const delNode = this.nodes[subNodeId];
+        if (!delNode) return;
+        delNode.state?.createdNodes?.forEach((id) => deleteNode(id));
+
+        // track file writes
+        fileWrites.push(
+          ...(delNode.state?.trace?.filter(
+            (t): t is NNodeTraceEvent & { type: "write-file" } => t.type === "write-file",
+          ) || []),
+        );
+        delete this.nodes[subNodeId];
+      };
+      rNode.state?.createdNodes?.forEach((id) => deleteNode(id));
+
+      // clear node state
+      delete rNode.state;
+
+      // remove deleted nodes from other nodes' dependencies
+      Object.values(this.nodes).forEach((n) => {
+        n.dependencies = n.dependencies?.filter((id) => !deletedNodes.has(id));
+      });
+
+      // reset any dependants
+      const dependants = Object.values(this.nodes).filter((n) => n.dependencies?.includes(rNode.id));
+      dependants.forEach((n) => reset(n));
     };
-    node.state?.createdNodes?.forEach((id) => deleteNode(id));
-
-    // clear node state
-    delete node.state;
-
-    // remove deleted nodes from other nodes' dependencies
-    Object.values(this.nodes).forEach((n) => {
-      n.dependencies = n.dependencies?.filter((id) => !deletedNodes.has(id));
-    });
+    const node = this.nodes[nodeId];
+    if (!node) throw new Error("Node not found");
+    reset(node);
     this.emit("dataChanged");
+
+    // prompt user if they wanna undo file writes
+    if (fileWrites.length) {
+      const selectedFiles = await RevertFilesDialog({ paths: fileWrites.map((w) => w.path) });
+      if (selectedFiles.length) {
+        const fileWritesToUndo = fileWrites.filter((w) => selectedFiles.includes(w.path));
+        for (const write of fileWritesToUndo) {
+          await this.writeFile(write.path, write.original || "");
+        }
+        toast.success(`Reverted ${fileWritesToUndo.length} file${fileWritesToUndo.length > 1 ? "s" : ""}`);
+      }
+    }
+  }
+
+  public async deleteNode(nodeId: string) {
+    await this.resetNode(nodeId);
+    Object.values(this.nodes).forEach((n) => {
+      n.dependencies = n.dependencies?.filter((id) => id !== nodeId);
+    });
+    delete this.nodes[nodeId];
+    this.emit("dataChanged");
+  }
+
+  public async iterate(prompt: string, iterationMode: IterationMode) {
+    const { node, oldGeneration, contextId } = match(iterationMode)
+      .with(IterationMode.MODIFY_PLAN, () => {
+        const planNode = Object.values(this.nodes).find(
+          (n): n is NNode<typeof PlanNNode> => n.typeId === PlanNNode.typeId,
+        );
+        return {
+          node: planNode,
+          oldGeneration: planNode?.state?.result?.result || "No plan generated",
+          contextId: PlanNNode_ContextId,
+        };
+      })
+      .with(IterationMode.MODIFY_CHANGE_SET, () => {
+        const executeNode = Object.values(this.nodes).find(
+          (n): n is NNode<typeof ExecuteNNode> => n.typeId === ExecuteNNode.typeId,
+        );
+        return {
+          node: executeNode,
+          oldGeneration: executeNode?.state?.result?.result.rawChangeSet || "No change set generated",
+          contextId: ExecuteNNode_ContextId,
+        };
+      })
+      .exhaustive();
+
+    const newContext = `
+---------${new Date().toISOString()}---------
+You previously generated the following:\n
+<old_generation>
+${oldGeneration}
+</old_generation>
+The user provided this feedback, please take it into account and try again:
+<user_feedback>
+${prompt}
+</user_feedback>
+      `.trim();
+
+    let contextNode = Object.values(this.nodes).find(
+      (n): n is NNode<typeof ContextNNode> => n.typeId === ContextNNode.typeId && n.value.contextId === contextId,
+    );
+    if (contextNode) {
+      await this.editNode(contextNode.id, (n) => {
+        n.value.context += `\n\n${newContext}`;
+      });
+    } else {
+      contextNode = this.addNode(ContextNNode, { contextId: contextId, context: newContext });
+      if (node) {
+        (node.dependencies ||= []).push(contextNode.id);
+        await this.resetNode(contextNode.id); // prepare for the next run
+      }
+    }
   }
 
   public getNodeDef<D extends NNodeDef>(node: NNode<D>) {
     const nodeDef = this.nodeDefs[node.typeId];
     if (!nodeDef) throw new Error(`Node type not found: ${node.typeId}`);
     return nodeDef as D;
+  }
+
+  public hasRealFileWrites() {
+    return Object.values(this.nodes).some((node) => node.state?.trace?.some((t) => t.type === "write-file"));
   }
 
   private addTrace(event: OmitUnion<(typeof GraphRunner.prototype.trace)[number], "timestamp">) {

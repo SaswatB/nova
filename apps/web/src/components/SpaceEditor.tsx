@@ -3,7 +3,7 @@ import { useAsync, useAsyncCallback } from "react-async-hook";
 import { useBlocker, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Button, Checkbox, Dialog, SegmentedControl, TextArea } from "@radix-ui/themes";
-import { VoiceStatusPriority } from "@repo/shared";
+import { IterationMode, VoiceStatusPriority } from "@repo/shared";
 import * as idb from "idb-keyval";
 import { produce } from "immer";
 import { uniqBy } from "lodash";
@@ -14,15 +14,17 @@ import { stack } from "styled-system/patterns";
 import { VList } from "virtua";
 import { z } from "zod";
 
+import { formatError } from "../lib/err";
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
+import { ExecuteNNode } from "../lib/nodes/defs/ExecuteNNode";
+import { PlanNNode } from "../lib/nodes/defs/PlanNNode";
 import { ProjectContext } from "../lib/nodes/node-types";
-import { GraphRunner, GraphRunnerData, GraphTraceEvent } from "../lib/nodes/run-graph";
+import { GraphRunner, GraphRunnerData, GraphTraceEvent, NNode } from "../lib/nodes/run-graph";
 import { routes } from "../lib/routes";
 import { AppTRPCClient, trpc } from "../lib/trpc-client";
 import { newId } from "../lib/uid";
 import { Loader } from "./base/Loader";
-import { Select } from "./base/Select";
 import { GraphCanvas } from "./GraphCanvas";
 import { NodeViewer } from "./NodeViewer";
 import { TraceElementList, traceElementSourceSymbol } from "./TraceElementView";
@@ -148,6 +150,104 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
   );
 }
 
+function xmlGraphDataPrompt(graphData: GraphRunnerData) {
+  const planNode = Object.values(graphData.nodes).find(
+    (n): n is NNode<typeof PlanNNode> => n.typeId === PlanNNode.typeId,
+  );
+  const executeNode = Object.values(graphData.nodes).find(
+    (n): n is NNode<typeof ExecuteNNode> => n.typeId === ExecuteNNode.typeId,
+  );
+  return `
+<graph_data>
+<user_provided_goal>
+${planNode?.value.goal}
+</user_provided_goal>
+<generated_plan>
+${planNode?.state?.result?.result || "No plan generated yet."}
+</generated_plan>
+<generated_change_set>
+${executeNode?.state?.result?.result.rawChangeSet || "No change set generated yet."}
+</generated_change_set>
+</graph_data>
+  `.trim();
+}
+
+function IterationPane({
+  graphData,
+  onIterate,
+  onClose,
+}: {
+  graphData: GraphRunnerData;
+  onIterate: (prompt: string, iterationMode: IterationMode) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [prompt, setPrompt] = useState("");
+  const [iterationMode, setIterationMode] = useState<IterationMode>(IterationMode.MODIFY_CHANGE_SET);
+
+  const onIterateAsync = useAsyncCallback(async () => {
+    try {
+      await onIterate(prompt, iterationMode);
+    } catch (error) {
+      console.error(error);
+      toast.error(`Error applying iteration: ${formatError(error)}`);
+    }
+  });
+
+  const iterationModeExplanations: Record<IterationMode, string> = {
+    // [IterationMode.AUTO]: "Nova will automatically choose the best mode for the current task.",
+    [IterationMode.MODIFY_PLAN]: "Nova will add context to the plan generation to modify the generated plan.",
+    [IterationMode.MODIFY_CHANGE_SET]:
+      "Nova will add context to the change set generation to modify the generated change set.",
+  };
+
+  useAddVoiceStatus(
+    `
+${xmlGraphDataPrompt(graphData)}
+
+The user is currently has the iteration pane open.
+The iteration pane is a form that allows the user to enter a prompt which they can use to modify the graph and add feedback as well as additional context based on how a previous Nova run went.
+There are ${Object.keys(iterationModeExplanations).length} iteration modes:
+${Object.entries(iterationModeExplanations)
+  .map(([mode, explanation]) => `- ${mode}: ${explanation}`)
+  .join("\n")}
+The current iteration mode is: ${iterationMode}.
+${prompt ? `The current iteration prompt is: ${prompt}.` : ""}
+  `.trim(),
+    VoiceStatusPriority.MEDIUM,
+  );
+
+  useAddVoiceFunction(
+    "propose_iteration_prompt",
+    "Propose a new iteration prompt. Example: 'Do not make any changes to the navigation bar. Reference App.tsx instead for the current router implementation.'. The more detailed the prompt, the better and feel free to use markdown. Make sure to include all the context that the user provides.",
+    z.object({ prompt: z.string().min(1) }),
+    ({ prompt }) => setPrompt(prompt),
+  );
+
+  return (
+    <Stack css={{ bg: "background.secondary", p: 16, borderRadius: 8 }}>
+      <label>Iteration Prompt</label>
+      <TextArea autoFocus rows={10} value={prompt} onChange={(e) => setPrompt(e.target.value)} resize="both" />
+      <SegmentedControl.Root value={iterationMode} onValueChange={(value) => setIterationMode(value as IterationMode)}>
+        {/* <SegmentedControl.Item value={IterationMode.AUTO} title="Automatically choose an iteration mode">
+          Auto
+        </SegmentedControl.Item> */}
+        <SegmentedControl.Item value={IterationMode.MODIFY_PLAN}>Modify Plan</SegmentedControl.Item>
+        <SegmentedControl.Item value={IterationMode.MODIFY_CHANGE_SET}>Modify Change Set</SegmentedControl.Item>
+        {/* <SegmentedControl.Item value={IterationMode.MODIFY_FILE}>Modify File</SegmentedControl.Item> */}
+        {/* <SegmentedControl.Item value="newPlan">New Plan</SegmentedControl.Item> */}
+      </SegmentedControl.Root>
+      <Flex css={{ justifyContent: "space-between" }}>
+        <Button disabled={onIterateAsync.loading} color="red" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button loading={onIterateAsync.loading} onClick={onIterateAsync.execute}>
+          Iterate
+        </Button>
+      </Flex>
+    </Stack>
+  );
+}
+
 interface Page {
   id: string;
   name: string;
@@ -198,16 +298,14 @@ export function SpaceEditor({
   }, [selectedPage, navigate, projectId, spaceId, pagesAsync.result, lastPageId]);
 
   const [iterationActive, setIterationActive] = useState(false);
-  const [iterationPrompt, setIterationPrompt] = useState("");
 
-  const [refreshIndex, setRefreshIndex] = useState(0); // refreshes the graph runner
   const graphRunner = useMemo(
     () =>
       !!selectedPage?.graphData && handle.result
         ? GraphRunner.fromData(getProjectContext(projectId, handle.result, trpcClient, dryRun), selectedPage.graphData)
         : undefined,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [!!selectedPage?.graphData, pageId, handle.result, refreshIndex, dryRun],
+    [!!selectedPage?.graphData, pageId, handle.result, dryRun],
   );
   (window as any).graphRunner = graphRunner; // for debugging
   useEffect(() => {
@@ -258,8 +356,11 @@ export function SpaceEditor({
 
   useAddVoiceStatus(
     `
+${selectedPage?.graphData ? xmlGraphDataPrompt(selectedPage.graphData) : ""}
+
 Currently working on the project "${projectName}".
   `.trim(),
+    VoiceStatusPriority.LOW,
   );
 
   if (!handle.result || pagesAsync.loading) return <Loader fill />;
@@ -272,6 +373,29 @@ Currently working on the project "${projectName}".
             isGraphRunning={runGraph.loading}
             selectedNodeId={selectedNodeId}
             setSelectedNodeId={setSelectedNodeId}
+            topLeftActions={
+              iterationActive ? (
+                <IterationPane
+                  graphData={selectedPage.graphData}
+                  onClose={() => setIterationActive(false)}
+                  onIterate={async (prompt, iterationMode) => {
+                    await graphRunner?.iterate(prompt, iterationMode);
+                    setIterationActive(false);
+                  }}
+                />
+              ) : (
+                <Flex css={{ alignItems: "center", gap: 24 }}>
+                  {/* <Select
+                    options={pagesRef.current?.map((page) => ({ label: page.name, value: page.id })) || []}
+                    value={selectedPage.id}
+                    onChange={(value) =>
+                      navigate(routes.projectSpacePage.getPath({ projectId, spaceId, pageId: value }))
+                    }
+                  /> */}
+                  <Button onClick={() => setIterationActive(!iterationActive)}>Iterate</Button>
+                </Flex>
+              )
+            }
             topRightActions={
               <Flex css={{ alignItems: "center", gap: 24 }}>
                 <label>
@@ -330,18 +454,9 @@ Currently working on the project "${projectName}".
             key={selectedNodeId}
             graphData={selectedPage?.graphData!}
             graphRunner={graphRunner}
+            isGraphRunning={runGraph.loading}
             node={selectedNode}
-            onChangeNode={(apply) => {
-              setPages(
-                produce((draft) => {
-                  const page = draft.find((p) => p.id === pageId);
-                  const node = selectedNodeId && page?.graphData?.nodes[selectedNodeId];
-                  if (!node) return;
-                  apply(node);
-                }),
-              );
-              setRefreshIndex(refreshIndex + 1);
-            }}
+            onChangeNode={(apply) => graphRunner?.editNode(selectedNode.id, apply)}
             onNodeNav={(node) => setSelectedNodeId(node.id)}
           />
         ) : !selectedPage?.graphData?.trace.length ? (

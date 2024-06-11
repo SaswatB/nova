@@ -15,13 +15,9 @@ export const PlanNNode = createNodeDef(
   {
     run: async (value, nrc) => {
       const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
-      const {
-        result: relevantFilesAnalysis,
-        files: relevantFiles,
-        createNodeRef: createRelevantFilesRef,
-      } = await nrc.getOrAddDependencyForResult(
+      const { files: relevantFiles, createNodeRef: createRelevantFilesRef } = await nrc.getOrAddDependencyForResult(
         RelevantFileAnalysisNNode,
-        { goal: nrc.createNodeRef({ type: "value", path: "goal", schema: "string" }) },
+        { goal: value.goal },
         true,
       );
       const extraContext = await nrc.findNodeForResult(ContextNNode, (n) => n.contextId === PlanNNode_ContextId);
