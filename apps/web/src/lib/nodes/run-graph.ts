@@ -5,6 +5,7 @@ import { cloneDeep, get, isEqual } from "lodash";
 import { match } from "ts-pattern";
 import zodToJsonSchema from "zod-to-json-schema";
 
+import { formatError, throwError } from "../err";
 import { newId } from "../uid";
 import { ApplyFileChangesNNode } from "./defs/ApplyFileChangesNNode";
 import { CreateChangeSetNNode } from "./defs/CreateChangeSetNNode";
@@ -70,6 +71,7 @@ export type NNodeTraceEvent =
       type: "write-file";
       path: string;
       content: string;
+      original?: string;
       dryRun?: boolean;
       timestamp: number;
     }
@@ -94,6 +96,7 @@ export type NNodeTraceEvent =
       timestamp: number;
     }
   | { type: "ai-json-response"; chatId: string; result: unknown; timestamp: number }
+  | { type: "error"; message: string; error: unknown; timestamp: number }
   | { type: "result"; result: NNodeResult<NNodeDef>; timestamp: number };
 
 export interface NNode<D extends NNodeDef = NNodeDef> {
@@ -108,6 +111,7 @@ export interface NNode<D extends NNodeDef = NNodeDef> {
 
     startedAt?: number;
     completedAt?: number;
+    error?: unknown;
     createdNodes?: string[]; // node ids
     trace?: NNodeTraceEvent[];
   };
@@ -255,8 +259,8 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           return;
         }
 
-        await this.writeFile(path, content);
-        this.addNodeTrace(node, { type: "write-file", path, content });
+        const original = await this.writeFile(path, content);
+        this.addNodeTrace(node, { type: "write-file", path, content, original });
       },
 
       getCache: async (key, schema) => {
@@ -352,7 +356,16 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         }
         nodePromises.set(
           node.id,
-          this.startNode(node, (newNode) => runStack.push(newNode), startNodeWrapped as any),
+          (async () => {
+            try {
+              return await this.startNode(node, (newNode) => runStack.push(newNode), startNodeWrapped as any);
+            } catch (e) {
+              console.error("[GraphRunner] Node failed", node.value, e);
+              (node.state ||= {}).error = e;
+              this.addNodeTrace(node, { type: "error", message: formatError(e), error: e });
+              throw e;
+            }
+          })(),
         );
       }
       return nodePromises.get(node.id)!;
@@ -394,14 +407,17 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     const dirHandle = await this.getFileHandle(dir, undefined, true);
     if (dirHandle?.kind !== "directory") throw new Error(`Directory not found: ${dir}`);
     const fileHandle = await dirHandle.getFileHandle(name, { create: true });
+    const originalContent = await (await fileHandle.getFile()).text();
     const writable = await fileHandle.createWritable();
     await writable.write(content);
     await writable.close();
+    return originalContent;
   }
 
   public addNode<D extends NNodeDef>(nodeDef: D, nodeValue: NNodeValue<D>, dependencies?: string[]) {
     const node: NNode<D> = { id: newId.graphNode(), typeId: nodeDef.typeId, value: nodeValue, dependencies };
     this.nodes[node.id] = node;
+    this.emit("dataChanged");
     return node;
   }
 
@@ -488,11 +504,13 @@ export type GraphRunnerData = ReturnType<GraphRunner["toData"]>;
 export function resolveNodeRef<T extends NNodeRefAccessorSchema>(
   ref: NNodeRef<T> | NNodeRefAccessorSchemaMap[T],
   nodeMap: Record<string, NNode>,
-): NNodeRefAccessorSchemaMap[T] {
+  accessedNodeIds?: Set<string>,
+): NNodeRefAccessorSchemaMap[T] | undefined {
   if (!isNodeRef<T>(ref)) return ref;
 
   const node = nodeMap[ref.nodeId];
   if (!node) throw new Error(`Node for ref not found: ${ref.nodeId}`);
+  if (accessedNodeIds) accessedNodeIds.add(node.id);
 
   const accessor = ref.accessor as NNodeRef<NNodeRefAccessorSchema>["accessor"];
   const val = get(
@@ -502,16 +520,21 @@ export function resolveNodeRef<T extends NNodeRefAccessorSchema>(
       .exhaustive(),
     accessor.path,
   );
+
+  if (val === undefined) return undefined;
   return NNodeRefAccessorSchemaMap[accessor.schema]!.parse(val) as NNodeRefAccessorSchemaMap[T];
 }
 
 export function resolveNodeValueRefs<T extends NNodeDef>(
   value: NNodeValue<T>,
   nodeMap: Record<string, NNode>,
+  accessedNodeIds?: Set<string>,
 ): ResolveRefs<NNodeValue<T>> {
   const resolved = {} as ResolveRefs<NNodeValue<T>>;
   Object.entries(value).forEach(([key, val]) => {
-    resolved[key as keyof NNodeValue<T>] = resolveNodeRef<NNodeValue<T>[keyof NNodeValue<T>]>(val, nodeMap);
+    resolved[key as keyof NNodeValue<T>] =
+      resolveNodeRef<NNodeValue<T>[keyof NNodeValue<T>]>(val, nodeMap, accessedNodeIds) ??
+      throwError(`Node ref not resolved: ${key}`);
   });
   return resolved;
 }

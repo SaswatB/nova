@@ -43,16 +43,38 @@ const convertChatNodesToFlowElements = (graphNodes: GraphRunnerData["nodes"]): {
   );
   nodes.forEach((node) => g.setNode(node.id, { width: 150, height: 90 }));
 
+  /**
+   * Checks if the target node is reachable from the current node through any of its dependencies.
+   * This is used to avoid creating edges between nodes that are already connected.
+   */
+  function isNotRedundant(node: NNode, targetNodeId: string) {
+    let current = [...(node.dependencies || []).filter((id) => id !== targetNodeId)];
+    let next = [];
+    while (current.length) {
+      const node = graphNodes[current.pop()!];
+      if (node?.id === targetNodeId) return false;
+      next.push(...(node?.dependencies || []));
+
+      if (!current.length) {
+        current = next;
+        next = [];
+      }
+    }
+    return true;
+  }
+
   const edges = Object.values(graphNodes).flatMap((node) =>
-    (node.dependencies || []).map(
-      (depId): Edge => ({
-        id: `e${node.id}-${depId}`,
-        source: depId,
-        target: node.id,
-        animated: true,
-        selectable: false,
-      }),
-    ),
+    (node.dependencies || [])
+      .filter((depId) => isNotRedundant(node, depId))
+      .map(
+        (depId): Edge => ({
+          id: `e${node.id}-${depId}`,
+          source: depId,
+          target: node.id,
+          animated: true,
+          selectable: false,
+        }),
+      ),
   );
   edges.forEach((edge) => g.setEdge(edge.source, edge.target));
 
@@ -67,6 +89,7 @@ const CustomNodeView = memo(({ data }: NodeProps<Node<{ label: string; node: NNo
 
   const isStarted = !!data.node.state?.startedAt;
   const isCompleted = !!data.node.state?.completedAt;
+  const isFailed = !!data.node.state?.error;
 
   return (
     <>
@@ -77,6 +100,8 @@ const CustomNodeView = memo(({ data }: NodeProps<Node<{ label: string; node: NNo
           <Badge color="green">Completed</Badge>
         ) : isStarted && isGraphRunning ? (
           <Badge>Running...</Badge>
+        ) : isFailed ? (
+          <Badge color="red">Failed</Badge>
         ) : null}
       </Stack>
       <Handle type="source" position={Position.Right} />

@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.22.0",
-    "@clerk/clerk-sdk-node": "^5.0.9",
+    "@clerk/clerk-sdk-node": "^5.0.10",
     "@google/generative-ai": "^0.11.5",
     "@humeai/voice": "^0.1.6",
     "@prisma/client": "^5.14.0",

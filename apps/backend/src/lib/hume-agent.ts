@@ -1,5 +1,4 @@
 import { isDefined } from "@repo/shared";
-import { writeFileSync } from "fs";
 import { sortBy } from "lodash";
 import { ChatCompletionMessageParam } from "openai/resources/index.mjs";
 import { Subject } from "rxjs";
@@ -8,7 +7,6 @@ import { z } from "zod";
 
 import { OpenAIService } from "../external/openai.service";
 import { VoiceStateService } from "../external/voicestate.service";
-import { env } from "./env";
 
 const SYSTEM_PROMPT = `
 You are a voice chat assistant for Nova.
@@ -69,7 +67,6 @@ export class HumeAgent {
     const currentStatus = sortBy(status || [], "priority").at(-1);
 
     const chat = async (extraMessages: ChatCompletionMessageParam[]) => {
-      const now = Date.now();
       const messages = [
         { role: "system" as const, content: SYSTEM_PROMPT },
         ...messagesPayload.messages.slice(0, -1).map((entry) => entry.message),
@@ -88,21 +85,12 @@ export class HumeAgent {
             function: { name, description, parameters },
           }))
         : undefined;
-      if (env.DOPPLER_ENVIRONMENT === "dev") {
-        writeFileSync(
-          `chat-${now}.json`,
-          JSON.stringify({ messages, tools }, null, 2)
-        );
-      }
-      const res = await this.openai.chat.completions.create({
+
+      return this.openai.chat.completions.create({
         model: "gpt-4o",
         messages,
         tools,
       });
-      if (env.DOPPLER_ENVIRONMENT === "dev") {
-        writeFileSync(`chat-${now}-res.json`, JSON.stringify(res, null, 2));
-      }
-      return res;
     };
 
     const extraMessages: ChatCompletionMessageParam[] = [];

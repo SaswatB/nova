@@ -3,8 +3,7 @@ export function formatError(err: unknown): string {
     if (["{", "["].some((c) => err.message.trim().startsWith(c))) {
       try {
         const json = JSON.parse(err.message);
-        const message =
-          json?.message || json?.[0]?.message || json?.error?.message;
+        const message = json?.message || json?.[0]?.message || json?.error?.message;
         if (typeof message === "string") {
           return message;
         }
@@ -16,4 +15,8 @@ export function formatError(err: unknown): string {
     return err;
   }
   return "An error occurred";
+}
+
+export function throwError(message: string): never {
+  throw new Error(message);
 }

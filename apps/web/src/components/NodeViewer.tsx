@@ -27,10 +27,13 @@ export function NodeViewer({
 
   const nodeDef = useMemo(() => graphRunner?.getNodeDef(node), [graphRunner, node]);
 
-  const nodeInputs = useMemo(
-    () => nodeDef?.renderInputs(resolveNodeValueRefs(node.value, graphData.nodes)) ?? null,
-    [nodeDef, node.value, graphData],
-  );
+  const nodeInputs = useMemo(() => {
+    try {
+      return nodeDef?.renderInputs(resolveNodeValueRefs(node.value, graphData.nodes)) ?? null;
+    } catch (e) {
+      return formatError(e);
+    }
+  }, [nodeDef, node.value, graphData]);
   const nodeOutputs = useMemo(
     () => (node.state?.result ? nodeDef?.renderResult(node.state.result) : "No state yet"),
     [nodeDef, node.state],

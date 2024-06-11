@@ -131,6 +131,7 @@ export function TraceElementView({
             {renderJsonWell("Result", t.result)}
           </>
         ))
+        .with({ type: "error" }, (t) => renderJsonWell(t.message || "Error", t.error))
         .with({ type: "result" }, (t) => renderJsonWell("Result", t.result))
         .exhaustive();
     }

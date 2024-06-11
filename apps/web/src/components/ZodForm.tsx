@@ -61,12 +61,14 @@ export function ZodForm<T extends Record<string, unknown>>({
   schema,
   overrideFieldMap,
   onSubmit,
+  saveButtonText = "Save",
 }: {
   formRef?: React.Ref<ZodFormRef<T>>;
   defaultValues?: DefaultValues<T>;
   schema: z.ZodObject<{ [K in keyof T]: z.ZodType<T[K]> }, UnknownKeysParam, ZodTypeAny, T, T>;
   overrideFieldMap?: Partial<Record<Path<T>, FieldOverride<T>>>;
   onSubmit: (values: T) => void | Promise<void>;
+  saveButtonText?: string;
 }) {
   const form = useZodForm({ schema, defaultValues });
   useImperativeHandle(formRef, () => ({ setValue: form.setValue, getValue: form.getValues, reset: form.reset }), [
@@ -126,7 +128,7 @@ export function ZodForm<T extends Record<string, unknown>>({
 
       <Flex css={{ justifyContent: "flex-end" }}>
         <Button disabled={!form.formState.isDirty} loading={form.formState.isSubmitting} onClick={handleSubmit}>
-          Save
+          {saveButtonText}
         </Button>
       </Flex>
     </Stack>
