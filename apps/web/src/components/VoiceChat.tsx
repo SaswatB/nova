@@ -4,7 +4,6 @@ import { faMicrophone, faMicrophoneSlash, faPhone, faTrash } from "@fortawesome/
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useVoice, VoiceReadyState } from "@humeai/voice-react";
 import { Badge, Button, IconButton, Tooltip } from "@radix-ui/themes";
-import { SIOClientToServerEvents, SIOServerToClientEvents, VoiceState, VoiceStatusPriority } from "@repo/shared";
 import { atom, useAtomValue, useSetAtom } from "jotai";
 import { startCase, throttle } from "lodash";
 import { io, Socket } from "socket.io-client";
@@ -13,6 +12,8 @@ import { Flex, Stack, styled } from "styled-system/jsx";
 import { useDebounce } from "use-debounce";
 import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
+
+import { SIOClientToServerEvents, SIOServerToClientEvents, VoiceState, VoiceStatusPriority } from "@repo/shared";
 
 import { env } from "../lib/env";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";

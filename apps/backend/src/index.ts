@@ -1,13 +1,14 @@
 import "reflect-metadata";
 
 import { ClerkExpressRequireAuth } from "@clerk/clerk-sdk-node";
-import { SIOClientToServerEvents, SIOServerToClientEvents } from "@repo/shared";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import cors from "cors";
 import express from "express";
 import * as http from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { WebSocketServer } from "ws";
+
+import { SIOClientToServerEvents, SIOServerToClientEvents } from "@repo/shared";
 
 import { createAppContext } from "./api/meta/app-server";
 import { env } from "./lib/env";

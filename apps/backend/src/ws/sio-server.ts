@@ -1,6 +1,7 @@
-import { SIOClientToServerEvents, SIOServerToClientEvents } from "@repo/shared";
 import { Socket } from "socket.io";
 import { container } from "tsyringe";
+
+import { SIOClientToServerEvents, SIOServerToClientEvents } from "@repo/shared";
 
 import { VoiceStateService } from "../external/voicestate.service";
 

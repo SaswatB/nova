@@ -1,9 +1,10 @@
-import { isDefined } from "@repo/shared";
 import { sortBy } from "lodash";
 import { ChatCompletionMessageParam } from "openai/resources/index.mjs";
 import { Subject } from "rxjs";
 import { container } from "tsyringe";
 import { z } from "zod";
+
+import { isDefined } from "@repo/shared";
 
 import { OpenAIService } from "../external/openai.service";
 import { VoiceStateService } from "../external/voicestate.service";

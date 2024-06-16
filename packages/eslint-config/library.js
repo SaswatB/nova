@@ -19,7 +19,7 @@ module.exports = {
         groups: [
           ["reflect-metadata", "core-js", "polyfill"],
           ["^react", "^@?\\w"],
-          ["^synergy"],
+          ["^@repo/"],
           ["^\\u0000"],
           [
             "^\\.\\.(?!/?$)",

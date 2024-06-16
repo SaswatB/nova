@@ -1,5 +1,6 @@
-import { VoiceState } from "@repo/shared";
 import { singleton } from "tsyringe";
+
+import { VoiceState } from "@repo/shared";
 
 @singleton()
 export class VoiceStateService {

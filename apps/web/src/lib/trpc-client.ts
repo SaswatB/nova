@@ -1,6 +1,7 @@
-import type { AppRouter } from "@repo/backend/src/api/index";
 import { CreateTRPCProxyClient, createTRPCReact } from "@trpc/react-query";
 import { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
+
+import type { AppRouter } from "@repo/backend/src/api/index";
 
 export const trpc = createTRPCReact<AppRouter, unknown, "ExperimentalSuspense">();
 
