@@ -1,13 +1,10 @@
-import { toast } from "react-toastify";
 import { asyncToArray, dirname, isDefined, IterationMode, OmitUnion } from "@repo/shared";
 import { EventEmitter } from "events";
-import * as idb from "idb-keyval";
 import { produce } from "immer";
 import { cloneDeep, get, isEqual, uniq } from "lodash";
 import { match } from "ts-pattern";
 import zodToJsonSchema from "zod-to-json-schema";
 
-import { RevertFilesDialog } from "../../components/RevertFilesDialog";
 import { formatError, throwError } from "../err";
 import { newId } from "../uid";
 import { ApplyFileChangesNNode } from "./defs/ApplyFileChangesNNode";
@@ -268,7 +265,9 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       },
 
       getCache: async (key, schema) => {
-        const res = schema.safeParse(await idb.get(`project-${this.projectContext.projectId}:graph-cache:${key}`));
+        const res = schema.safeParse(
+          await this.projectContext.idbGet(`project-${this.projectContext.projectId}:graph-cache:${key}`),
+        );
         if (res.success) {
           this.addNodeTrace(node, { type: "get-cache", key, result: res.data });
           return res.data;
@@ -277,7 +276,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       },
       setCache: async (key, value) => {
         this.addNodeTrace(node, { type: "set-cache", key, value });
-        return idb.set(`project-${this.projectContext.projectId}:graph-cache:${key}`, value);
+        return this.projectContext.idbSet(`project-${this.projectContext.projectId}:graph-cache:${key}`, value);
       },
 
       aiChat: async (model, messages) => {
@@ -484,13 +483,16 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 
     // prompt user if they wanna undo file writes
     if (fileWrites.length) {
-      const selectedFiles = await RevertFilesDialog({ paths: fileWrites.map((w) => w.path) });
+      const selectedFiles = await this.projectContext.showRevertFilesDialog(fileWrites.map((w) => w.path));
       if (selectedFiles.length) {
         const fileWritesToUndo = fileWrites.filter((w) => selectedFiles.includes(w.path));
         for (const write of fileWritesToUndo) {
           await this.writeFile(write.path, write.original || "");
         }
-        toast.success(`Reverted ${fileWritesToUndo.length} file${fileWritesToUndo.length > 1 ? "s" : ""}`);
+        this.projectContext.displayToast(
+          `Reverted ${fileWritesToUndo.length} file${fileWritesToUndo.length > 1 ? "s" : ""}`,
+          { type: "success" },
+        );
       }
     }
   }

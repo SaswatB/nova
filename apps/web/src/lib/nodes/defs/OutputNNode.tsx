@@ -1,4 +1,3 @@
-import { toast } from "react-toastify";
 import { z } from "zod";
 
 import { renderJsonWell } from "../../../components/base/Well";
@@ -10,9 +9,9 @@ export const OutputNNode = createNodeDef(
   z.object({ description: z.string(), value: orRef(z.unknown()) }),
   z.object({}),
   {
-    run: async (value) => {
+    run: async (value, nrc) => {
       console.log("[OutputNode] ", value.description, value.value);
-      toast.info(`[OutputNode] ${value.value}`, { autoClose: false });
+      nrc.projectContext.displayToast(`[OutputNode] ${value.value}`, { type: "info", autoClose: false });
       return {};
     },
     renderInputs: (v) => renderJsonWell(v.description, v.value),

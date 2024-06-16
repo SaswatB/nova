@@ -27,6 +27,7 @@ import { newId } from "../lib/uid";
 import { Loader } from "./base/Loader";
 import { GraphCanvas } from "./GraphCanvas";
 import { NodeViewer } from "./NodeViewer";
+import { RevertFilesDialog } from "./RevertFilesDialog";
 import { TraceElementList, traceElementSourceSymbol } from "./TraceElementView";
 import { useAddVoiceFunction, useAddVoiceStatus } from "./VoiceChat";
 import { textAreaField, ZodForm, ZodFormRef } from "./ZodForm";
@@ -94,6 +95,11 @@ Provide useful responses, make sure to consider when to stay high level and when
   folderHandle,
   trpcClient,
   dryRun,
+
+  idbGet: idb.get,
+  idbSet: idb.set,
+  displayToast: toast,
+  showRevertFilesDialog: (paths) => RevertFilesDialog({ paths }),
 });
 
 const NewPlanSchema = z.object({ goal: z.string().min(1) });

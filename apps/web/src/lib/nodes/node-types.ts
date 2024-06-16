@@ -1,3 +1,4 @@
+import { ToastOptions } from "react-toastify";
 import { UnknownKeysParam, z, ZodTypeAny } from "zod";
 
 import { AppTRPCClient } from "../trpc-client";
@@ -50,6 +51,11 @@ export interface ProjectContext {
   folderHandle: FileSystemDirectoryHandle;
   trpcClient: AppTRPCClient;
   dryRun: boolean;
+
+  displayToast: (message: string, options?: ToastOptions) => void;
+  showRevertFilesDialog: (paths: string[]) => Promise<string[]>;
+  idbGet: <T>(key: string) => Promise<T | undefined>;
+  idbSet: (key: string, value: unknown) => Promise<void>;
 }
 
 export interface NodeRunnerContext {
