@@ -257,9 +257,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       },
 
       getCache: async (key, schema) => {
-        const res = schema.safeParse(
-          await this.projectContext.idbGet(`project-${this.projectContext.projectId}:graph-cache:${key}`),
-        );
+        const res = schema.safeParse(await this.projectContext.idbGet(key));
         if (res.success) {
           this.addNodeTrace(node, { type: "get-cache", key, result: res.data });
           return res.data;
@@ -268,7 +266,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       },
       setCache: async (key, value) => {
         this.addNodeTrace(node, { type: "set-cache", key, value });
-        return this.projectContext.idbSet(`project-${this.projectContext.projectId}:graph-cache:${key}`, value);
+        return this.projectContext.idbSet(key, value);
       },
 
       aiChat: async (model, messages) => {

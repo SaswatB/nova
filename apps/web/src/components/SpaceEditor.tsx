@@ -21,6 +21,7 @@ import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
 import { ExecuteNNode } from "../lib/nodes/defs/ExecuteNNode";
 import { PlanNNode } from "../lib/nodes/defs/PlanNNode";
 import { ProjectContext } from "../lib/nodes/node-types";
+import { PROJECT_RULES, SUPPORTED_EXTENSIONS, SYSTEM_PROMPT } from "../lib/nodes/projectctx-constants";
 import { GraphRunner, GraphRunnerData, GraphTraceEvent, NNode } from "../lib/nodes/run-graph";
 import { routes } from "../lib/routes";
 import { AppTRPCClient, trpc } from "../lib/trpc-client";
@@ -39,59 +40,9 @@ const getProjectContext = (
   trpcClient: AppTRPCClient,
   dryRun: boolean,
 ): ProjectContext => ({
-  projectId,
-  systemPrompt: `
-You are an expert staff level software engineer.
-Working with other staff level engineers on a project.
-Do not bikeshed unless asked.
-Provide useful responses, make sure to consider when to stay high level and when to dive deep.
-  `.trim(),
-  rules: [
-    // "Strict TypeScript is used throughout the codebase.",
-    // "Type inference is preferred over explicit types when possible.",
-    "Prefer concise and expressive code over verbose code, but keep things readable and use comments if necessary.",
-    // "Never use require, always use import. Any exceptions must be justified with a comment.",
-    "Do not refactor the codebase unless required for the task.",
-    "Do not delete dead code or comments unless it is directly related to the task.",
-    "Keep error handling to a minimum unless otherwise explicitly asked for.",
-    "Don't worry about unit tests unless they are explicitly asked for.",
-    "It's fine to have large complex functions during the initial implementation.",
-  ],
-  extensions: [
-    ".ts",
-    ".mts",
-    ".cts",
-    ".tsx",
-    ".js",
-    ".mjs",
-    ".cjs",
-    ".jsx",
-    ".json",
-    ".prisma",
-    ".xml",
-    ".html",
-    ".css",
-    ".scss",
-    ".md",
-    ".txt",
-    ".yml",
-    "README",
-    "Dockerfile",
-    ".py",
-    ".h",
-    ".c",
-    ".cpp",
-    ".java",
-    ".go",
-    ".rs",
-    ".scala",
-    ".sql",
-    ".bash",
-    ".zsh",
-    ".sh",
-    ".ps1",
-    ".bat",
-  ],
+  systemPrompt: SYSTEM_PROMPT,
+  rules: PROJECT_RULES,
+  extensions: SUPPORTED_EXTENSIONS,
 
   trpcClient,
   dryRun,
@@ -121,8 +72,8 @@ Provide useful responses, make sure to consider when to stay high level and when
     return originalContent;
   },
 
-  idbGet: idb.get,
-  idbSet: idb.set,
+  idbGet: (key) => idb.get(`project-${projectId}:graph-cache:${key}`),
+  idbSet: (key, value) => idb.set(`project-${projectId}:graph-cache:${key}`, value),
   displayToast: toast,
   showRevertFilesDialog: (paths) => RevertFilesDialog({ paths }),
 });

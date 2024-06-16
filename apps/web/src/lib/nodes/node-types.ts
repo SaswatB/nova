@@ -48,7 +48,6 @@ export type ReadFileResult =
   | { type: "directory"; files: string[] };
 
 export interface ProjectContext {
-  projectId: string;
   systemPrompt: string;
   rules: string[];
   extensions: string[];
