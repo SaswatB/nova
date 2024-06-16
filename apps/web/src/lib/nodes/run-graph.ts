@@ -241,15 +241,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       readFile: async (path) => {
         console.log("[GraphRunner] Read file", path);
 
-        const handle = await this.getFileHandle(path);
-        let result: Awaited<ReturnType<NodeRunnerContext["readFile"]>>;
-        if (!handle) {
-          return { type: "not-found" };
-        } else if (handle.kind === "file") {
-          result = { type: "file", content: await (await handle.getFile()).text() };
-        } else {
-          result = { type: "directory", files: await asyncToArray(handle.keys()) };
-        }
+        const result = await this.projectContext.readFile(path);
         this.addNodeTrace(node, { type: "read-file", path, result });
         return result;
       },
@@ -338,11 +330,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
   }
 
   public async run() {
-    if ((await this.projectContext.folderHandle.queryPermission({ mode: "readwrite" })) !== "granted") {
-      if ((await this.projectContext.folderHandle.requestPermission({ mode: "readwrite" })) !== "granted") {
-        throw new Error("Permission denied");
-      }
-    }
+    await this.projectContext.ensureFS();
 
     const runStack = Object.values(this.nodes).filter((node) => !node.state?.completedAt);
     runStack.forEach((node) => {
@@ -407,16 +395,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 
   public async writeFile(path: string, content: string) {
     console.log("[GraphRunner] Write file", path);
-    const dir = dirname(path);
-    const name = path.split("/").at(-1)!;
-    const dirHandle = await this.getFileHandle(dir, undefined, true);
-    if (dirHandle?.kind !== "directory") throw new Error(`Directory not found: ${dir}`);
-    const fileHandle = await dirHandle.getFileHandle(name, { create: true });
-    const originalContent = await (await fileHandle.getFile()).text();
-    const writable = await fileHandle.createWritable();
-    await writable.write(content);
-    await writable.close();
-    return originalContent;
+    return this.projectContext.writeFile(path, content);
   }
 
   public addNode<D extends NNodeDef>(nodeDef: D, nodeValue: NNodeValue<D>, dependencies?: string[]) {
@@ -578,41 +557,6 @@ ${prompt}
   ) {
     ((node.state ||= {}).trace ||= []).push({ ...event, timestamp: Date.now() });
     this.emit("dataChanged"); // whenever there's a change, there should be a trace, so this effectively occurs on every change to the node data
-  }
-
-  private async getFileHandle(path: string, root = this.projectContext.folderHandle, createAsDirectory = false) {
-    const parts = path.split("/");
-    if (parts[0] === "") parts.shift(); // remove leading slash
-    if (parts.at(-1) === "") parts.pop(); // remove trailing slash
-    if (parts.length === 0) return root;
-
-    let folder = root;
-    const breadcrumbs: string[] = [];
-
-    while (parts.length > 0) {
-      const part = parts.shift()!;
-      breadcrumbs.push(part);
-      let found = false;
-      for await (const [name, handle] of folder.entries()) {
-        if (name !== part) continue;
-        if (parts.length === 0) return handle; // found target
-        if (handle.kind !== "directory") throw new Error(`Expected directory, found file: ${breadcrumbs.join("/")}`);
-        // found intermediate directory
-        folder = handle;
-        found = true;
-        break;
-      }
-      if (!found) {
-        if (createAsDirectory) {
-          folder = await folder.getDirectoryHandle(part, { create: true });
-          if (parts.length === 0) return folder;
-        } else {
-          return null;
-        }
-      }
-    }
-
-    return null;
   }
 }
 export type GraphRunnerData = ReturnType<GraphRunner["toData"]>;

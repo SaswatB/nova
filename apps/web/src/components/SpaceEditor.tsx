@@ -3,7 +3,7 @@ import { useAsync, useAsyncCallback } from "react-async-hook";
 import { useBlocker, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Button, Checkbox, Dialog, SegmentedControl, TextArea } from "@radix-ui/themes";
-import { IterationMode, VoiceStatusPriority } from "@repo/shared";
+import { asyncToArray, dirname, IterationMode, VoiceStatusPriority } from "@repo/shared";
 import * as idb from "idb-keyval";
 import { produce } from "immer";
 import { uniqBy } from "lodash";
@@ -14,6 +14,7 @@ import { stack } from "styled-system/patterns";
 import { VList } from "virtua";
 import { z } from "zod";
 
+import { getFileHandleForPath } from "../lib/browser-fs";
 import { formatError } from "../lib/err";
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
@@ -92,9 +93,33 @@ Provide useful responses, make sure to consider when to stay high level and when
     ".bat",
   ],
 
-  folderHandle,
   trpcClient,
   dryRun,
+
+  ensureFS: async () => {
+    if ((await folderHandle.queryPermission({ mode: "readwrite" })) !== "granted")
+      if ((await folderHandle.requestPermission({ mode: "readwrite" })) !== "granted")
+        throw new Error("Permission denied");
+  },
+  readFile: async (path) => {
+    const handle = await getFileHandleForPath(path, folderHandle);
+    if (!handle) return { type: "not-found" };
+    if (handle.kind === "file") return { type: "file", content: await (await handle.getFile()).text() };
+    return { type: "directory", files: await asyncToArray(handle.keys()) };
+  },
+  writeFile: async (path, content) => {
+    const dir = dirname(path);
+    const dirHandle = await getFileHandleForPath(dir, folderHandle, true);
+    if (dirHandle?.kind !== "directory") throw new Error(`Directory not found: ${dir}`);
+
+    const name = path.split("/").at(-1)!;
+    const fileHandle = await dirHandle.getFileHandle(name, { create: true });
+    const originalContent = await (await fileHandle.getFile()).text();
+    const writable = await fileHandle.createWritable();
+    await writable.write(content);
+    await writable.close();
+    return originalContent;
+  },
 
   idbGet: idb.get,
   idbSet: idb.set,

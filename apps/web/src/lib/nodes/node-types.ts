@@ -42,15 +42,23 @@ export function createNodeDef<
   return { typeId, valueSchema, resultSchema, ...funcs };
 }
 
+export type ReadFileResult =
+  | { type: "not-found" }
+  | { type: "file"; content: string }
+  | { type: "directory"; files: string[] };
+
 export interface ProjectContext {
   projectId: string;
   systemPrompt: string;
   rules: string[];
   extensions: string[];
 
-  folderHandle: FileSystemDirectoryHandle;
   trpcClient: AppTRPCClient;
   dryRun: boolean;
+
+  ensureFS: () => Promise<void>;
+  readFile: (path: string) => Promise<ReadFileResult>;
+  writeFile: (path: string, content: string) => Promise<string>;
 
   displayToast: (message: string, options?: ToastOptions) => void;
   showRevertFilesDialog: (paths: string[]) => Promise<string[]>;
@@ -59,7 +67,7 @@ export interface ProjectContext {
 }
 
 export interface NodeRunnerContext {
-  projectContext: ProjectContext;
+  projectContext: Pick<ProjectContext, "displayToast" | "rules" | "extensions">; // todo move these to nrc
 
   addDependantNode: <V extends {}>(nodeDef: NNodeDef<string, V>, nodeValue: V) => void;
   getOrAddDependencyForResult: <T extends NNodeDef>(
@@ -73,9 +81,7 @@ export interface NodeRunnerContext {
   ) => Promise<NNodeResult<T> | null>;
   createNodeRef: CreateNodeRef; // create a reference to the current node
 
-  readFile: (
-    path: string,
-  ) => Promise<{ type: "not-found" } | { type: "file"; content: string } | { type: "directory"; files: string[] }>;
+  readFile: (path: string) => Promise<ReadFileResult>;
   writeFile: (path: string, content: string) => Promise<void>;
 
   getCache: <T extends z.ZodSchema>(key: string, schema: T) => Promise<z.infer<T> | undefined>;

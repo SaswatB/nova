@@ -182,9 +182,6 @@ export function TraceElementView({
             <Tabs.Trigger value="json">JSON</Tabs.Trigger>
           </Tabs.List>
           <Tabs.Content value="summary">
-            <Stack css={{ p: 8 }}>{renderSummary()}</Stack>
-          </Tabs.Content>
-          <Tabs.Content value="json">
             {trace.type === "write-file" && (
               <>
                 <Button
@@ -195,8 +192,9 @@ export function TraceElementView({
                 </Button>
               </>
             )}
-            {renderJsonWell("JSON", trace)}
+            <Stack css={{ p: 8 }}>{renderSummary()}</Stack>
           </Tabs.Content>
+          <Tabs.Content value="json">{renderJsonWell("JSON", trace)}</Tabs.Content>
         </Tabs.Root>
       )}
     </Card>
