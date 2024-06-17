@@ -123,7 +123,7 @@ async function projectAnalysis(nrc: NodeRunnerContext): Promise<ResearchedFileSy
   // const dependencies = typescriptResult;
 
   const rawFiles = await readFilesRecursively(nrc, "/", nrc.projectContext.extensions);
-  const limit = pLimit(5);
+  const limit = pLimit(50);
   const researchPromises = rawFiles.map((f) =>
     limit(async (): Promise<ResearchedFile> => {
       console.log("filesystemResearch file", f.path);
@@ -177,6 +177,7 @@ ${f.content}
 Could you please provide the following information:
 - A summary of the coding conventions used in the codebase.
 - An overview of the high-level structure, including key components and their interactions.
+  - Be sure to call out important files and directories, and their purpose.
 - Any notable design patterns or architectural decisions evident in the codebase.
 - Any best practices or common patterns you can identify from the provided files.
 
@@ -197,15 +198,19 @@ ${batch.map((f) => xmlFilePrompt(f, { showFileContent: true })).join("\n\n")}
     const seen = new Set<string>();
     const batchTokenThreshold = modelLimit[model] * 0.4;
 
-    const docs = [];
+    const docs: { files: string[]; research: string }[] = [];
     let batch: ResearchedFile[] = [];
+    let batchPromptLength = 0;
+    let batchPromptTokens = 0;
     let priority: typeof stack = []; // files related to the current batch
     const stack = [...files];
-    while (stack.length > 0) {
-      const f = priority.length > 0 ? priority.shift()! : stack.shift()!;
-      if (seen.has(f.path)) continue;
-      seen.add(f.path);
-      batch.push(f);
+    while (stack.length >= 0) {
+      const f = priority.length > 0 ? priority.shift()! : stack.shift();
+      if (f) {
+        if (seen.has(f.path)) continue;
+        seen.add(f.path);
+        batch.push(f);
+      }
 
       // prioritize files that are dependencies of the current batch
       // const deps = dependencies[f.path];
@@ -213,30 +218,35 @@ ${batch.map((f) => xmlFilePrompt(f, { showFileContent: true })).join("\n\n")}
 
       // if the batch is too large, send it to the AI
       const batchPrompt = constructBatchPrompt(batch);
-      if (batchPrompt.length > batchTokenThreshold) {
+      batchPromptTokens += llamaTokenizer.encode(batchPrompt.substring(batchPromptLength)).length; // this isn't fully accurate, but it's much faster to calculate
+      batchPromptLength = batchPrompt.length;
+      if (stack.length === 0 || batchPromptTokens > batchTokenThreshold) {
         console.log(
           "Running batch of",
           batch.length,
           "files",
           batch.map((f) => f.path),
         );
-        docs.push(await nrc.aiChat(model, [{ role: "user", content: batchPrompt }]));
+        docs.push({
+          files: batch.map((f) => f.path),
+          research: await nrc.aiChat(model, [{ role: "user", content: batchPrompt }]),
+        });
         batch = [];
+        batchPromptLength = 0;
+        batchPromptTokens = 0;
         priority = [];
       }
+
+      if (stack.length === 0) break;
     }
-    if (batch.length > 0) docs.push(await nrc.aiChat(model, [{ role: "user", content: constructBatchPrompt(batch) }]));
 
-    research = await nrc.aiChat(model, [
-      {
-        role: "user",
-        content: `
+    const researchPrompt = `
 The following are the research results for a codebase, remove repeated information and consolidate the information into a single document.
+Keep as much research information as possible, but don't make up new information.
 
-${docs.map((doc) => `<doc>${doc}</doc>`).join("\n")}
-`.trim(),
-      },
-    ]);
+${docs.map((doc) => `<docs>\n<files>\n${doc.files.join("\n")}\n</files>\n<research>\n${doc.research}\n</research>\n</docs>`).join("\n")}
+`.trim();
+    research = await nrc.aiChat(model, [{ role: "user", content: researchPrompt }]);
   }
 
   await nrc.setCache("project-analysis", { research, fileHashes, timestamp: Date.now() } satisfies z.infer<

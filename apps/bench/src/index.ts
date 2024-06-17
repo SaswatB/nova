@@ -16,7 +16,7 @@ async function runGoal(rootDirectory: string, goal: string) {
   const cacheDirectory = join(rootCacheDirectory, "graph");
   const projectId = rootDirectory.replace(/\//g, "-");
   const cacheGet = async (key: string) => {
-    const fullPath = join(cacheDirectory, projectId, key);
+    const fullPath = join(cacheDirectory, key);
     try {
       return existsSync(fullPath) ? JSON.parse(readFileSync(fullPath, "utf8")) : undefined;
     } catch (e) {
@@ -26,6 +26,7 @@ async function runGoal(rootDirectory: string, goal: string) {
   };
   const cacheSet = async (key: string, value: unknown) => {
     const fullPath = join(cacheDirectory, key);
+    mkdirSync(dirname(fullPath), { recursive: true });
     writeFileSync(fullPath, JSON.stringify(value));
   };
   const projectContext: ProjectContext = {
@@ -33,7 +34,12 @@ async function runGoal(rootDirectory: string, goal: string) {
     rules: PROJECT_RULES,
     extensions: SUPPORTED_EXTENSIONS,
     trpcClient: createTRPCProxyClient({
-      links: [httpBatchLink({ url: `http://localhost:3000/trpc` })],
+      links: [
+        httpBatchLink({
+          url: `${process.env.API_URL}/trpc`,
+          headers: async () => ({ Authorization: `Bearer ${process.env.API_TOKEN}` }),
+        }),
+      ],
     }),
     dryRun: false,
     ensureFS: () => Promise.resolve(), // noop
@@ -60,10 +66,10 @@ async function runGoal(rootDirectory: string, goal: string) {
   };
   const runner = GraphRunner.fromGoal(projectContext, goal);
   await runner.run();
-  writeFileSync(
-    join(rootCacheDirectory, "results", `${Date.now()}-${goal.replace(/\n/g, " ")}.json`),
-    JSON.stringify(runner.toData(), null, 2),
-  );
+
+  const outputFile = join(rootCacheDirectory, "results", `${Date.now()}-${goal.replace(/\n/g, " ")}.json`);
+  mkdirSync(dirname(outputFile), { recursive: true });
+  writeFileSync(outputFile, JSON.stringify(runner.toData(), null, 2));
 }
 
 async function main() {
