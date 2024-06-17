@@ -5,10 +5,10 @@ import { Flex } from "styled-system/jsx";
 import { createDialog } from "./base/PromiseDialog";
 
 export const RevertFilesDialog = createDialog<
-  { paths: string[] },
+  { files: { path: string; original: string }[] },
   string[] // paths to change
->(({ paths, resolve }) => {
-  const [selectedPaths, setSelectedPaths] = useState<string[]>(paths);
+>(({ files, resolve }) => {
+  const [selectedPaths, setSelectedPaths] = useState(() => files.map((f) => f.path));
 
   return (
     <Dialog.Root open>
@@ -16,8 +16,9 @@ export const RevertFilesDialog = createDialog<
         <Dialog.Title>
           Would you like to revert {selectedPaths.length} file write{selectedPaths.length !== 1 ? "s" : ""}?
         </Dialog.Title>
+
         <CheckboxCards.Root columns="1" value={selectedPaths} onValueChange={setSelectedPaths}>
-          {paths.map((path) => (
+          {files.map(({ path }) => (
             <CheckboxCards.Item key={path} value={path}>
               <Flex direction="column" width="100%">
                 <code>{path}</code>
@@ -25,6 +26,7 @@ export const RevertFilesDialog = createDialog<
             </CheckboxCards.Item>
           ))}
         </CheckboxCards.Root>
+
         <Flex css={{ justifyContent: "space-between", mt: 16 }}>
           <Button color="red" onClick={() => resolve([])}>
             No

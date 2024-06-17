@@ -464,7 +464,9 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 
     // prompt user if they wanna undo file writes
     if (fileWrites.length) {
-      const selectedFiles = await this.projectContext.showRevertFilesDialog(fileWrites.map((w) => w.path));
+      const selectedFiles = await this.projectContext.showRevertFilesDialog(
+        fileWrites.map((w) => ({ path: w.path, original: w.original || "" })),
+      );
       if (selectedFiles.length) {
         const fileWritesToUndo = fileWrites.filter((w) => selectedFiles.includes(w.path));
         for (const write of fileWritesToUndo) {

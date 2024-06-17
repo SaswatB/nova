@@ -52,7 +52,7 @@ async function runGoal(rootDirectory: string, goal: string) {
       return originalContent;
     },
     displayToast: (message) => console.log(message),
-    showRevertFilesDialog: (p) => Promise.resolve(p),
+    showRevertFilesDialog: (files) => Promise.resolve(files.map((f) => f.path)),
     projectCacheGet: (key) => cacheGet(`${projectId}-${key}`),
     projectCacheSet: (key, value) => cacheSet(`${projectId}-${key}`, value),
     globalCacheGet: cacheGet,

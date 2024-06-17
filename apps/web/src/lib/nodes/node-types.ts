@@ -60,7 +60,7 @@ export interface ProjectContext {
   writeFile: (path: string, content: string) => Promise<string>;
 
   displayToast: (message: string, options?: ToastOptions) => void;
-  showRevertFilesDialog: (paths: string[]) => Promise<string[]>;
+  showRevertFilesDialog: (files: { path: string; original: string }[]) => Promise<string[]>;
   projectCacheGet: <T>(key: string) => Promise<T | undefined>;
   projectCacheSet: (key: string, value: unknown) => Promise<void>;
   globalCacheGet: <T>(key: string) => Promise<T | undefined>;
