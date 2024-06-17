@@ -1,6 +1,9 @@
 import { EventEmitter } from "events";
 import { produce } from "immer";
-import { cloneDeep, get, isEqual, uniq } from "lodash";
+import cloneDeep from "lodash/cloneDeep";
+import get from "lodash/get";
+import isEqual from "lodash/isEqual";
+import uniq from "lodash/uniq";
 import { match } from "ts-pattern";
 import zodToJsonSchema from "zod-to-json-schema";
 
@@ -258,7 +261,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       },
 
       getCache: async (key, schema) => {
-        const res = schema.safeParse(await this.projectContext.idbGet(key));
+        const res = schema.safeParse(await this.projectContext.projectCacheGet(key));
         if (res.success) {
           this.addNodeTrace(node, { type: "get-cache", key, result: res.data });
           return res.data;
@@ -267,7 +270,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       },
       setCache: async (key, value) => {
         this.addNodeTrace(node, { type: "set-cache", key, value });
-        return this.projectContext.idbSet(key, value);
+        return this.projectContext.projectCacheSet(key, value);
       },
 
       aiChat: async (model, messages) => {
@@ -548,6 +551,7 @@ ${prompt}
 
   private addTrace(event: OmitUnion<(typeof GraphRunner.prototype.trace)[number], "timestamp">) {
     this.trace.push({ ...event, timestamp: Date.now() });
+    console.log("[GraphRunner] Trace", event);
     this.emit("dataChanged"); // whenever there's a change, there should be a trace, so this effectively occurs on every change to the top level data
   }
   private addNodeTrace(
@@ -555,6 +559,7 @@ ${prompt}
     event: OmitUnion<Exclude<Exclude<NNode["state"], undefined>["trace"], undefined>[number], "timestamp">,
   ) {
     ((node.state ||= {}).trace ||= []).push({ ...event, timestamp: Date.now() });
+    console.log("[GraphRunner] Node trace", node.value, event);
     this.emit("dataChanged"); // whenever there's a change, there should be a trace, so this effectively occurs on every change to the node data
   }
 }

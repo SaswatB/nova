@@ -4,8 +4,11 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { toast } from "react-toastify";
 import { Badge, Button } from "@radix-ui/themes";
-import { css } from "styled-system/css";
-import { Flex, styled } from "styled-system/jsx";
+
+// @ts-expect-error needed to get bench working
+import { css } from "../../../styled-system/css/index.mjs";
+// @ts-expect-error needed to get bench working
+import { Flex, styled } from "../../../styled-system/jsx/index.mjs";
 
 export function Well({
   children,

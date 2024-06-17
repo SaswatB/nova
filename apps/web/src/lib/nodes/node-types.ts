@@ -61,8 +61,10 @@ export interface ProjectContext {
 
   displayToast: (message: string, options?: ToastOptions) => void;
   showRevertFilesDialog: (paths: string[]) => Promise<string[]>;
-  idbGet: <T>(key: string) => Promise<T | undefined>;
-  idbSet: (key: string, value: unknown) => Promise<void>;
+  projectCacheGet: <T>(key: string) => Promise<T | undefined>;
+  projectCacheSet: (key: string, value: unknown) => Promise<void>;
+  globalCacheGet: <T>(key: string) => Promise<T | undefined>;
+  globalCacheSet: (key: string, value: unknown) => Promise<void>;
 }
 
 export interface NodeRunnerContext {

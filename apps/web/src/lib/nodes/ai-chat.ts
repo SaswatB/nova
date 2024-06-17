@@ -1,4 +1,3 @@
-import * as idb from "idb-keyval";
 import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
 
@@ -12,12 +11,12 @@ export async function aiChat(
   messages: { role: "user" | "assistant"; content: string }[],
 ): Promise<string> {
   const cacheKey = `aicache:${model}-${await generateCacheKey({ system, messages })}`;
-  const cachedValue = await idb.get(cacheKey);
+  const cachedValue = await ctx.globalCacheGet<string>(cacheKey);
   if (cachedValue) return cachedValue;
 
   const response = await ctx.trpcClient.ai.chat.mutate({ model, system, messages });
 
-  await idb.set(cacheKey, response);
+  await ctx.globalCacheSet(cacheKey, response);
   return response;
 }
 
@@ -31,7 +30,7 @@ export async function aiJson<T extends object>(
   const jsonSchema = zodToJsonSchema(schema, "S").definitions?.S;
 
   const cacheKey = `aicache:${model}-${await generateCacheKey({ jsonSchema, prompt, data })}`;
-  const cachedValue = await idb.get(cacheKey);
+  const cachedValue = await ctx.globalCacheGet<T>(cacheKey);
   if (cachedValue) return cachedValue;
 
   const response = await ctx.trpcClient.ai.json.mutate({
@@ -42,6 +41,6 @@ export async function aiJson<T extends object>(
   });
   const parsedResponse = schema.parse(response);
 
-  await idb.set(cacheKey, parsedResponse);
+  await ctx.globalCacheSet(cacheKey, parsedResponse);
   return parsedResponse;
 }

@@ -73,8 +73,10 @@ const getProjectContext = (
     return originalContent;
   },
 
-  idbGet: (key) => idb.get(`project-${projectId}:graph-cache:${key}`),
-  idbSet: (key, value) => idb.set(`project-${projectId}:graph-cache:${key}`, value),
+  projectCacheGet: (key) => idb.get(`project-${projectId}:graph-cache:${key}`),
+  projectCacheSet: (key, value) => idb.set(`project-${projectId}:graph-cache:${key}`, value),
+  globalCacheGet: (key) => idb.get(key),
+  globalCacheSet: (key, value) => idb.set(key, value),
   displayToast: toast,
   showRevertFilesDialog: (paths) => RevertFilesDialog({ paths }),
 });
