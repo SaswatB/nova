@@ -121,10 +121,12 @@ async function main() {
       `
 The following is a GitHub issue filed for the given repository, please resolve the issue.
 Think carefully about what exactly the issue is, and what's the intended behavior.
-Fixing the issue may not always be done in the way the issue reporter suggests.
-<problem_statement>
+Fixing the issue may not always be done in the way the issue reporter suggests, pay close attention to the hints.
+For example: consider if the core issue is that the implementation is confusing or unclear, and that's why the reporter suggests a certain fix.
+
+<reported_issue>
 ${test.problem_statement}
-</problem_statement>
+</reported_issue>
 <hints>
 ${test.hints_text}
 </hints>

@@ -31,6 +31,7 @@ Based on the research, please identify the relevant files for the goal.
 The relevant files are the ones that are most likely to be impacted by the goal and may need to be modified or extended to support the new functionality.
 Related files may also include files that would be useful to reference or provide context for the changes.
 Also include 1 level of important dependencies for each file, with the full path to the dependency.
+Finally, included a few files that can be used as inspiration for the changes.
 Goal: ${value.goal}
 `.trim(),
         },
@@ -39,7 +40,18 @@ Goal: ${value.goal}
       const RelevantFilesSchema = z.object({ files: z.array(z.string()) });
       const directRelevantFiles = await nrc.aiJson(
         RelevantFilesSchema,
-        `Extract all the absolute paths for the relevant files from the following:\n\n${rawRelevantFiles}`,
+        `
+Extract all the absolute paths for the files from the following document.
+You may need to normalize the file path, here are all the file paths in this project.
+Consider them as valid outputs which must be used.
+${JSON.stringify(
+  researchResult.files.map((f) => f.path),
+  null,
+  2,
+)}
+
+Document:
+${rawRelevantFiles}`.trim(),
       );
       const relevantFiles = uniq(
         directRelevantFiles.files.flatMap((f) => [
