@@ -36,7 +36,7 @@ export const ExecuteNNode = createNodeDef<typeof typeId, z.infer<typeof inputsSc
       const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
       const extraContext = await nrc.findNodeForResult(ContextNNode, (n) => n.contextId === ExecuteNNode_ContextId);
 
-      const rawChangeSet = await nrc.aiChat("gpt4o", [
+      const rawChangeSet = await nrc.aiChat("opus", [
         {
           role: "user",
           content: `
@@ -50,11 +50,21 @@ ${value.instructions}
 
 Please suggest changes to the provided files based on the plan.
 Suggestions may either be snippets or full files (but not both), and it should be clear enough for a junior engineer to understand and apply.
+Do not output diffs, snippets must be human readable and usable without counting line numbers.
 Prefer snippets unless the file is small (about 50 lines or less) or the change is very large.
 Make sure to be very clear about which file is changing and what the change is.
 Please include a legend at the top of the file with the absolute path to the files you are changing. (Example: /root/project/src/file.ts)
 Suggest adding imports in distinct, standalone snippets from the code changes.
-If creating a new file, please provide the full file content.`.trim(),
+If creating a new file, please provide the full file content.
+
+Example snippet step (Please note how there are no comments within the snippet itself about where it should be placed, and that the snippet content is fully complete):
+* this snippet should be applied to /root/project/src/file.ts, after the function foobar.
+\`\`\`typescript
+function hello() {
+  console.log("Hello, world!");
+}
+\`\`\`
+`.trim(),
         },
       ]);
 
@@ -81,6 +91,13 @@ ${JSON.stringify({
   generalNoteList: ["This is a general note"],
   filesToChange: [{ absolutePathIncludingFileName: "/root/project/src/file.ts" }],
 } satisfies z.infer<typeof ChangeSetSchema>)}
+
+You may need to normalize the file path. Here are all the file paths in this project, consider them as valid outputs which must be used unless creating a new file:
+${JSON.stringify(
+  researchResult.files.map((f) => f.path),
+  null,
+  2,
+)}
 
 Here's the document content:
 ${rawChangeSet}`.trim(),

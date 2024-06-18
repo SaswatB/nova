@@ -21,7 +21,7 @@ export const PlanNNode = createNodeDef(
         true,
       );
       const extraContext = await nrc.findNodeForResult(ContextNNode, (n) => n.contextId === PlanNNode_ContextId);
-      const res = await nrc.aiChat("gemini", [
+      const res = await nrc.aiChat("opus", [
         {
           role: "user",
           content: `
@@ -29,13 +29,13 @@ export const PlanNNode = createNodeDef(
 ${nrc.projectContext.rules.join("\n")}
 </context>
 
-${xmlFileSystemResearch(researchResult, { showResearch: true, showFileContent: (f) => relevantFiles.includes(f) })}${extraContext ? `\n\n<extraContext>\n${extraContext.context}\n</extraContext>` : ""}
+${xmlFileSystemResearch(researchResult, { showResearch: true, showFileContent: true, filterFiles: (f) => relevantFiles.includes(f) })}${extraContext ? `\n\n<extraContext>\n${extraContext.context}\n</extraContext>` : ""}
 
 Please create a plan for the following goal: ${value.goal}
 The plan should include a list of steps to achieve the goal, as well as any potential obstacles or challenges that may arise.
 Call out specific areas of the codebase that may need to be modified or extended to support the new functionality, and provide a high-level overview of the changes that will be required.
 If using short file names, please include a legend at the top of the file with the absolute path to the file.
-Contents for most files are omitted, but please comment on which files would be helpful to provide to improve the plan.
+Most files are omitted, but please comment on which files would be helpful to provide to improve the plan.
                      `.trim(),
         },
       ]);

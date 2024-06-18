@@ -67,7 +67,7 @@ async function runGoal(rootDirectory: string, goal: string) {
   const runner = GraphRunner.fromGoal(projectContext, goal);
   await runner.run();
 
-  const outputFile = join(rootCacheDirectory, "results", `${Date.now()}}.json`);
+  const outputFile = join(rootCacheDirectory, "results", `${Date.now()}.json`);
   mkdirSync(dirname(outputFile), { recursive: true });
   writeFileSync(outputFile, JSON.stringify(runner.toData(), null, 2));
 }
@@ -118,7 +118,17 @@ async function main() {
     console.log(`Running test for ${repo}`, test);
     await runGoal(
       repoPath,
-      `The following is a GitHub issue filed for the given repository, please resolve the issue:\n${test.problem_statement}`,
+      `
+The following is a GitHub issue filed for the given repository, please resolve the issue.
+Think carefully about what exactly the issue is, and what's the intended behavior.
+Fixing the issue may not always be done in the way the issue reporter suggests.
+<problem_statement>
+${test.problem_statement}
+</problem_statement>
+<hints>
+${test.hints_text}
+</hints>
+`.trim(),
     );
   }
 }

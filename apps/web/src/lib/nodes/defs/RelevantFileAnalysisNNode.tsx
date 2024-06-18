@@ -30,6 +30,7 @@ ${xmlFileSystemResearch(researchResult, { showResearch: true })}
 Based on the research, please identify the relevant files for the goal.
 The relevant files are the ones that are most likely to be impacted by the goal and may need to be modified or extended to support the new functionality.
 Related files may also include files that would be useful to reference or provide context for the changes.
+Also include 1 level of important dependencies for each file, with the full path to the dependency.
 Goal: ${value.goal}
 `.trim(),
         },
