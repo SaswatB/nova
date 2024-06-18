@@ -69,6 +69,12 @@ export function OnboardingDialog() {
           </div>
         </Flex>
 
+        <Flex css={{ mt: 16, fontSize: "14px", textAlign: "center" }}>
+          <Text color="gray">
+            Disclaimer: Nova is in its early stages. Use at your own risk; no warranty is provided.
+          </Text>
+        </Flex>
+
         <Flex justifyContent="space-between" mt={24}>
           <a href="https://discord.gg/bZxutN8A2q" target="_blank" rel="noreferrer">
             <Button>Join us on Discord</Button>
