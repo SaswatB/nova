@@ -1,6 +1,10 @@
 import { useState } from "react";
-import { Button, Checkbox, Dialog, Text } from "@radix-ui/themes";
-import { Flex } from "styled-system/jsx";
+import { faMicrophone } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { ChatBubbleIcon, Cross1Icon } from "@radix-ui/react-icons";
+import { Button, Card, Checkbox, Dialog, Text } from "@radix-ui/themes";
+import { css } from "styled-system/css";
+import { Flex, Stack } from "styled-system/jsx";
 
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 
@@ -14,7 +18,46 @@ export function OnboardingDialog() {
     <Dialog.Root open={showDialog}>
       <Dialog.Content width="600px">
         <Dialog.Title>Welcome to Nova</Dialog.Title>
-        <Dialog.Description>Watch this brief video to get started with Nova.</Dialog.Description>
+
+        <Stack gap={12} mt={8}>
+          <Card>
+            <Flex gap={16} alignItems="center">
+              <ChatBubbleIcon />
+              <Text>
+                <strong>Spaces</strong> allow setting goals to create changes within projects.
+              </Text>
+            </Flex>
+            <Flex color="gray" className={css({ ml: 32, fontSize: "14px" })}>
+              Currently, Nova only supports one goal per space. All changes are done on the local file system.
+            </Flex>
+          </Card>
+
+          <Card>
+            <Flex gap={16} alignItems="center">
+              <Cross1Icon />
+              <Text>
+                <strong>Iteration</strong> can completely modify existing outputs.
+              </Text>
+            </Flex>
+            <Flex color="gray" className={css({ ml: 32, fontSize: "14px" })}>
+              Use this to fix fundamental issues and have Nova try again.
+            </Flex>
+          </Card>
+
+          <Card>
+            <Flex gap={16} alignItems="center">
+              <FontAwesomeIcon icon={faMicrophone} />
+              <Text>
+                <strong>Voice Chat</strong> helps with defining goals and iterations.
+              </Text>
+            </Flex>
+            <Flex color="gray" className={css({ ml: 32, fontSize: "14px" })}>
+              Pretend you're talking to a junior engineer!
+            </Flex>
+          </Card>
+        </Stack>
+        <Flex css={{ mt: 24 }}>Watch this brief video to get started with Nova.</Flex>
+
         <Flex pos="relative" justifyContent="center" mt={16}>
           <div style={{ paddingBottom: "64.63195691202873%", height: 0 }}>
             <iframe
@@ -25,6 +68,7 @@ export function OnboardingDialog() {
             ></iframe>
           </div>
         </Flex>
+
         <Flex justifyContent="space-between" mt={24}>
           <a href="https://discord.gg/bZxutN8A2q" target="_blank" rel="noreferrer">
             <Button>Join us on Discord</Button>
