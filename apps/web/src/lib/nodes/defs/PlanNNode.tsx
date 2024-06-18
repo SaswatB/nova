@@ -21,7 +21,7 @@ export const PlanNNode = createNodeDef(
         true,
       );
       const extraContext = await nrc.findNodeForResult(ContextNNode, (n) => n.contextId === PlanNNode_ContextId);
-      const res = await nrc.aiChat("opus", [
+      const res = await nrc.aiChat("gemini", [
         {
           role: "user",
           content: `

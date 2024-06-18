@@ -67,7 +67,7 @@ async function runGoal(rootDirectory: string, goal: string) {
   const runner = GraphRunner.fromGoal(projectContext, goal);
   await runner.run();
 
-  const outputFile = join(rootCacheDirectory, "results", `${Date.now()}-${goal.replace(/\n/g, " ")}.json`);
+  const outputFile = join(rootCacheDirectory, "results", `${Date.now()}}.json`);
   mkdirSync(dirname(outputFile), { recursive: true });
   writeFileSync(outputFile, JSON.stringify(runner.toData(), null, 2));
 }

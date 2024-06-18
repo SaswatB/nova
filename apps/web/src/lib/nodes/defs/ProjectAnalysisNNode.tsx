@@ -242,7 +242,7 @@ ${batch.map((f) => xmlFilePrompt(f, { showFileContent: true })).join("\n\n")}
 
     const researchPrompt = `
 The following are the research results for a codebase, remove repeated information and consolidate the information into a single document.
-Keep as much research information as possible, but don't make up new information.
+Keep as much research information as possible (not including the file list), but don't make up new information.
 
 ${docs.map((doc) => `<docs>\n<files>\n${doc.files.join("\n")}\n</files>\n<research>\n${doc.research}\n</research>\n</docs>`).join("\n")}
 `.trim();
