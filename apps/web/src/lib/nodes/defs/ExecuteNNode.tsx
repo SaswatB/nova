@@ -36,10 +36,7 @@ export const ExecuteNNode = createNodeDef<typeof typeId, z.infer<typeof inputsSc
       const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
       const extraContext = await nrc.findNodeForResult(ContextNNode, (n) => n.contextId === ExecuteNNode_ContextId);
 
-      const rawChangeSet = await nrc.aiChat("opus", [
-        {
-          role: "user",
-          content: `
+      const executePrompt = `
 <context>
 ${nrc.projectContext.rules.join("\n")}
 </context>
@@ -55,18 +52,24 @@ Prefer snippets unless the file is small (about 50 lines or less) or the change 
 Make sure to be very clear about which file is changing and what the change is.
 Please include a legend at the top of the file with the absolute path to the files you are changing. (Example: /root/project/src/file.ts)
 Suggest adding imports in distinct, standalone snippets from the code changes.
+Prefer composing multiple snippets over large snippets.
 If creating a new file, please provide the full file content.
 
 Example snippet step (Please note how there are no comments within the snippet itself about where it should be placed, and that the snippet content is fully complete):
 * this snippet should be applied to /root/project/src/file.ts, after the function foobar.
 \`\`\`typescript
 function hello() {
-  console.log("Hello, world!");
+console.log("Hello, world!");
 }
 \`\`\`
-`.trim(),
-        },
-      ]);
+* rename function foobar to foo
+\`\`\`typescript
+function foo() {
+\`\`\`
+      `.trim();
+      nrc.writeDebugFile("debug-execute-prompt.txt", executePrompt);
+      const rawChangeSet = await nrc.aiChat("opus", [{ role: "user", content: executePrompt }]);
+      nrc.writeDebugFile("debug-execute.txt", rawChangeSet);
 
       const ChangeSetSchema = z.object({
         generalNoteList: z
@@ -102,6 +105,7 @@ ${JSON.stringify(
 Here's the document content:
 ${rawChangeSet}`.trim(),
       );
+      nrc.writeDebugFile("debug-execute-change-set.json", JSON.stringify(changeSet, null, 2));
 
       // Deduplicate files to change by their paths
       const limit = pLimit(5);
@@ -127,6 +131,7 @@ Ensure the output retains the original markdown format, but only includes the re
           }),
         ),
       );
+      nrc.writeDebugFile("debug-execute-files-to-change.json", JSON.stringify(filesToChange, null, 2));
 
       if (changeSet.generalNoteList?.length) {
         nrc.addDependantNode(OutputNNode, {

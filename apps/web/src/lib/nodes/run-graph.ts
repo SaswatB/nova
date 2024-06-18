@@ -310,6 +310,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           throw e;
         }
       },
+      writeDebugFile: this.projectContext.writeDebugFile,
     };
 
     const accessedNodeIds = new Set<string>();

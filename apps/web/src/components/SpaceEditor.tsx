@@ -79,6 +79,7 @@ const getProjectContext = (
   globalCacheSet: (key, value) => idb.set(key, value),
   displayToast: toast,
   showRevertFilesDialog: (files) => RevertFilesDialog({ files }),
+  writeDebugFile: () => void 0, // noop
 });
 
 const NewPlanSchema = z.object({ goal: z.string().min(1) });

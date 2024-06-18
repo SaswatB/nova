@@ -65,6 +65,7 @@ export interface ProjectContext {
   projectCacheSet: (key: string, value: unknown) => Promise<void>;
   globalCacheGet: <T>(key: string) => Promise<T | undefined>;
   globalCacheSet: (key: string, value: unknown) => Promise<void>;
+  writeDebugFile: (name: string, content: string) => void;
 }
 
 export interface NodeRunnerContext {
@@ -93,4 +94,6 @@ export interface NodeRunnerContext {
     messages: { role: "user" | "assistant"; content: string }[],
   ) => Promise<string>;
   aiJson: <T extends object>(schema: z.ZodSchema<T>, input: string) => Promise<T>;
+
+  writeDebugFile: (name: string, content: string) => void;
 }

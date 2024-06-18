@@ -63,6 +63,7 @@ async function runGoal(rootDirectory: string, goal: string) {
     projectCacheSet: (key, value) => cacheSet(`${projectId}-${key}`, value),
     globalCacheGet: cacheGet,
     globalCacheSet: cacheSet,
+    writeDebugFile: (name, content) => writeFileSync(name, content),
   };
   const runner = GraphRunner.fromGoal(projectContext, goal);
   await runner.run();
@@ -93,7 +94,7 @@ async function main() {
     }[]
   >((resolve, reject) => {
     db.all(
-      `SELECT * FROM '/Users/saswat/Documents/clones/SWE-bench_Lite/data/dev-00000-of-00001.parquet' limit 1`,
+      `SELECT * FROM '/Users/saswat/Documents/clones/SWE-bench_Lite/data/dev-00000-of-00001.parquet' offset 2 limit 1`,
       (err, res) => (err ? reject(err) : resolve(res as any)),
     );
   });
@@ -123,6 +124,7 @@ The following is a GitHub issue filed for the given repository, please resolve t
 Think carefully about what exactly the issue is, and what's the intended behavior.
 Fixing the issue may not always be done in the way the issue reporter suggests, pay close attention to the hints.
 For example: consider if the core issue is that the implementation is confusing or unclear, and that's why the reporter suggests a certain fix.
+DO NOT change any tests, a different engineer will updates tests based on the results later.
 
 <reported_issue>
 ${test.problem_statement}

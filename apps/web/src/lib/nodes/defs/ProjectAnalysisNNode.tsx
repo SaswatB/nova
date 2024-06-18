@@ -123,6 +123,7 @@ async function projectAnalysis(nrc: NodeRunnerContext): Promise<ResearchedFileSy
   // const dependencies = typescriptResult;
 
   const rawFiles = await readFilesRecursively(nrc, "/", nrc.projectContext.extensions);
+  nrc.writeDebugFile("debug.json", JSON.stringify({ count: rawFiles.length, rawFiles }, null, 2));
   const limit = pLimit(50);
   const researchPromises = rawFiles.map((f) =>
     limit(async (): Promise<ResearchedFile> => {
@@ -189,6 +190,11 @@ ${batch.map((f) => xmlFilePrompt(f, { showFileContent: true })).join("\n\n")}
 
   let research;
   const totalBatchPrompt = constructBatchPrompt(files);
+  nrc.writeDebugFile("debug-batch.txt", totalBatchPrompt);
+  nrc.writeDebugFile(
+    "debug-batch-files.json",
+    JSON.stringify({ tokens: llamaTokenizer.encode(totalBatchPrompt).length, count: files.length, files }, null, 2),
+  );
   const modelLimit = { groq: 8192, geminiFlash: 1e6 };
   const model = "geminiFlash" as const;
   if (llamaTokenizer.encode(totalBatchPrompt).length < modelLimit[model] * 0.6) {
@@ -220,7 +226,13 @@ ${batch.map((f) => xmlFilePrompt(f, { showFileContent: true })).join("\n\n")}
       const batchPrompt = constructBatchPrompt(batch);
       batchPromptTokens += llamaTokenizer.encode(batchPrompt.substring(batchPromptLength)).length; // this isn't fully accurate, but it's much faster to calculate
       batchPromptLength = batchPrompt.length;
+      console.log("batchPromptTokens", batchPromptTokens);
       if (stack.length === 0 || batchPromptTokens > batchTokenThreshold) {
+        nrc.writeDebugFile(`debug-batch-prompt-${stack.length}.txt`, batchPrompt);
+        nrc.writeDebugFile(
+          `debug-batch-files-${stack.length}.json`,
+          JSON.stringify({ batchPromptTokens, files: batch }, null, 2),
+        );
         console.log(
           "Running batch of",
           batch.length,
@@ -231,6 +243,7 @@ ${batch.map((f) => xmlFilePrompt(f, { showFileContent: true })).join("\n\n")}
           files: batch.map((f) => f.path),
           research: await nrc.aiChat(model, [{ role: "user", content: batchPrompt }]),
         });
+        nrc.writeDebugFile("debug-batch-docs.json", JSON.stringify({ docs }, null, 2));
         batch = [];
         batchPromptLength = 0;
         batchPromptTokens = 0;
@@ -239,6 +252,7 @@ ${batch.map((f) => xmlFilePrompt(f, { showFileContent: true })).join("\n\n")}
 
       if (stack.length === 0) break;
     }
+    console.log(docs.length, "docs");
 
     const researchPrompt = `
 The following are the research results for a codebase, remove repeated information and consolidate the information into a single document.
@@ -246,7 +260,10 @@ Keep as much research information as possible (not including the file list), but
 
 ${docs.map((doc) => `<docs>\n<files>\n${doc.files.join("\n")}\n</files>\n<research>\n${doc.research}\n</research>\n</docs>`).join("\n")}
 `.trim();
+    nrc.writeDebugFile("debug-research-prompt.txt", researchPrompt);
     research = await nrc.aiChat(model, [{ role: "user", content: researchPrompt }]);
+
+    nrc.writeDebugFile("debug-research.txt", research);
   }
 
   await nrc.setCache("project-analysis", { research, fileHashes, timestamp: Date.now() } satisfies z.infer<

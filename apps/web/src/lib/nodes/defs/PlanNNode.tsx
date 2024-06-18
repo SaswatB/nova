@@ -36,8 +36,12 @@ The plan should include a list of steps to achieve the goal, as well as any pote
 Call out specific areas of the codebase that may need to be modified or extended to support the new functionality, and provide a high-level overview of the changes that will be required.
 If using short file names, please include a legend at the top of the file with the absolute path to the file.
 Most files are omitted, but please comment on which files would be helpful to provide to improve the plan.
+This plan will be sent to an engineer who'll make low-level changes to the codebase and submit for review, so keep the plan on point and avoid suggesting extraneous steps such as reminding them to send for review.
                     `.trim();
+      nrc.writeDebugFile("debug-plan-prompt.json", JSON.stringify({ relevantFiles }, null, 2));
+      nrc.writeDebugFile("debug-plan-prompt.txt", planPrompt);
       const res = await nrc.aiChat("opus", [{ role: "user", content: planPrompt }]);
+      nrc.writeDebugFile("debug-plan.txt", res);
 
       nrc.addDependantNode(ExecuteNNode, {
         instructions: nrc.createNodeRef({ type: "result", path: "result", schema: "string" }),
