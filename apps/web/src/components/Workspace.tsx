@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { UserButton } from "@clerk/clerk-react";
-import { Link2Icon, PlusCircledIcon } from "@radix-ui/react-icons";
+import { DiscordLogoIcon, Link2Icon, PlusCircledIcon } from "@radix-ui/react-icons";
 import { Button, Dialog, IconButton, TextField, Tooltip } from "@radix-ui/themes";
 import * as idb from "idb-keyval";
 import { startCase } from "lodash";
@@ -175,7 +175,12 @@ export function Workspace() {
             {projectId ? <SpaceSelector key={projectId} projectId={projectId} spaceId={spaceId} /> : null}
           </Stack>
           <VoiceChat />
-          <Flex css={{ justifyContent: "center", mt: 24 }}>
+          <Flex css={{ justifyContent: "center", mt: 24, gap: 24 }}>
+            <a href="https://discord.gg/bZxutN8A2q" target="_blank" rel="noreferrer">
+              <IconButton variant="surface" radius="full">
+                <DiscordLogoIcon />
+              </IconButton>
+            </a>
             <UserButton />
           </Flex>
         </Stack>

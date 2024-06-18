@@ -11,6 +11,7 @@ import { ApiProvider } from "./components/ApiProvider";
 import { Loader } from "./components/base/Loader";
 import { DialogContainer } from "./components/base/PromiseDialog";
 import { BrowserGate } from "./components/BrowserGate";
+import { OnboardingDialog } from "./components/OnboardingDialog";
 import { Workspace } from "./components/Workspace";
 import { env } from "./lib/env";
 import { routes } from "./lib/routes";
@@ -65,6 +66,7 @@ export function App(): JSX.Element {
         </Stack>
         <ToastContainer position="bottom-right" theme="dark" hideProgressBar newestOnTop />
         <DialogContainer />
+        <OnboardingDialog />
       </Theme>
     </ClerkProvider>
   );
