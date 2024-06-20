@@ -4,6 +4,7 @@ import { z } from "zod";
 import { isDefined } from "@repo/shared";
 
 import { Well } from "../../../components/base/Well";
+import { getRelevantFiles } from "../ai-helpers";
 import { createNodeDef } from "../node-types";
 import { orRef } from "../ref-types";
 import { ProjectAnalysisNNode, xmlFileSystemResearch } from "./ProjectAnalysisNNode";
@@ -32,29 +33,19 @@ The relevant files are the ones that are most likely to be impacted by the goal 
 Related files may also include files that would be useful to reference or provide context for the changes.
 Also include 1 level of important dependencies for each file, with the full path to the dependency.
 Finally, included a few files that can be used as inspiration for the changes.
+I'd also recommend including the file paths for any relevant files that define dependencies, like a package.json or requirements.txt.
 Goal: ${value.goal}
 `.trim(),
         },
       ]);
 
-      const RelevantFilesSchema = z.object({ files: z.array(z.string()) });
-      const directRelevantFiles = await nrc.aiJson(
-        RelevantFilesSchema,
-        `
-Extract all the absolute paths for the files from the following document.
-You may need to normalize the file path, here are all the file paths in this project.
-Consider them as valid outputs which must be used.
-${JSON.stringify(
-  researchResult.files.map((f) => f.path),
-  null,
-  2,
-)}
-
-Document:
-${rawRelevantFiles}`.trim(),
+      const directRelevantFiles = await getRelevantFiles(
+        nrc,
+        researchResult.files.map((f) => f.path),
+        rawRelevantFiles,
       );
       const relevantFiles = uniq(
-        directRelevantFiles.files.flatMap((f) => [
+        directRelevantFiles.flatMap((f) => [
           f,
           ...(typescriptResult[f]?.map((d) => d.fileName).filter(isDefined) || []),
         ]),

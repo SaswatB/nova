@@ -50,11 +50,15 @@ Suggestions may either be snippets or full files (but not both), and it should b
 Do not output diffs, snippets must be human readable and usable without counting line numbers.
 Prefer snippets unless the file is small (about 50 lines or less) or the change is very large.
 Make sure to be very clear about which file is changing and what the change is.
-Please include a legend at the top of the file with the absolute path to the files you are changing. (Example: /root/project/src/file.ts)
+Please include a legend at the top of the file with the absolute path to the files you are changing or creating.
 Suggest adding imports in distinct, standalone snippets from the code changes.
 Prefer composing multiple snippets over large snippets.
-If creating a new file, please provide the full file content.
+If creating a new file, please provide the full file path and content.
 Include general notes the developer should know, if any (such as packages to install).
+
+Example legend:
+* file.ts: /root/project/src/file.ts
+* file2.ts: /root/project/src/file2.ts (new file)
 
 Example snippet step (Please note how there are no comments within the snippet itself about where it should be placed, and that the snippet content is fully complete):
 * this snippet should be applied to /root/project/src/file.ts, after the function foobar.

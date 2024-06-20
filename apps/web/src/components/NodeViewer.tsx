@@ -26,7 +26,7 @@ export function NodeViewer({
   onNodeNav: (node: NNode) => void;
 }) {
   const [editInput, setEditInput] = useState(false);
-  const [hideInput, setHideInput] = useState(false);
+  const [hideInput, setHideInput] = useState(true);
 
   const nodeDef = useMemo(() => graphRunner?.getNodeDef(node), [graphRunner, node]);
 

@@ -32,17 +32,18 @@ import {
 } from "./ref-types";
 
 export type GraphTraceEvent =
-  | { type: "start"; timestamp: number }
-  | { type: "start-node"; node: NNode; timestamp: number }
-  | { type: "end-node"; node: NNode; timestamp: number }
-  | { type: "end"; timestamp: number };
+  | { type: "start"; timestamp: number; runId: string }
+  | { type: "start-node"; node: NNode; timestamp: number; runId: string }
+  | { type: "end-node"; node: NNode; timestamp: number; runId: string }
+  | { type: "end"; timestamp: number; runId: string };
 export type NNodeTraceEvent =
-  | { type: "start"; resolvedValue: ResolveRefs<NNodeValue<NNodeDef>>; timestamp: number }
+  | { type: "start"; resolvedValue: ResolveRefs<NNodeValue<NNodeDef>>; timestamp: number; runId: string }
   | {
       // used when creating a node for a dependency
       type: "dependency";
       node: NNode;
       timestamp: number;
+      runId: string;
     }
   | {
       type: "dependency-result";
@@ -50,26 +51,30 @@ export type NNodeTraceEvent =
       existing?: boolean; // whether a node needed to be created
       result: NNodeResult<NNodeDef>;
       timestamp: number;
+      runId: string;
     }
-  | { type: "dependant"; node: NNode; timestamp: number }
-  | { type: "find-node"; node: NNode; result: NNodeResult<NNodeDef>; timestamp: number }
+  | { type: "dependant"; node: NNode; timestamp: number; runId: string }
+  | { type: "find-node"; node: NNode; result: NNodeResult<NNodeDef>; timestamp: number; runId: string }
   | {
       type: "get-cache";
       key: string;
       result: unknown;
       timestamp: number;
+      runId: string;
     }
   | {
       type: "set-cache";
       key: string;
       value: unknown;
       timestamp: number;
+      runId: string;
     }
   | {
       type: "read-file";
       path: string;
       result: Awaited<ReturnType<NodeRunnerContext["readFile"]>>;
       timestamp: number;
+      runId: string;
     }
   | {
       type: "write-file";
@@ -78,6 +83,7 @@ export type NNodeTraceEvent =
       original?: string;
       dryRun?: boolean;
       timestamp: number;
+      runId: string;
     }
   | {
       type: "ai-chat-request";
@@ -85,12 +91,14 @@ export type NNodeTraceEvent =
       model: string;
       messages: { role: "user" | "assistant"; content: string }[];
       timestamp: number;
+      runId: string;
     }
   | {
       type: "ai-chat-response";
       chatId: string;
       result: string;
       timestamp: number;
+      runId: string;
     }
   | {
       type: "ai-json-request";
@@ -98,10 +106,11 @@ export type NNodeTraceEvent =
       schema: unknown;
       input: string;
       timestamp: number;
+      runId: string;
     }
-  | { type: "ai-json-response"; chatId: string; result: unknown; timestamp: number }
-  | { type: "error"; message: string; error: unknown; timestamp: number }
-  | { type: "result"; result: NNodeResult<NNodeDef>; timestamp: number };
+  | { type: "ai-json-response"; chatId: string; result: unknown; timestamp: number; runId: string }
+  | { type: "error"; message: string; error: unknown; timestamp: number; runId: string }
+  | { type: "result"; result: NNodeResult<NNodeDef>; timestamp: number; runId: string };
 
 export interface NNode<D extends NNodeDef = NNodeDef> {
   id: string;
@@ -149,6 +158,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     [RelevantFileAnalysisNNode.typeId]: RelevantFileAnalysisNNode,
     [TypescriptDepAnalysisNNode.typeId]: TypescriptDepAnalysisNNode,
   };
+  private runId = "";
 
   private constructor(private projectContext: ProjectContext) {
     super();
@@ -296,7 +306,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
             schema: zodToJsonSchema(schema, "S").definitions?.S,
             input,
           });
-          const result = await aiJson(this.projectContext, "gpt4o", schema, this.projectContext.systemPrompt, input);
+          const result = await aiJson(this.projectContext, "gpt4o", schema, input);
           console.log("[GraphRunner] AI JSON result", result);
           this.addNodeTrace(node, {
             type: "ai-json-response",
@@ -333,55 +343,60 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
   }
 
   public async run() {
-    await this.projectContext.ensureFS();
+    this.runId = newId.graphRun();
+    try {
+      this.addTrace({ type: "start" });
+      await this.projectContext.ensureFS();
 
-    const runStack = Object.values(this.nodes).filter((node) => !node.state?.completedAt);
-    runStack.forEach((node) => {
-      if (node.state?.startedAt && !node.state.completedAt) {
-        console.warn("[GraphRunner] Node started but not completed, clearing state", node.value);
-        delete node.state;
-      }
-    });
-    const nodePromises = new Map<string, Promise<NNodeResult<NNodeDef>>>();
-
-    const startNodeWrapped = (node: NNode): Promise<NNodeResult<NNodeDef>> => {
-      if (!nodePromises.has(node.id)) {
-        if (!this.isNodeRunnable(node)) {
-          console.error("[GraphRunner] Node is not runnable", node.value);
-          throw new Error("Node is not runnable");
+      const runStack = Object.values(this.nodes).filter((node) => !node.state?.completedAt);
+      runStack.forEach((node) => {
+        if (node.state?.startedAt && !node.state.completedAt) {
+          console.warn("[GraphRunner] Node started but not completed, clearing state", node.value);
+          delete node.state;
         }
-        nodePromises.set(
-          node.id,
-          (async () => {
-            try {
-              return await this.startNode(node, (newNode) => runStack.push(newNode), startNodeWrapped as any);
-            } catch (e) {
-              console.error("[GraphRunner] Node failed", node.value, e);
-              (node.state ||= {}).error = e;
-              this.addNodeTrace(node, { type: "error", message: formatError(e), error: e });
-              throw e;
-            }
-          })(),
-        );
-      }
-      return nodePromises.get(node.id)!;
-    };
+      });
+      const nodePromises = new Map<string, Promise<NNodeResult<NNodeDef>>>();
 
-    this.addTrace({ type: "start" });
-    // run the graph, keep consuming nodes until all nodes are completed
-    while (runStack.length > 0) {
-      const runnableNodes = runStack.filter((node) => this.isNodeRunnable(node));
-      if (runnableNodes.length === 0) {
-        console.log("[GraphRunner] No runnable nodes", runStack);
-        throw new Error("No runnable nodes");
-      }
-      runnableNodes.forEach((node) => runStack.splice(runStack.indexOf(node), 1));
+      const startNodeWrapped = (node: NNode): Promise<NNodeResult<NNodeDef>> => {
+        if (!nodePromises.has(node.id)) {
+          if (!this.isNodeRunnable(node)) {
+            console.error("[GraphRunner] Node is not runnable", node.value);
+            throw new Error("Node is not runnable");
+          }
+          nodePromises.set(
+            node.id,
+            (async () => {
+              try {
+                return await this.startNode(node, (newNode) => runStack.push(newNode), startNodeWrapped as any);
+              } catch (e) {
+                console.error("[GraphRunner] Node failed", node.value, e);
+                (node.state ||= {}).error = e;
+                this.addNodeTrace(node, { type: "error", message: formatError(e), error: e });
+                throw e;
+              }
+            })(),
+          );
+        }
+        return nodePromises.get(node.id)!;
+      };
 
-      // run all runnable nodes in parallel
-      await Promise.all(runnableNodes.map(startNodeWrapped));
+      // run the graph, keep consuming nodes until all nodes are completed
+      while (runStack.length > 0) {
+        const runnableNodes = runStack.filter((node) => this.isNodeRunnable(node));
+        if (runnableNodes.length === 0) {
+          console.log("[GraphRunner] No runnable nodes", runStack);
+          throw new Error("No runnable nodes");
+        }
+        runnableNodes.forEach((node) => runStack.splice(runStack.indexOf(node), 1));
+
+        // run all runnable nodes in parallel
+        await Promise.all(runnableNodes.map(startNodeWrapped));
+      }
+      // todo clean up any outstanding promises with rejects
+    } finally {
+      this.addTrace({ type: "end" });
+      this.runId = "";
     }
-    // todo clean up any outstanding promises with rejects
-    this.addTrace({ type: "end" });
   }
 
   public toData() {
@@ -552,16 +567,13 @@ ${prompt}
     return Object.values(this.nodes).some((node) => node.state?.trace?.some((t) => t.type === "write-file"));
   }
 
-  private addTrace(event: OmitUnion<(typeof GraphRunner.prototype.trace)[number], "timestamp">) {
-    this.trace.push({ ...event, timestamp: Date.now() });
+  private addTrace(event: OmitUnion<GraphTraceEvent, "timestamp" | "runId">) {
+    this.trace.push({ ...event, timestamp: Date.now(), runId: this.runId });
     console.log("[GraphRunner] Trace", event);
     this.emit("dataChanged"); // whenever there's a change, there should be a trace, so this effectively occurs on every change to the top level data
   }
-  private addNodeTrace(
-    node: NNode,
-    event: OmitUnion<Exclude<Exclude<NNode["state"], undefined>["trace"], undefined>[number], "timestamp">,
-  ) {
-    ((node.state ||= {}).trace ||= []).push({ ...event, timestamp: Date.now() });
+  private addNodeTrace(node: NNode, event: OmitUnion<NNodeTraceEvent, "timestamp" | "runId">) {
+    ((node.state ||= {}).trace ||= []).push({ ...event, timestamp: Date.now(), runId: this.runId });
     console.log("[GraphRunner] Node trace", node.value, event);
     this.emit("dataChanged"); // whenever there's a change, there should be a trace, so this effectively occurs on every change to the node data
   }

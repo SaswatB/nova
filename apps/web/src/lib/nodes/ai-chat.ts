@@ -24,7 +24,6 @@ export async function aiJson<T extends object>(
   ctx: ProjectContext,
   model: "gpt4o",
   schema: z.ZodSchema<T>,
-  prompt: string,
   data: string,
 ): Promise<T> {
   const jsonSchema = zodToJsonSchema(schema, "S").definitions?.S;
@@ -36,7 +35,7 @@ export async function aiJson<T extends object>(
   const response = await ctx.trpcClient.ai.json.mutate({
     model,
     schema: jsonSchema as Record<string, unknown>,
-    prompt,
+    prompt: ctx.systemPrompt,
     data,
   });
   const parsedResponse = schema.parse(response);

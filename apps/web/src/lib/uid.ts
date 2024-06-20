@@ -28,6 +28,7 @@ function fromNumber(number: number) {
 enum ID_TYPE {
   project = "p",
   graphNode = "gn",
+  graphRun = "gr",
   frontendSession = "fs",
   space = "s",
   spacePage = "sp",
