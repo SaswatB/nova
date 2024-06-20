@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import { Button, Card, Tabs } from "@radix-ui/themes";
 import { reverse, sortBy, startCase } from "lodash";
 import { filter, map, Observable } from "rxjs";
-import { css } from "styled-system/css";
+import { css, cx } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 import { match, P } from "ts-pattern";
 
@@ -20,12 +20,14 @@ export function TraceElementView({
   trace,
   graphRunner,
   scrollToElement$,
+  isActive,
   onChatIdNav,
   onNodeNav,
 }: {
   trace: TraceElement;
   graphRunner?: GraphRunner;
   scrollToElement$: Observable<boolean>;
+  isActive: boolean;
   onChatIdNav: (chatId: string, target: "request" | "response") => void;
   onNodeNav: (node: NNode) => void;
 }) {
@@ -154,7 +156,13 @@ export function TraceElementView({
   });
 
   return (
-    <Card ref={cardRef} className={css({ flex: "none", mx: 16, my: 8 })}>
+    <Card
+      ref={cardRef}
+      className={cx(
+        css({ flex: "none", mx: 16, my: 8, border: isActive ? "1px solid rgb(0, 123, 255)" : "none" }),
+        isActive && "pulse",
+      )}
+    >
       <Flex
         css={{
           px: 2,
@@ -220,12 +228,33 @@ export function TraceElementList({
 }) {
   const scrollToElement = useSubject<{ element: TraceElement }>();
 
+  function isActive(t: TraceElement) {
+    const active = match(t)
+      .with({ type: "start" }, (t) => !trace.some((t2) => t2.type === "end" && t.runId === t2.runId))
+      .with(
+        { type: "start-node" },
+        (t) => !trace.some((t2) => t2.type === "end-node" && t.node.id === t2.node.id && t.runId === t2.runId),
+      )
+      .with(
+        { type: "ai-chat-request" },
+        (t) => !trace.some((t2) => t2.type === "ai-chat-response" && t.chatId === t2.chatId),
+      )
+      .with(
+        { type: "ai-json-request" },
+        (t) => !trace.some((t2) => t2.type === "ai-json-response" && t.chatId === t2.chatId),
+      )
+      .otherwise(() => false);
+
+    return active && graphRunner?.getActiveRunId() === t.runId;
+  }
+
   return reverse(sortBy(trace, "timestamp")).map((t, i) => (
     <TraceElementView
-      key={i}
+      key={trace.length - i}
       trace={t}
       graphRunner={graphRunner}
       scrollToElement$={scrollToElement.pipe(filter(({ element }) => element === t)).pipe(map(() => true))}
+      isActive={isActive(t)}
       onChatIdNav={(chatId, target) => {
         const element = trace.find(
           (t) => t.type === (target === "request" ? "ai-chat-request" : "ai-chat-response") && t.chatId === chatId,

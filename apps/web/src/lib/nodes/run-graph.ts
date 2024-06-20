@@ -567,6 +567,10 @@ ${prompt}
     return Object.values(this.nodes).some((node) => node.state?.trace?.some((t) => t.type === "write-file"));
   }
 
+  public getActiveRunId() {
+    return this.runId;
+  }
+
   private addTrace(event: OmitUnion<GraphTraceEvent, "timestamp" | "runId">) {
     this.trace.push({ ...event, timestamp: Date.now(), runId: this.runId });
     console.log("[GraphRunner] Trace", event);

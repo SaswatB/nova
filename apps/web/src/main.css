@@ -8,3 +8,19 @@
 [data-radix-popper-content-wrapper] {
   z-index: 2 !important;
 }
+
+@keyframes pulseAnimation {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(0, 123, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
+  }
+}
+
+.pulse {
+  animation: pulseAnimation 2s infinite;
+}

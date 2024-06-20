@@ -39,7 +39,7 @@ export function NodeViewer({
   }, [nodeDef, node.value, graphData]);
   const nodeOutputs = useMemo(
     () => (node.state?.result ? nodeDef?.renderResult(node.state.result) : "No state yet"),
-    [nodeDef, node.state],
+    [nodeDef, node.state?.result],
   );
 
   return (
