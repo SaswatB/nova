@@ -68,10 +68,6 @@ async function runGoal(rootDirectory: string, goal: string) {
   };
   const runner = GraphRunner.fromGoal(projectContext, goal);
   await runner.run();
-
-  const outputFile = join(rootCacheDirectory, "results", `${Date.now()}.json`);
-  mkdirSync(dirname(outputFile), { recursive: true });
-  writeFileSync(outputFile, JSON.stringify(runner.toData(), null, 2));
 }
 
 async function main() {
@@ -135,6 +131,7 @@ ${test.hints_text}
 </hints>
 `.trim(),
     );
+    console.log(`Test for ${repo} completed, result at ${repoPath}`);
   }
 }
 main().catch(console.error);

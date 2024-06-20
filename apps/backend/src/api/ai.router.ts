@@ -35,9 +35,14 @@ export const aiRouter = router({
         .with("geminiFlash", async () => {
           try {
             return await geminiChat(geminiFlash, input.system, input.messages);
-          } catch (error) {
-            console.error("Failed to use geminiFlash, falling back to gpt4o", error);
-            return await openaiChat(input.system, input.messages);
+          } catch (error1) {
+            console.error("Failed to use geminiFlash, falling back to gpt4o", error1);
+            try {
+              return await openaiChat(input.system, input.messages);
+            } catch (error2) {
+              console.error("Failed to use gpt4o, throwing original error", error2);
+              throw error1;
+            }
           }
         })
         .exhaustive();
