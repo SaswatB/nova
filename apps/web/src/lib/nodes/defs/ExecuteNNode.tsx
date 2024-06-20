@@ -54,6 +54,7 @@ Please include a legend at the top of the file with the absolute path to the fil
 Suggest adding imports in distinct, standalone snippets from the code changes.
 Prefer composing multiple snippets over large snippets.
 If creating a new file, please provide the full file content.
+Include general notes the developer should know, if any (such as packages to install).
 
 Example snippet step (Please note how there are no comments within the snippet itself about where it should be placed, and that the snippet content is fully complete):
 * this snippet should be applied to /root/project/src/file.ts, after the function foobar.

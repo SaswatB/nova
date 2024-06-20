@@ -60,7 +60,7 @@ module.exports = {
       files: ["**/*.ts", "**/*.tsx"],
       parserOptions: {
         project: [
-          join(__dirname, "../../tsconfig.json"),
+          join(__dirname, "../../tsconfig.eslint.json"),
           "./packages/*/tsconfig.json",
         ],
       },
