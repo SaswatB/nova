@@ -40,7 +40,7 @@ This plan will be sent to an engineer who'll make low-level changes to the codeb
                     `.trim();
       nrc.writeDebugFile("debug-plan-prompt.json", JSON.stringify({ relevantFiles }, null, 2));
       nrc.writeDebugFile("debug-plan-prompt.txt", planPrompt);
-      const res = await nrc.aiChat("opus", [{ role: "user", content: planPrompt }]);
+      const res = await nrc.aiChat("sonnet", [{ role: "user", content: planPrompt }]);
       nrc.writeDebugFile("debug-plan.txt", res);
 
       nrc.addDependantNode(ExecuteNNode, {

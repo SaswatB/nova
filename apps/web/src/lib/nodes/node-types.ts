@@ -90,7 +90,7 @@ export interface NodeRunnerContext {
   setCache: (key: string, value: unknown) => Promise<void>;
 
   aiChat: (
-    model: "groq" | "gpt4o" | "opus" | "gemini" | "geminiFlash",
+    model: "groq" | "gpt4o" | "opus" | "sonnet" | "gemini" | "geminiFlash",
     messages: { role: "user" | "assistant"; content: string }[],
   ) => Promise<string>;
   aiJson: <T extends object>(schema: z.ZodSchema<T>, input: string) => Promise<T>;

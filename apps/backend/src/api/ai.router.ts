@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { GenerativeModel, GoogleGenerativeAI } from "@google/generative-ai";
 import { writeFileSync } from "fs";
 import Groq from "groq-sdk";
-import { match } from "ts-pattern";
+import { match, P } from "ts-pattern";
 import { container } from "tsyringe";
 import { z } from "zod";
 
@@ -14,7 +14,7 @@ export const aiRouter = router({
   chat: procedure
     .input(
       z.object({
-        model: z.enum(["groq", "gpt4o", "opus", "gemini", "geminiFlash"]),
+        model: z.enum(["groq", "gpt4o", "opus", "sonnet", "gemini", "geminiFlash"]),
         system: z.string(),
         messages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() })),
       }),
@@ -23,7 +23,7 @@ export const aiRouter = router({
       return match(input.model)
         .with("groq", () => groqChat(input.system, input.messages))
         .with("gpt4o", () => openaiChat(input.system, input.messages))
-        .with("opus", () => claudeChat(input.system, input.messages))
+        .with(P.union("opus", "sonnet"), (model) => claudeChat(model, input.system, input.messages))
         .with("gemini", async () => {
           try {
             return await geminiChat(gemini, input.system, input.messages);
@@ -112,11 +112,12 @@ async function openaiJson(schema: Record<string, unknown>, prompt: string, data:
 
 const anthropic = new Anthropic({ apiKey: env.CLAUDE_API_KEY });
 async function claudeChat(
+  model: "opus" | "sonnet",
   system: string,
   messages: { role: "user" | "assistant"; content: string }[],
 ): Promise<string> {
   const response = await anthropic.messages.create({
-    model: "claude-3-opus-20240229",
+    model: model === "opus" ? "claude-3-opus-20240229" : "claude-3-5-sonnet-20240620",
     max_tokens: 1024,
     system,
     messages,

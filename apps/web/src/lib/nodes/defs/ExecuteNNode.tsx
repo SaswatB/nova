@@ -68,7 +68,7 @@ function foo() {
 \`\`\`
       `.trim();
       nrc.writeDebugFile("debug-execute-prompt.txt", executePrompt);
-      const rawChangeSet = await nrc.aiChat("opus", [{ role: "user", content: executePrompt }]);
+      const rawChangeSet = await nrc.aiChat("sonnet", [{ role: "user", content: executePrompt }]);
       nrc.writeDebugFile("debug-execute.txt", rawChangeSet);
 
       const ChangeSetSchema = z.object({

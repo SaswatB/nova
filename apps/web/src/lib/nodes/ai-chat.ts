@@ -6,7 +6,7 @@ import { ProjectContext } from "./node-types";
 
 export async function aiChat(
   ctx: ProjectContext,
-  model: "groq" | "gpt4o" | "opus" | "gemini" | "geminiFlash",
+  model: "groq" | "gpt4o" | "opus" | "sonnet" | "gemini" | "geminiFlash",
   system: string,
   messages: { role: "user" | "assistant"; content: string }[],
 ): Promise<string> {
