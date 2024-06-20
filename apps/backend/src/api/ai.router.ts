@@ -118,7 +118,7 @@ async function claudeChat(
 ): Promise<string> {
   const response = await anthropic.messages.create({
     model: model === "opus" ? "claude-3-opus-20240229" : "claude-3-5-sonnet-20240620",
-    max_tokens: 1024,
+    max_tokens: 4096,
     system,
     messages,
   });
