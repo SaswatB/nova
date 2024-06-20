@@ -1,6 +1,6 @@
 import "reflect-metadata";
 
-import { ClerkExpressRequireAuth } from "@clerk/clerk-sdk-node";
+import { ClerkExpressWithAuth } from "@clerk/clerk-sdk-node";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import cors from "cors";
 import express from "express";
@@ -24,7 +24,7 @@ app.use(cors());
 
 app.use(
   "/trpc",
-  ClerkExpressRequireAuth(),
+  ClerkExpressWithAuth(),
   createExpressMiddleware({
     router: appRouter,
     createContext: createAppContext,

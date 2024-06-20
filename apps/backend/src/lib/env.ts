@@ -3,6 +3,7 @@ import { z } from "zod";
 export const env = z
   .object({
     DOPPLER_ENVIRONMENT: z.union([z.literal("dev"), z.literal("stg"), z.literal("prd")]),
+    BENCH_API_TOKEN: z.string(),
     CLAUDE_API_KEY: z.string(),
     CLERK_PUBLISHABLE_KEY: z.string(),
     CLERK_SECRET_KEY: z.string(),

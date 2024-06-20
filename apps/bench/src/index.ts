@@ -9,6 +9,7 @@ import { ProjectContext } from "@repo/web/src/lib/nodes/node-types";
 import { PROJECT_RULES, SUPPORTED_EXTENSIONS, SYSTEM_PROMPT } from "@repo/web/src/lib/nodes/projectctx-constants";
 
 import { GraphRunner } from "../../web/src/lib/nodes/run-graph";
+import { env } from "./lib/env";
 
 const rootCacheDirectory = join(dirname(fileURLToPath(import.meta.url)), "cache");
 
@@ -36,8 +37,8 @@ async function runGoal(rootDirectory: string, goal: string) {
     trpcClient: createTRPCProxyClient({
       links: [
         httpBatchLink({
-          url: `${process.env.API_URL}/trpc`,
-          headers: async () => ({ Authorization: `Bearer ${process.env.API_TOKEN}` }),
+          url: `${env.API_URL}/trpc`,
+          headers: async () => ({ "x-bench-api-token": env.BENCH_API_TOKEN }),
         }),
       ],
     }),
