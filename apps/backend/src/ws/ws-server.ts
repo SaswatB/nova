@@ -13,9 +13,7 @@ export function handleWsConnection(ws: WebSocket) {
 
     // setup async message sending
     const messageStream = new Subject<unknown>();
-    const messageSubscription = messageStream.subscribe((message) =>
-      ws.send(JSON.stringify(message))
-    );
+    const messageSubscription = messageStream.subscribe((message) => ws.send(JSON.stringify(message)));
 
     // process payload and get responses
     // this also sends async messages while it's processing

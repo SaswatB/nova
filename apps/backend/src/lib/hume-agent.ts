@@ -46,7 +46,7 @@ export const HumeMessagesPayload = z.object({
       }),
       models: z.object({ prosody: z.object({ scores: z.record(z.number()) }) }),
       time: z.object({ begin: z.number(), end: z.number() }).optional(),
-    })
+    }),
   ),
   custom_session_id: z.string().nullable(),
 });
@@ -56,14 +56,9 @@ export class HumeAgent {
   private openai = container.resolve(OpenAIService);
   private voiceStateService = container.resolve(VoiceStateService);
 
-  public async respond(
-    messagesPayload: HumeMessagesPayload,
-    messageStream: Subject<unknown>
-  ) {
+  public async respond(messagesPayload: HumeMessagesPayload, messageStream: Subject<unknown>) {
     const { status, functions, handleVoiceFunction } =
-      (await this.voiceStateService.getState(
-        messagesPayload.custom_session_id || ""
-      )) || {};
+      (await this.voiceStateService.getState(messagesPayload.custom_session_id || "")) || {};
 
     const currentStatus = sortBy(status || [], "priority").at(-1);
 
@@ -114,11 +109,9 @@ export class HumeAgent {
             const toolArguments = JSON.parse(toolCall.function.arguments);
             return {
               toolCall,
-              result:
-                handleVoiceFunction?.(toolCall.function.name, toolArguments) ||
-                {},
+              result: handleVoiceFunction?.(toolCall.function.name, toolArguments) || {},
             };
-          })
+          }),
         );
 
         extraMessages.push(
@@ -127,7 +120,7 @@ export class HumeAgent {
             role: "tool" as const,
             tool_call_id: toolResult.toolCall.id,
             content: JSON.stringify(toolResult),
-          }))
+          })),
         );
       } else {
         break;

@@ -8,17 +8,14 @@ export class VoiceStateService {
   private state: Record<
     string,
     VoiceState & {
-      handleVoiceFunction: (
-        functionName: string,
-        parameters: Record<string, unknown>
-      ) => Promise<unknown>;
+      handleVoiceFunction: (functionName: string, parameters: Record<string, unknown>) => Promise<unknown>;
     }
   > = {}; // frontendSessionId -> VoiceState
 
   public async setState(
     sessionId: string,
     state: VoiceState,
-    handleVoiceFunction: VoiceStateService["state"][string]["handleVoiceFunction"]
+    handleVoiceFunction: VoiceStateService["state"][string]["handleVoiceFunction"],
   ) {
     this.state[sessionId] = { ...state, handleVoiceFunction };
   }

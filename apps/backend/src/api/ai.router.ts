@@ -16,10 +16,8 @@ export const aiRouter = router({
       z.object({
         model: z.enum(["groq", "gpt4o", "opus", "gemini", "geminiFlash"]),
         system: z.string(),
-        messages: z.array(
-          z.object({ role: z.enum(["user", "assistant"]), content: z.string() })
-        ),
-      })
+        messages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() })),
+      }),
     )
     .mutation(async ({ input }) => {
       return match(input.model)
@@ -38,10 +36,7 @@ export const aiRouter = router({
           try {
             return await geminiChat(geminiFlash, input.system, input.messages);
           } catch (error) {
-            console.error(
-              "Failed to use geminiFlash, falling back to gpt4o",
-              error
-            );
+            console.error("Failed to use geminiFlash, falling back to gpt4o", error);
             return await openaiChat(input.system, input.messages);
           }
         })
@@ -54,19 +49,14 @@ export const aiRouter = router({
         schema: z.record(z.unknown()),
         prompt: z.string(),
         data: z.string(),
-      })
+      }),
     )
-    .mutation(async ({ input }) =>
-      openaiJson(input.schema, input.prompt, input.data)
-    ),
+    .mutation(async ({ input }) => openaiJson(input.schema, input.prompt, input.data)),
 });
 
 const groq = new Groq({ apiKey: env.GROQ_API_KEY });
 // const groq = new OpenAI({ apiKey: env.VITE_TOGETHERAI_API_KEY, baseURL: "https://api.together.xyz/v1" });
-async function groqChat(
-  system: string,
-  messages: { role: "user" | "assistant"; content: string }[]
-): Promise<string> {
+async function groqChat(system: string, messages: { role: "user" | "assistant"; content: string }[]): Promise<string> {
   const result = await groq.chat.completions.create({
     model: "llama3-70b-8192",
     // model: "meta-llama/Llama-3-70b-chat-hf",
@@ -77,7 +67,7 @@ async function groqChat(
 
 async function openaiChat(
   system: string,
-  messages: { role: "user" | "assistant"; content: string }[]
+  messages: { role: "user" | "assistant"; content: string }[],
 ): Promise<string> {
   const openai = container.resolve(OpenAIService);
   const result = await openai.chat.completions.create({
@@ -86,11 +76,7 @@ async function openaiChat(
   });
   return result.choices[0]?.message.content ?? "";
 }
-async function openaiJson(
-  schema: Record<string, unknown>,
-  prompt: string,
-  data: string
-) {
+async function openaiJson(schema: Record<string, unknown>, prompt: string, data: string) {
   const openai = container.resolve(OpenAIService);
   const result = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -98,8 +84,7 @@ async function openaiJson(
     messages: [
       {
         role: "system",
-        content:
-          `Please format the given data to fit the schema.\n${prompt}`.trim(),
+        content: `Please format the given data to fit the schema.\n${prompt}`.trim(),
       },
       { role: "user", content: data },
     ],
@@ -116,16 +101,11 @@ async function openaiJson(
     tool_choice: { type: "function", function: { name: "resolve" } },
   });
   try {
-    const out =
-      result.choices[0]?.message.tool_calls?.[0]?.function?.arguments ?? "{}";
+    const out = result.choices[0]?.message.tool_calls?.[0]?.function?.arguments ?? "{}";
     return JSON.parse(out);
   } catch (error) {
     console.error("Failed to parse output", error, result);
-    if (env.DOPPLER_ENVIRONMENT === "dev")
-      writeFileSync(
-        `error-${Date.now()}.json`,
-        JSON.stringify(result, null, 2)
-      );
+    if (env.DOPPLER_ENVIRONMENT === "dev") writeFileSync(`error-${Date.now()}.json`, JSON.stringify(result, null, 2));
     throw error;
   }
 }
@@ -133,7 +113,7 @@ async function openaiJson(
 const anthropic = new Anthropic({ apiKey: env.CLAUDE_API_KEY });
 async function claudeChat(
   system: string,
-  messages: { role: "user" | "assistant"; content: string }[]
+  messages: { role: "user" | "assistant"; content: string }[],
 ): Promise<string> {
   const response = await anthropic.messages.create({
     model: "claude-3-opus-20240229",
@@ -149,7 +129,7 @@ const googleGenAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
 async function geminiChat(
   model: GenerativeModel,
   system: string,
-  messages: { role: "user" | "assistant"; content: string }[]
+  messages: { role: "user" | "assistant"; content: string }[],
 ) {
   const chat = model.startChat({
     history: [

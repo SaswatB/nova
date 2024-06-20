@@ -29,16 +29,13 @@ app.use(
     router: appRouter,
     createContext: createAppContext,
     onError: ({ error }) => console.error(error),
-  })
+  }),
 );
 
 const wss = new WebSocketServer({ server, path: "/ws/v1/llm" });
 wss.on("connection", handleWsConnection);
 
-const io = new SocketIOServer<SIOClientToServerEvents, SIOServerToClientEvents>(
-  server,
-  { cors: { origin: "*" } }
-);
+const io = new SocketIOServer<SIOClientToServerEvents, SIOServerToClientEvents>(server, { cors: { origin: "*" } });
 io.on("connection", handleSioConnection);
 
 server.listen(port, () => console.log(`Listening on http://localhost:${port}`));

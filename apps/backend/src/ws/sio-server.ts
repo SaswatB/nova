@@ -5,19 +5,11 @@ import { SIOClientToServerEvents, SIOServerToClientEvents } from "@repo/shared";
 
 import { VoiceStateService } from "../external/voicestate.service";
 
-export function handleSioConnection(
-  socket: Socket<SIOClientToServerEvents, SIOServerToClientEvents>
-) {
+export function handleSioConnection(socket: Socket<SIOClientToServerEvents, SIOServerToClientEvents>) {
   const voiceStateService = container.resolve(VoiceStateService);
   socket.on("voiceState", async (state, sessionId) => {
-    await voiceStateService.setState(
-      sessionId,
-      state,
-      (functionName, parameters) => {
-        return new Promise((resolve) =>
-          socket.emit("voiceFunction", functionName, parameters, resolve)
-        );
-      }
-    );
+    await voiceStateService.setState(sessionId, state, (functionName, parameters) => {
+      return new Promise((resolve) => socket.emit("voiceFunction", functionName, parameters, resolve));
+    });
   });
 }

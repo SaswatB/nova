@@ -3,9 +3,7 @@ import { inferAsyncReturnType, initTRPC } from "@trpc/server";
 import { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import { Request } from "express";
 
-export const createAppContext = async ({
-  req,
-}: CreateExpressContextOptions) => {
+export const createAppContext = async ({ req }: CreateExpressContextOptions) => {
   const externalAuth = (req as WithAuthProp<Request>).auth;
   if (!externalAuth.userId) throw new Error("Unauthenticated");
 
