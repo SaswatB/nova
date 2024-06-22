@@ -2930,7 +2930,7 @@ __metadata:
     socket.io: "npm:^4.7.5"
     ts-pattern: "npm:^5.1.2"
     tsyringe: "npm:^4.8.0"
-    typescript: "npm:^5.4.5"
+    typescript: "npm:^5.5.2"
     ws: "npm:^8.17.0"
     zod: "npm:^3.22.5"
     zod-to-json-schema: "npm:^3.23.0"
@@ -2950,7 +2950,7 @@ __metadata:
     prettier: "npm:^3.2.4"
     simple-git: "npm:^3.25.0"
     tsx: "npm:^4.15.5"
-    typescript: "npm:^5.4.5"
+    typescript: "npm:^5.5.2"
   languageName: unknown
   linkType: soft
 
@@ -2965,7 +2965,7 @@ __metadata:
     eslint-config-turbo: "npm:^1.12.4"
     eslint-plugin-only-warn: "npm:^1.1.0"
     eslint-plugin-simple-import-sort: "npm:^12.0.0"
-    typescript: "npm:^5.4.5"
+    typescript: "npm:^5.5.2"
   languageName: unknown
   linkType: soft
 
@@ -2987,7 +2987,7 @@ __metadata:
     react-dom: "npm:^18.2.0"
     react-router-dom: "npm:^6.23.1"
     tailwindcss: "npm:^3.3.2"
-    typescript: "npm:^5.4.5"
+    typescript: "npm:^5.5.2"
     vite: "npm:^5.0.12"
   languageName: unknown
   linkType: soft
@@ -2996,7 +2996,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@repo/shared@workspace:packages/shared"
   dependencies:
-    typescript: "npm:^5.4.5"
+    typescript: "npm:^5.5.2"
     zod: "npm:^3.22.5"
   languageName: unknown
   linkType: soft
@@ -3070,7 +3070,7 @@ __metadata:
     socket.io-client: "npm:^4.7.5"
     split-pane-react: "patch:split-pane-react@npm%3A0.1.3#~/.yarn/patches/split-pane-react-npm-0.1.3-1cc8da6424.patch"
     ts-pattern: "npm:^5.1.2"
-    typescript: "npm:^5.4.5"
+    typescript: "npm:^5.5.2"
     unplugin-fonts: "npm:^1.1.1"
     use-debounce: "npm:^10.0.1"
     virtua: "npm:^0.31.0"
@@ -12335,13 +12335,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:^5.4.5":
-  version: 5.4.5
-  resolution: "typescript@npm:5.4.5"
+"typescript@npm:^5.5.2":
+  version: 5.5.2
+  resolution: "typescript@npm:5.5.2"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10c0/2954022ada340fd3d6a9e2b8e534f65d57c92d5f3989a263754a78aba549f7e6529acc1921913560a4b816c46dce7df4a4d29f9f11a3dc0d4213bb76d043251e
+  checksum: 10c0/8ca39b27b5f9bd7f32db795045933ab5247897660627251e8254180b792a395bf061ea7231947d5d7ffa5cb4cc771970fd4ef543275f9b559f08c9325cccfce3
   languageName: node
   linkType: hard
 
@@ -12355,13 +12355,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A^5.4.5#optional!builtin<compat/typescript>":
-  version: 5.4.5
-  resolution: "typescript@patch:typescript@npm%3A5.4.5#optional!builtin<compat/typescript>::version=5.4.5&hash=5adc0c"
+"typescript@patch:typescript@npm%3A^5.5.2#optional!builtin<compat/typescript>":
+  version: 5.5.2
+  resolution: "typescript@patch:typescript@npm%3A5.5.2#optional!builtin<compat/typescript>::version=5.5.2&hash=5adc0c"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10c0/db2ad2a16ca829f50427eeb1da155e7a45e598eec7b086d8b4e8ba44e5a235f758e606d681c66992230d3fc3b8995865e5fd0b22a2c95486d0b3200f83072ec9
+  checksum: 10c0/6721ac8933a70c252d7b640b345792e103d881811ff660355617c1836526dbb71c2044e2e77a8823fb3570b469f33276875a4cab6d3c4de4ae7d7ee1c3074ae4
   languageName: node
   linkType: hard
 

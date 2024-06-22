@@ -465,9 +465,7 @@ Currently working on the project "${projectName}".
                 trace={[
                   ...selectedPage.graphData.trace,
                   ...uniqBy(
-                    selectedPage.graphData.trace.filter(
-                      (t): t is GraphTraceEvent & { type: "start-node" } => t.type === "start-node",
-                    ),
+                    selectedPage.graphData.trace.filter((t) => t.type === "start-node"),
                     "node.id",
                   ).flatMap((t) =>
                     (selectedPage.graphData?.nodes[t.node.id]?.state?.trace || []).map((tr) => ({
