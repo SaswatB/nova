@@ -1,4 +1,5 @@
 import ReactDiffViewer from "react-diff-viewer";
+import { Badge } from "@radix-ui/themes";
 import { z } from "zod";
 
 import { Well } from "../../../components/base/Well";
@@ -52,8 +53,11 @@ The file you are operating on is "${value.path}".
       </Well>
     ),
     // todo syntax highlighting
-    renderResult: (res) => (
-      <ReactDiffViewer oldValue={res.original} newValue={res.result} splitView={false} useDarkTheme />
+    renderResult: (res, v) => (
+      <>
+        <Badge>{v.path}</Badge>
+        <ReactDiffViewer oldValue={res.original} newValue={res.result} splitView={false} useDarkTheme />
+      </>
     ),
   },
 );

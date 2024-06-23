@@ -30,17 +30,18 @@ export function NodeViewer({
 
   const nodeDef = useMemo(() => graphRunner?.getNodeDef(node), [graphRunner, node]);
 
-  const nodeInputs = useMemo(() => {
+  const [nodeInputs, nodeOutputs] = useMemo(() => {
     try {
-      return nodeDef?.renderInputs(resolveNodeValueRefs(node.value, graphData.nodes)) ?? null;
+      const value = resolveNodeValueRefs(node.value, graphData.nodes);
+      return [
+        nodeDef?.renderInputs(value) ?? null,
+        node.state?.result ? nodeDef?.renderResult(node.state.result, value) : "No state yet",
+      ];
     } catch (e) {
-      return formatError(e);
+      const error = formatError(e);
+      return [error, error];
     }
-  }, [nodeDef, node.value, graphData]);
-  const nodeOutputs = useMemo(
-    () => (node.state?.result ? nodeDef?.renderResult(node.state.result) : "No state yet"),
-    [nodeDef, node.state?.result],
-  );
+  }, [nodeDef, node.value, graphData, node.state?.result]);
 
   return (
     <Stack css={{ p: 24, gap: 0, overflowY: "auto" }}>

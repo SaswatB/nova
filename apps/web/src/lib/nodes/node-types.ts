@@ -23,7 +23,7 @@ export interface NNodeDef<
   >;
   run: (value: ResolveRefs<Value>, nrc: NodeRunnerContext) => Promise<Result>;
   renderInputs: (value: ResolveRefs<Value>) => React.ReactNode;
-  renderResult: (result: Result) => React.ReactNode;
+  renderResult: (result: Result, value: ResolveRefs<Value>) => React.ReactNode;
 }
 export type NNodeValue<T extends NNodeDef> = T extends NNodeDef<string, infer Value, any> ? Value : never;
 export type NNodeResult<T extends NNodeDef> = T extends NNodeDef<string, any, infer Result> ? Result : never;
