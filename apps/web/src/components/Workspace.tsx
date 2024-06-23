@@ -6,6 +6,7 @@ import { DiscordLogoIcon, Link2Icon, PlusCircledIcon } from "@radix-ui/react-ico
 import { Button, Dialog, IconButton, TextField, Tooltip } from "@radix-ui/themes";
 import * as idb from "idb-keyval";
 import { startCase } from "lodash";
+import { Subject } from "rxjs";
 import { Pane } from "split-pane-react";
 import SplitPane from "split-pane-react/esm/SplitPane";
 import { css } from "styled-system/css";
@@ -14,8 +15,11 @@ import { stack } from "styled-system/patterns";
 import { z } from "zod";
 
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
+import { useObservableCallback } from "../lib/hooks/useObservableCallback";
+import { useSubject } from "../lib/hooks/useSubject";
 import { idbKey, lsKey } from "../lib/keys";
 import { routes, RoutesPathParams } from "../lib/routes";
+import { trpc } from "../lib/trpc-client";
 import { newId } from "../lib/uid";
 import { Select } from "./base/Select";
 import { ProjectSettingsEditor } from "./ProjectSettingsEditor";
@@ -84,7 +88,15 @@ function AddProject({ onAdd }: { onAdd: (project: { name: string; handle: FileSy
   );
 }
 
-function SpaceSelector({ projectId, spaceId }: { projectId: string; spaceId?: string }) {
+function SpaceSelector({
+  projectId,
+  spaceId,
+  newGoal$,
+}: {
+  projectId: string;
+  spaceId?: string;
+  newGoal$: Subject<{ spaceId: string; goal: string }>;
+}) {
   const navigate = useNavigate();
 
   const [spacesImpl, setSpaces] = useLocalStorage(lsKey.projectSpaces(projectId), []);
@@ -109,12 +121,29 @@ function SpaceSelector({ projectId, spaceId }: { projectId: string; spaceId?: st
       setSpaces(spaces.filter((space) => space.id !== id));
       if (spaceId === id) {
         const newSpaceId = spaces.find((space) => space.id !== id)?.id;
+        // todo delete all other artifacts in the space
         if (newSpaceId) navigate(routes.projectSpace.getPath({ projectId, spaceId: newSpaceId }));
         else navigate(routes.project.getPath({ projectId }));
       }
     },
     [setSpaces, spaces, spaceId, navigate, projectId],
   );
+
+  const generateShortNameMutation = trpc.ai.generateShortName.useMutation();
+  const isDefaultName = useCallback((name: string) => /^Space \d+$/.test(name), []);
+  useObservableCallback(newGoal$, async ({ spaceId, goal }) => {
+    const space = spaces.find((space) => space.id === spaceId);
+    if (space && isDefaultName(space.name || "")) {
+      try {
+        const shortName = await generateShortNameMutation.mutateAsync({ goal });
+        setSpaces((prevSpaces) =>
+          prevSpaces.map((space) => (space.id === spaceId ? { ...space, name: shortName } : space)),
+        );
+      } catch (error) {
+        console.error("Failed to generate short name:", error);
+      }
+    }
+  });
 
   return (
     <>
@@ -166,6 +195,7 @@ export function Workspace() {
   const [projects, setProjects] = useLocalStorage(lsKey.projects, []);
   const [settings, setSettings] = useLocalStorage(lsKey.projectSettings(projectId || ""), {});
   const [isRunning, setIsRunning] = useState(false);
+  const newGoal$ = useSubject<{ spaceId: string; goal: string }>();
 
   // track the most recent project
   const [lastProjectId, setLastProjectId] = useState<string | null>(projectId || null);
@@ -201,7 +231,9 @@ export function Workspace() {
             />
           </Flex>
           <Stack css={{ flex: 1, overflowY: "auto", pt: 24 }}>
-            {projectId ? <SpaceSelector key={projectId} projectId={projectId} spaceId={spaceId} /> : null}
+            {projectId ? (
+              <SpaceSelector key={projectId} projectId={projectId} spaceId={spaceId} newGoal$={newGoal$} />
+            ) : null}
           </Stack>
           <VoiceChat />
           <Flex css={{ justifyContent: "space-evenly", mt: 24, gap: 24 }}>
@@ -233,6 +265,7 @@ export function Workspace() {
             spaceId={spaceId}
             pageId={pageId}
             onIsRunningChange={setIsRunning}
+            onNewPlan={(goal) => newGoal$.next({ spaceId, goal })}
           />
         ) : null}
       </Pane>

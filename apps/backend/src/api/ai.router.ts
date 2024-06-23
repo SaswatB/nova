@@ -71,6 +71,11 @@ export const aiRouter = router({
   scrape: procedure
     .input(z.object({ schema: z.record(z.unknown()), prompt: z.string(), url: z.string().url() }))
     .mutation(({ input }) => scraperService.scrapeWebsite(input.url, input.schema, input.prompt)),
+  generateShortName: procedure.input(z.object({ goal: z.string() })).mutation(async ({ input }) => {
+    const prompt = `Generate a short, catchy name (max 3 words) for a project space with the following goal: "${input.goal}"`;
+    const shortName = await openai.chat("", [{ role: "user", content: prompt }]);
+    return shortName.trim();
+  }),
 });
 
 const groq = new Groq({ apiKey: env.GROQ_API_KEY });

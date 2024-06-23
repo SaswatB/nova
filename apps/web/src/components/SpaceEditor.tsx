@@ -270,6 +270,7 @@ export function SpaceEditor({
   spaceId,
   pageId,
   onIsRunningChange,
+  onNewPlan,
 }: {
   projectName: string;
   projectId: string;
@@ -277,6 +278,7 @@ export function SpaceEditor({
   spaceId: string;
   pageId?: string;
   onIsRunningChange: (isRunning: boolean) => void;
+  onNewPlan: (goal: string) => void;
 }) {
   const navigate = useNavigate();
 
@@ -458,6 +460,7 @@ Currently working on the project "${projectName}".
                   navigate(routes.projectSpacePage.getPath({ projectId, spaceId, pageId: id }), { replace: true });
                 }
                 if (run) setTimeout(() => void runGraphRef.current?.execute(), 300);
+                onNewPlan(`${v.goal}`);
               }}
             />
           </Stack>

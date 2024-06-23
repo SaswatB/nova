@@ -109,6 +109,9 @@ export const PlanNNode = createNodeDef(
 
       const planPrompt = `
 ${xmlProjectSettings(nrc.settings)}
+<knownFiles>
+${researchResult.files.map((f) => f.path).join("\n")}
+</knownFiles>
 ${xmlFileSystemResearch(researchResult, { showResearch: true, showFileContent: true, filterFiles: (f) => relevantFiles.includes(f) })}
 ${webResearchResults.length ? `<webResearchResults>\n${webResearchResults.map((r) => `<webResearch query=${JSON.stringify(r.query)}>\n${r.result}\n</webResearch>`).join("\n")}\n</webResearchResults>` : ""}
 ${extraContext ? `<extraContext>\n${extraContext.context}\n</extraContext>` : ""}
