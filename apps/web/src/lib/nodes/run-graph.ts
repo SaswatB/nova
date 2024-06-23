@@ -5,18 +5,19 @@ import get from "lodash/get";
 import isEqual from "lodash/isEqual";
 import uniq from "lodash/uniq";
 import { match } from "ts-pattern";
+import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
 
 import { isDefined, IterationMode, OmitUnion } from "@repo/shared";
 
 import { formatError, throwError } from "../err";
-import { RouterOutput } from "../trpc-client";
+import { RouterInput, RouterOutput } from "../trpc-client";
 import { newId } from "../uid";
 import { ApplyFileChangesNNode } from "./defs/ApplyFileChangesNNode";
 import { ContextNNode } from "./defs/ContextNNode";
 import { ExecuteNNode, ExecuteNNode_ContextId } from "./defs/ExecuteNNode";
 import { OutputNNode } from "./defs/OutputNNode";
-import { PlanNNode, PlanNNode_ContextId } from "./defs/PlanNNode";
+import { PlanNNode, PlanNNode_ContextId, PlanNNodeValue } from "./defs/PlanNNode";
 import { ProjectAnalysisNNode } from "./defs/ProjectAnalysisNNode";
 import { RelevantFileAnalysisNNode } from "./defs/RelevantFileAnalysisNNode";
 import { TypescriptDepAnalysisNNode } from "./defs/TypescriptDepAnalysisNNode";
@@ -91,7 +92,7 @@ export type NNodeTraceEvent =
       type: "ai-chat-request";
       chatId: string;
       model: string;
-      messages: { role: "user" | "assistant"; content: string }[];
+      messages: RouterInput["ai"]["chat"]["messages"];
       timestamp: number;
       runId: string;
     }
@@ -186,9 +187,9 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     super();
   }
 
-  public static fromGoal(projectContext: ProjectContext, goal: string, enableWebResearch: boolean) {
+  public static fromGoal(projectContext: ProjectContext, planInput: PlanNNodeValue) {
     const graphRunner = new GraphRunner(projectContext);
-    graphRunner.addNode(PlanNNode, { goal, enableWebResearch });
+    graphRunner.addNode(PlanNNode, planInput);
     return graphRunner;
   }
 
@@ -523,7 +524,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         // track file writes
         fileWrites.push(
           ...(delNode.state?.trace?.filter(
-            (t): t is NNodeTraceEvent & { type: "write-file" } => t.type === "write-file",
+            (t): t is NNodeTraceEvent & { type: "write-file" } => t.type === "write-file" && !t.dryRun,
           ) || []),
         );
         delete this.nodes[subNodeId];

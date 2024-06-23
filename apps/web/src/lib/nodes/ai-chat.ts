@@ -2,6 +2,7 @@ import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
 
 import { generateCacheKey } from "../hash";
+import { RouterInput } from "../trpc-client";
 import { ProjectContext } from "./node-types";
 
 const SYSTEM_PROMPT = `
@@ -13,8 +14,8 @@ Provide useful responses, make sure to consider when to stay high level and when
 
 export async function aiChat(
   ctx: ProjectContext,
-  model: "groq" | "gpt4o" | "opus" | "sonnet" | "gemini" | "geminiFlash",
-  messages: { role: "user" | "assistant"; content: string }[],
+  model: RouterInput["ai"]["chat"]["model"],
+  messages: RouterInput["ai"]["chat"]["messages"],
 ): Promise<string> {
   const system = SYSTEM_PROMPT;
   const cacheKey = `aicache:${model}-${await generateCacheKey({ system, messages })}`;

@@ -8,7 +8,7 @@ import { Flex, Stack, styled } from "styled-system/jsx";
 import { formatError } from "../lib/err";
 import { GraphRunner, GraphRunnerData, NNode, resolveNodeValueRefs } from "../lib/nodes/run-graph";
 import { TraceElementList, traceElementSourceSymbol } from "./TraceElementView";
-import { createTextAreaRefArrayField, createTextAreaRefField, ZodForm } from "./ZodForm";
+import { createImagesField, createTextAreaRefArrayField, createTextAreaRefField, ZodForm } from "./ZodForm";
 
 export function NodeViewer({
   graphData,
@@ -107,6 +107,7 @@ export function NodeViewer({
                     path: createTextAreaRefField(graphData),
                     changes: createTextAreaRefField(graphData),
                     context: createTextAreaRefField(graphData),
+                    images: createImagesField(),
                   }}
                   onSubmit={async (values) => {
                     await onChangeNode((draft) => {

@@ -2,6 +2,8 @@ import { Badge } from "@radix-ui/themes";
 import uniq from "lodash/uniq";
 import { z } from "zod";
 
+// @ts-expect-error needed to get bench working
+import { Flex, styled } from "../../../../styled-system/jsx/index.mjs";
 import { Well } from "../../../components/base/Well";
 import { getRelevantFiles, xmlProjectSettings } from "../ai-helpers";
 import { createNodeDef } from "../node-types";
@@ -14,7 +16,11 @@ import { WebResearchNNode } from "./WebResearchNNode";
 
 export const PlanNNode = createNodeDef(
   "plan",
-  z.object({ goal: orRef(z.string()), enableWebResearch: z.boolean().default(false) }),
+  z.object({
+    goal: orRef(z.string()),
+    enableWebResearch: z.boolean().default(false),
+    images: z.array(z.string()).optional(), // base64 encoded images
+  }),
   z.object({ result: z.string(), relevantFiles: z.array(z.string()) }),
   {
     run: async (value, nrc) => {
@@ -119,7 +125,17 @@ This plan will be sent to an engineer who'll make low-level changes to the codeb
                     `.trim();
       nrc.writeDebugFile("debug-plan-prompt.json", JSON.stringify({ relevantFiles }, null, 2));
       nrc.writeDebugFile("debug-plan-prompt.txt", planPrompt);
-      const plan = await nrc.aiChat("sonnet", [{ role: "user", content: planPrompt }]);
+      const plan = await nrc.aiChat("sonnet", [
+        {
+          role: "user",
+          content: value.images?.length
+            ? [
+                ...value.images.map((image) => ({ type: "image_url" as const, image_url: { url: image } })),
+                { type: "text", text: planPrompt },
+              ]
+            : planPrompt,
+        },
+      ]);
       nrc.writeDebugFile("debug-plan.txt", plan);
 
       const planRelevantFiles = await getRelevantFiles(
@@ -144,6 +160,33 @@ This plan will be sent to an engineer who'll make low-level changes to the codeb
         <Well title="Goal" markdownPreferred>
           {v.goal}
         </Well>
+        {!!v.images?.length && (
+          <styled.div>
+            <Badge>{v.images.length} images</Badge>
+            <Flex css={{ flexWrap: "wrap", gap: "10px" }}>
+              {v.images.map((image, index) => (
+                <styled.img
+                  key={index}
+                  src={image}
+                  alt={`Uploaded image ${index + 1}`}
+                  css={{ width: "100px", height: "100px", objectFit: "contain", bg: "black" }}
+                  onClick={() => {
+                    const win = window.open();
+                    if (!win) return;
+                    win.document.write(
+                      "<img src=" +
+                        image +
+                        " style='width: 100vw; height: 100vh; object-fit: contain; background-color: black;' />",
+                    );
+                    win.document.body.style.margin = "0";
+                    win.document.body.style.padding = "0";
+                    win.document.body.style.overflow = "hidden";
+                  }}
+                />
+              ))}
+            </Flex>
+          </styled.div>
+        )}
         {v.enableWebResearch ? (
           <Badge color="green">Web Research Enabled</Badge>
         ) : (
@@ -159,4 +202,5 @@ This plan will be sent to an engineer who'll make low-level changes to the codeb
   },
 );
 
+export type PlanNNodeValue = z.infer<typeof PlanNNode.valueSchema>;
 export const PlanNNode_ContextId = registerContextId(PlanNNode, "plan-context", "Extra context for plan creation");

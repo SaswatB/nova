@@ -120,9 +120,27 @@ ${rawChangeSet}`.trim(),
 ${rawChangeSet}
 </change_set>
 
-Please extract and output only the sections of the given change set relevant to the file at "${path}".
+Please extract and output only the contents of the given change set document that are relevant to the file at "${path}".
 Do not calculate or output a diff.
-Ensure the output retains the original markdown format, but only includes the relevant sections for the specified file.
+Ensure the output retains the original markdown format & content, but only includes the relevant sections for the specified file.
+Do not attempt to merge snippets or omit comments for snippets.
+Only keep snippets that are relevant for the given file.
+
+<example_output>
+Now, let's modify the PaperDialog component:
+
+* Add the following import to PaperDialog.tsx:
+
+\`\`\`typescript
+import { TabNav } from "./base/TabNav";
+\`\`\`
+
+* Add a new state for the active tab in PaperDialog.tsx:
+
+\`\`\`typescript
+const [activeTab, setActiveTab] = useState("overview");
+\`\`\`
+</example_output>
 `.trim(),
               },
             ]);

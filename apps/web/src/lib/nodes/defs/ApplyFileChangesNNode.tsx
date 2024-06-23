@@ -43,6 +43,9 @@ The file you are operating on is "${value.path}".
         const endIndex = output.lastIndexOf("\n", output.lastIndexOf("```"));
         output = output.slice(startIndex + 1, endIndex);
       }
+      if (output.trim().endsWith("</file>")) {
+        output = output.slice(0, output.lastIndexOf("</file>"));
+      }
 
       await nrc.writeFile(value.path, output);
       return { original, result: output };

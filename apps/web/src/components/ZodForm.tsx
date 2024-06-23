@@ -20,6 +20,7 @@ import { useZodForm } from "../lib/hooks/useZodForm";
 import { isNodeRef } from "../lib/nodes/ref-types";
 import { GraphRunnerData, resolveNodeRef } from "../lib/nodes/run-graph";
 import { FormHelper } from "./base/FormHelper";
+import { NewImageDropInput } from "./NewImageDropInput";
 
 export type ZodFormRef<T extends Record<string, unknown>> = {
   setValue: <P extends Path<T>>(name: P, value: PathValue<T, P>, options?: SetValueConfig) => void;
@@ -285,4 +286,19 @@ export const createTextAreaRefArrayField = (graphData: GraphRunnerData): FieldOv
   renderField: ({ form, name }: { form: UseFormReturn; name: string }) => (
     <TextAreaRefArrayField control={form.control} name={name} graphData={graphData} />
   ),
+});
+
+function ImagesField({ control, name }: { control: Control; name: string }) {
+  const { field } = useController({
+    name,
+    control,
+    rules: { required: true },
+  });
+
+  return <NewImageDropInput value={field.value} onChange={field.onChange} />;
+}
+
+export const createImagesField = (): FieldOverride<any> => ({
+  // for base64 jpeg string array fields
+  renderField: ({ form, name }) => <ImagesField control={form.control} name={name} />,
 });

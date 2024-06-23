@@ -100,7 +100,10 @@ export function TraceElementView({
 
             {t.messages.map((m, i) => (
               <Well key={i} title={m.role} markdownPreferred>
-                {m.content}
+                {/* todo proper image support */}
+                {typeof m.content === "string"
+                  ? m.content
+                  : m.content.map((c) => (c.type === "text" ? c.text : "<image>")).join("\n")}
               </Well>
             ))}
           </>

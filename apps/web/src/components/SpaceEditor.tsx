@@ -21,7 +21,7 @@ import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
 import { idbKey, lsKey } from "../lib/keys";
 import { ExecuteNNode } from "../lib/nodes/defs/ExecuteNNode";
-import { PlanNNode } from "../lib/nodes/defs/PlanNNode";
+import { PlanNNode, PlanNNodeValue } from "../lib/nodes/defs/PlanNNode";
 import { ProjectContext } from "../lib/nodes/node-types";
 import { GraphRunner, GraphRunnerData, NNode } from "../lib/nodes/run-graph";
 import { routes } from "../lib/routes";
@@ -33,7 +33,7 @@ import { NodeViewer } from "./NodeViewer";
 import { RevertFilesDialog } from "./RevertFilesDialog";
 import { TraceElementList, traceElementSourceSymbol } from "./TraceElementView";
 import { useAddVoiceFunction, useAddVoiceStatus } from "./VoiceChat";
-import { createTextAreaField, ZodForm, ZodFormRef } from "./ZodForm";
+import { createImagesField, createTextAreaField, ZodForm, ZodFormRef } from "./ZodForm";
 
 const getProjectContext = (
   projectId: string,
@@ -79,16 +79,15 @@ const getProjectContext = (
   writeDebugFile: () => void 0, // noop
 });
 
-const NewPlanSchema = z.object({ goal: z.string().min(1), enableWebResearch: z.boolean() });
-function NewPlan({ onNewGoal }: { onNewGoal: (params: z.infer<typeof NewPlanSchema>, run: boolean) => void }) {
-  const [form, setForm] = useState<ZodFormRef<z.infer<typeof NewPlanSchema>> | null>(null);
+function NewPlan({ onNewGoal }: { onNewGoal: (params: PlanNNodeValue, run: boolean) => void }) {
+  const [form, setForm] = useState<ZodFormRef<PlanNNodeValue> | null>(null);
   const [open, setOpen] = useState(true);
 
   // super ugly hack, idk a better way
   const [goal, setGoal] = useState("");
   useEffect(() => {
     if (!open || !form) return;
-    const intervalId = setInterval(() => setGoal(form.getValue("goal") || ""), 500);
+    const intervalId = setInterval(() => setGoal(`${form.getValue("goal") || ""}`), 500);
     return () => clearInterval(intervalId);
   }, [open, form]);
 
@@ -102,9 +101,10 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
     open,
   );
 
-  const onSubmit = (values: z.infer<typeof NewPlanSchema> | undefined = form?.getValues(), run = false) => {
+  const onSubmit = async (values: PlanNNodeValue | undefined = form?.getValues(), run = false) => {
     if (!values) return;
-    localStorage.setItem(lsKey.enableWebResearch.key, values.enableWebResearch.toString());
+    localStorage.setItem(lsKey.enableWebResearch.key, values.enableWebResearch?.toString() || "false");
+
     onNewGoal(values, run);
     setOpen(false);
   };
@@ -136,13 +136,14 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
         <Dialog.Title>New Change</Dialog.Title>
         <ZodForm
           formRef={setForm}
-          schema={NewPlanSchema}
+          schema={PlanNNode.valueSchema}
           overrideFieldMap={{
             goal: createTextAreaField("Example: Change the color of the navigation bar to purple."),
+            images: createImagesField(),
           }}
           defaultValues={{ enableWebResearch: localStorage.getItem(lsKey.enableWebResearch.key) === "true" }}
-          onSubmit={(v) => {
-            onSubmit(v, true);
+          onSubmit={async (v) => {
+            await onSubmit(v, true);
             setOpen(false);
           }}
           saveButtonText={null}
@@ -445,7 +446,7 @@ Currently working on the project "${projectName}".
           <Stack css={{ alignItems: "center", justifyContent: "center", height: "100%" }}>
             <NewPlan
               onNewGoal={(v, run) => {
-                const graphData = GraphRunner.fromGoal(projectContext, v.goal, v.enableWebResearch).toData();
+                const graphData = GraphRunner.fromGoal(projectContext, v).toData();
                 if (selectedPage) {
                   setPages(
                     produce((draft) => {

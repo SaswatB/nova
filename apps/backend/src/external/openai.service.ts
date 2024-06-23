@@ -1,5 +1,6 @@
 import { writeFileSync } from "fs";
 import OpenAI from "openai";
+import { ChatCompletionMessageParam } from "openai/resources/index.mjs";
 import { singleton } from "tsyringe";
 
 import { env } from "../lib/env";
@@ -8,7 +9,7 @@ import { env } from "../lib/env";
 export class OpenAIService {
   public readonly client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
-  public async chat(system: string, messages: { role: "user" | "assistant"; content: string }[]): Promise<string> {
+  public async chat(system: string, messages: ChatCompletionMessageParam[]): Promise<string> {
     const result = await this.client.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "system", content: system }, ...messages],

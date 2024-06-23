@@ -4,7 +4,7 @@ import { UnknownKeysParam, z, ZodTypeAny } from "zod";
 import { ProjectSettings } from "@repo/shared";
 
 import { ReadFileResult } from "../files";
-import { AppTRPCClient, RouterOutput } from "../trpc-client";
+import { AppTRPCClient, RouterInput, RouterOutput } from "../trpc-client";
 import { CreateNodeRef, ResolveRefs } from "./ref-types";
 
 export interface NNodeDef<
@@ -87,8 +87,8 @@ export interface NodeRunnerContext {
   setCache: (key: string, value: unknown) => Promise<void>;
 
   aiChat: (
-    model: "groq" | "gpt4o" | "opus" | "sonnet" | "gemini" | "geminiFlash",
-    messages: { role: "user" | "assistant"; content: string }[],
+    model: RouterInput["ai"]["chat"]["model"],
+    messages: RouterInput["ai"]["chat"]["messages"],
   ) => Promise<string>;
   aiJson: <T extends object>(schema: z.ZodSchema<T>, data: string, prompt?: string) => Promise<T>;
   aiScrape: <T extends object>(schema: z.ZodSchema<T>, url: string, prompt: string) => Promise<T>;
