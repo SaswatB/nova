@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { UserButton } from "@clerk/clerk-react";
@@ -19,6 +19,7 @@ import { routes, RoutesPathParams } from "../lib/routes";
 import { newId } from "../lib/uid";
 import { Select } from "./base/Select";
 import { ProjectSettingsEditor } from "./ProjectSettingsEditor";
+import { SpaceActions } from "./SpaceActions";
 import { SpaceEditor } from "./SpaceEditor";
 import { VoiceChat } from "./VoiceChat";
 import { ZodForm } from "./ZodForm";
@@ -96,6 +97,25 @@ function SpaceSelector({ projectId, spaceId }: { projectId: string; spaceId?: st
     }
   }, [spaceId, spaces, navigate, projectId]);
 
+  const handleRename = useCallback(
+    (id: string, newName: string) => {
+      setSpaces(spaces.map((space) => (space.id === id ? { ...space, name: newName } : space)));
+    },
+    [setSpaces, spaces],
+  );
+
+  const handleDelete = useCallback(
+    (id: string) => {
+      setSpaces(spaces.filter((space) => space.id !== id));
+      if (spaceId === id) {
+        const newSpaceId = spaces.find((space) => space.id !== id)?.id;
+        if (newSpaceId) navigate(routes.projectSpace.getPath({ projectId, spaceId: newSpaceId }));
+        else navigate(routes.project.getPath({ projectId }));
+      }
+    },
+    [setSpaces, spaces, spaceId, navigate, projectId],
+  );
+
   return (
     <>
       <Button
@@ -112,15 +132,26 @@ function SpaceSelector({ projectId, spaceId }: { projectId: string; spaceId?: st
 
       <Stack css={{ gap: 8 }}>
         {spaces.map((space) => (
-          <NavLink key={space.id} to={routes.projectSpace.getPath({ projectId, spaceId: space.id })}>
-            <Button
-              key={space.id}
-              className={css({ w: "100%", borderColor: "transparent", outlineColor: "transparent", boxShadow: "none" })}
-              variant={spaceId === space.id ? "soft" : "outline"}
-            >
-              {space.name || "Unnamed Space"}
-            </Button>
-          </NavLink>
+          <Flex key={space.id} align="center" w="100%">
+            <NavLink to={routes.projectSpace.getPath({ projectId, spaceId: space.id })} className={css({ flex: 1 })}>
+              <Button
+                key={space.id}
+                className={css({
+                  w: "100%",
+                  borderColor: "transparent",
+                  outlineColor: "transparent",
+                  boxShadow: "none",
+                  justifyContent: "flex-start",
+                })}
+                variant={spaceId === space.id ? "soft" : "outline"}
+              >
+                {space.name || "Unnamed Space"}
+              </Button>
+            </NavLink>
+            {spaceId === space.id ? (
+              <SpaceActions space={space} onRename={handleRename} onDelete={handleDelete} />
+            ) : null}
+          </Flex>
         ))}
       </Stack>
     </>
