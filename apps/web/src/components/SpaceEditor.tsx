@@ -103,8 +103,6 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
 
   const onSubmit = async (values: PlanNNodeValue | undefined = form?.getValues(), run = false) => {
     if (!values) return;
-    localStorage.setItem(lsKey.enableWebResearch.key, values.enableWebResearch?.toString() || "false");
-
     onNewGoal(values, run);
     setOpen(false);
   };
@@ -141,7 +139,6 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
             goal: createTextAreaField("Example: Change the color of the navigation bar to purple."),
             images: createImagesField(),
           }}
-          defaultValues={{ enableWebResearch: localStorage.getItem(lsKey.enableWebResearch.key) === "true" }}
           onSubmit={async (v) => {
             await onSubmit(v, true);
             setOpen(false);
