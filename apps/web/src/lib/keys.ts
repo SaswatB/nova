@@ -17,6 +17,7 @@ export const lsKey = {
   spaceSizes: { key: "space:sizes", schema: z.array(z.number()) },
   spaceLastPage: (spaceId: string) => ({ key: `space:${spaceId}:lastPage`, schema: z.string().nullable() }),
   workspaceSizes: { key: "workspace:sizes", schema: z.array(z.number()) },
+  enableWebResearch: { key: "enableWebResearch", schema: z.boolean() },
 };
 
 export const idbKey = {

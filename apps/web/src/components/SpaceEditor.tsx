@@ -79,8 +79,8 @@ const getProjectContext = (
   writeDebugFile: () => void 0, // noop
 });
 
-const NewPlanSchema = z.object({ goal: z.string().min(1) });
-function NewPlan({ onNewGoal }: { onNewGoal: (goal: string, run: boolean) => void }) {
+const NewPlanSchema = z.object({ goal: z.string().min(1), enableWebResearch: z.boolean() });
+function NewPlan({ onNewGoal }: { onNewGoal: (params: z.infer<typeof NewPlanSchema>, run: boolean) => void }) {
   const [form, setForm] = useState<ZodFormRef<z.infer<typeof NewPlanSchema>> | null>(null);
   const [open, setOpen] = useState(true);
 
@@ -102,6 +102,13 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
     open,
   );
 
+  const onSubmit = (values: z.infer<typeof NewPlanSchema> | undefined = form?.getValues(), run = false) => {
+    if (!values) return;
+    localStorage.setItem(lsKey.enableWebResearch.key, values.enableWebResearch.toString());
+    onNewGoal(values, run);
+    setOpen(false);
+  };
+
   useAddVoiceFunction(
     "propose_plan_goal",
     "Propose a new goal. Example: 'Change the color of the navigation bar to purple. Look at NavBar.tsx for a reference.'. The more detailed the goal, the better and feel free to use markdown. Make sure to include all the context that the user provides.",
@@ -116,7 +123,7 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
     "run_goal",
     "Run the current goal. This should only be executed if the user explicitly requests to run the goal or plan.",
     z.object({}),
-    () => onNewGoal(form?.getValue("goal") || "", true),
+    () => onSubmit(undefined, true),
     open,
   );
 
@@ -133,17 +140,18 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
           overrideFieldMap={{
             goal: createTextAreaField("Example: Change the color of the navigation bar to purple."),
           }}
-          onSubmit={({ goal }) => {
-            onNewGoal(goal, true);
+          defaultValues={{ enableWebResearch: localStorage.getItem(lsKey.enableWebResearch.key) === "true" }}
+          onSubmit={(v) => {
+            onSubmit(v, true);
             setOpen(false);
           }}
           saveButtonText={null}
         />
         <Flex css={{ justifyContent: "flex-end", mt: 12, gap: 4 }}>
-          <Button variant="soft" onClick={() => onNewGoal(form?.getValue("goal") || "", false)}>
+          <Button variant="soft" onClick={() => onSubmit()}>
             Save
           </Button>
-          <Button color="green" onClick={() => onNewGoal(form?.getValue("goal") || "", true)}>
+          <Button color="green" onClick={() => onSubmit(undefined, true)}>
             Save & Run
           </Button>
         </Flex>
@@ -385,7 +393,7 @@ Currently working on the project "${projectName}".
   return (
     <SplitPane split="vertical" sizes={sizes} onChange={setSizes}>
       <Pane minSize={15} className={stack({ bg: "background.primary" })}>
-        {selectedPage?.graphData ? (
+        {selectedPage?.graphData && Object.keys(selectedPage?.graphData?.nodes || {}).length ? (
           <GraphCanvas
             graphData={selectedPage.graphData}
             isGraphRunning={runGraph.loading}
@@ -436,8 +444,8 @@ Currently working on the project "${projectName}".
         ) : projectContext ? (
           <Stack css={{ alignItems: "center", justifyContent: "center", height: "100%" }}>
             <NewPlan
-              onNewGoal={(goal, run) => {
-                const graphData = GraphRunner.fromGoal(projectContext, goal).toData();
+              onNewGoal={(v, run) => {
+                const graphData = GraphRunner.fromGoal(projectContext, v.goal, v.enableWebResearch).toData();
                 if (selectedPage) {
                   setPages(
                     produce((draft) => {

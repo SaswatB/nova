@@ -133,6 +133,51 @@ export function TraceElementView({
             {renderJsonWell("Result", t.result)}
           </>
         ))
+        .with({ type: "ai-web-search-request" }, (t) => (
+          <>
+            <Flex css={{ alignItems: "center", gap: 4 }}>
+              AI Web Search Request
+              <ChatIdButton chatId={t.chatId} onClick={() => onChatIdNav(t.chatId, "response")} />
+            </Flex>
+            <Well title="Query" markdownPreferred>
+              {t.query}
+            </Well>
+          </>
+        ))
+        .with({ type: "ai-web-search-response" }, (t) => (
+          <>
+            <Flex css={{ alignItems: "center", gap: 4 }}>
+              AI Web Search Response
+              <ChatIdButton chatId={t.chatId} onClick={() => onChatIdNav(t.chatId, "request")} />
+            </Flex>
+            {/* todo make this prettier */}
+            {renderJsonWell("Result", t.result)}
+          </>
+        ))
+        .with({ type: "ai-scrape-request" }, (t) => (
+          <>
+            <Flex css={{ alignItems: "center", gap: 4 }}>
+              AI Scrape Request
+              <ChatIdButton chatId={t.chatId} onClick={() => onChatIdNav(t.chatId, "response")} />
+            </Flex>
+            <Well title="URL" code="url">
+              {t.url}
+            </Well>
+            <Well title="Prompt" markdownPreferred>
+              {t.prompt}
+            </Well>
+            {renderJsonWell("Schema", t.schema)}
+          </>
+        ))
+        .with({ type: "ai-scrape-response" }, (t) => (
+          <>
+            <Flex css={{ alignItems: "center", gap: 4 }}>
+              AI Scrape Response
+              <ChatIdButton chatId={t.chatId} onClick={() => onChatIdNav(t.chatId, "request")} />
+            </Flex>
+            {renderJsonWell("Result", t.result)}
+          </>
+        ))
         .with({ type: "error" }, (t) => renderJsonWell(t.message || "Error", t.error))
         .with({ type: "result" }, (t) => renderJsonWell("Result", t.result))
         .exhaustive();
@@ -191,14 +236,12 @@ export function TraceElementView({
           </Tabs.List>
           <Tabs.Content value="summary">
             {trace.type === "write-file" && (
-              <>
-                <Button
-                  loading={writeFileAsync.loading}
-                  onClick={() => void writeFileAsync.execute(trace.path, trace.content)}
-                >
-                  Re-save
-                </Button>
-              </>
+              <Button
+                loading={writeFileAsync.loading}
+                onClick={() => void writeFileAsync.execute(trace.path, trace.content)}
+              >
+                Re-save
+              </Button>
             )}
             <Stack css={{ p: 8 }}>{renderSummary()}</Stack>
           </Tabs.Content>
@@ -243,6 +286,14 @@ export function TraceElementList({
         { type: "ai-json-request" },
         (t) => !trace.some((t2) => t2.type === "ai-json-response" && t.chatId === t2.chatId),
       )
+      .with(
+        { type: "ai-web-search-request" },
+        (t) => !trace.some((t2) => t2.type === "ai-web-search-response" && t.chatId === t2.chatId),
+      )
+      .with(
+        { type: "ai-scrape-request" },
+        (t) => !trace.some((t2) => t2.type === "ai-scrape-response" && t.chatId === t2.chatId),
+      )
       .otherwise(() => false);
 
     return active && graphRunner?.getActiveRunId() === t.runId;
@@ -256,9 +307,7 @@ export function TraceElementList({
       scrollToElement$={scrollToElement.pipe(filter(({ element }) => element === t)).pipe(map(() => true))}
       isActive={isActive(t)}
       onChatIdNav={(chatId, target) => {
-        const element = trace.find(
-          (t) => t.type === (target === "request" ? "ai-chat-request" : "ai-chat-response") && t.chatId === chatId,
-        );
+        const element = trace.find((t) => "chatId" in t && t.type.includes(target) && t.chatId === chatId);
         if (element) scrollToElement.next({ element });
         else toast.error(`Chat ${target === "request" ? "request" : "response"} not found`);
       }}

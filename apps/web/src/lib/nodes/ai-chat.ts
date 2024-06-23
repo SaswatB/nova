@@ -32,15 +32,45 @@ export async function aiJson<T extends object>(
   model: "gpt4o",
   schema: z.ZodSchema<T>,
   data: string,
+  prompt = SYSTEM_PROMPT,
 ): Promise<T> {
   const jsonSchema = zodToJsonSchema(schema, "S").definitions?.S as Record<string, unknown>;
 
-  const system = SYSTEM_PROMPT;
-  const cacheKey = `aicache:${model}-${await generateCacheKey({ jsonSchema, system, data })}`;
+  const cacheKey = `aicache:${model}-${await generateCacheKey({ jsonSchema, prompt, data })}`;
   const cachedValue = await ctx.globalCacheGet<T>(cacheKey);
   if (cachedValue) return cachedValue;
 
-  const response = await ctx.trpcClient.ai.json.mutate({ model, schema: jsonSchema, prompt: system, data });
+  const response = await ctx.trpcClient.ai.json.mutate({ model, schema: jsonSchema, prompt, data });
+  const parsedResponse = schema.parse(response);
+
+  await ctx.globalCacheSet(cacheKey, parsedResponse);
+  return parsedResponse;
+}
+
+export async function aiWebSearch(ctx: ProjectContext, query: string) {
+  const cacheKey = `aicache:websearch-${await generateCacheKey({ query })}`;
+  const cachedValue = await ctx.globalCacheGet<typeof response>(cacheKey); // todo expire
+  if (cachedValue) return cachedValue;
+
+  const response = await ctx.trpcClient.ai.webSearch.mutate({ query });
+
+  await ctx.globalCacheSet(cacheKey, response);
+  return response;
+}
+
+export async function aiScrape<T extends object>(
+  ctx: ProjectContext,
+  schema: z.ZodSchema<T>,
+  url: string,
+  prompt: string,
+): Promise<T> {
+  const jsonSchema = zodToJsonSchema(schema, "S").definitions?.S as Record<string, unknown>;
+
+  const cacheKey = `aicache:scraper-${await generateCacheKey({ jsonSchema, url, prompt })}`;
+  const cachedValue = await ctx.globalCacheGet<T>(cacheKey);
+  if (cachedValue) return cachedValue;
+
+  const response = await ctx.trpcClient.ai.scrape.mutate({ schema: jsonSchema, url, prompt });
   const parsedResponse = schema.parse(response);
 
   await ctx.globalCacheSet(cacheKey, parsedResponse);

@@ -1,14 +1,19 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { GenerativeModel, GoogleGenerativeAI } from "@google/generative-ai";
-import { writeFileSync } from "fs";
 import Groq from "groq-sdk";
 import { match, P } from "ts-pattern";
 import { container } from "tsyringe";
 import { z } from "zod";
 
+import { GoogleService } from "../external/google.service";
 import { OpenAIService } from "../external/openai.service";
+import { ScraperService } from "../external/scraper.service";
 import { env } from "../lib/env";
 import { procedure, router } from "./meta/app-server";
+
+const openai = container.resolve(OpenAIService);
+const scraperService = container.resolve(ScraperService);
+const googleService = container.resolve(GoogleService);
 
 export const aiRouter = router({
   chat: procedure
@@ -22,23 +27,16 @@ export const aiRouter = router({
     .mutation(async ({ input }) => {
       return match(input.model)
         .with("groq", () => groqChat(input.system, input.messages))
-        .with("gpt4o", () => openaiChat(input.system, input.messages))
+        .with("gpt4o", () => openai.chat(input.system, input.messages))
         .with(P.union("opus", "sonnet"), (model) => claudeChat(model, input.system, input.messages))
-        .with("gemini", async () => {
+        .with(P.union("gemini", "geminiFlash"), async (model) => {
+          const selectedModel = model === "gemini" ? gemini : geminiFlash;
           try {
-            return await geminiChat(gemini, input.system, input.messages);
-          } catch (error) {
-            console.error("Failed to use gemini, falling back to gpt4o", error);
-            return await openaiChat(input.system, input.messages);
-          }
-        })
-        .with("geminiFlash", async () => {
-          try {
-            return await geminiChat(geminiFlash, input.system, input.messages);
+            return await geminiChat(selectedModel, input.system, input.messages);
           } catch (error1) {
-            console.error("Failed to use geminiFlash, falling back to gpt4o", error1);
+            console.error(`Failed to use ${model}, falling back to gpt4o`, error1);
             try {
-              return await openaiChat(input.system, input.messages);
+              return await openai.chat(input.system, input.messages);
             } catch (error2) {
               console.error("Failed to use gpt4o, throwing original error", error2);
               throw error1;
@@ -48,15 +46,14 @@ export const aiRouter = router({
         .exhaustive();
     }),
   json: procedure
-    .input(
-      z.object({
-        model: z.enum(["gpt4o"]),
-        schema: z.record(z.unknown()),
-        prompt: z.string(),
-        data: z.string(),
-      }),
-    )
-    .mutation(async ({ input }) => openaiJson(input.schema, input.prompt, input.data)),
+    .input(z.object({ model: z.enum(["gpt4o"]), schema: z.record(z.unknown()), prompt: z.string(), data: z.string() }))
+    .mutation(({ input }) => openai.formatJson(input.schema, input.prompt, input.data)),
+  webSearch: procedure
+    .input(z.object({ query: z.string() }))
+    .mutation(async ({ input }) => googleService.searchWeb(input.query)),
+  scrape: procedure
+    .input(z.object({ schema: z.record(z.unknown()), prompt: z.string(), url: z.string().url() }))
+    .mutation(({ input }) => scraperService.scrapeWebsite(input.url, input.schema, input.prompt)),
 });
 
 const groq = new Groq({ apiKey: env.GROQ_API_KEY });
@@ -68,51 +65,6 @@ async function groqChat(system: string, messages: { role: "user" | "assistant"; 
     messages: [{ role: "system", content: system }, ...messages],
   });
   return result.choices[0]?.message.content ?? "";
-}
-
-async function openaiChat(
-  system: string,
-  messages: { role: "user" | "assistant"; content: string }[],
-): Promise<string> {
-  const openai = container.resolve(OpenAIService);
-  const result = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [{ role: "system", content: system }, ...messages],
-  });
-  return result.choices[0]?.message.content ?? "";
-}
-async function openaiJson(schema: Record<string, unknown>, prompt: string, data: string) {
-  const openai = container.resolve(OpenAIService);
-  const result = await openai.chat.completions.create({
-    model: "gpt-4o",
-    temperature: 0,
-    messages: [
-      {
-        role: "system",
-        content: `Please format the given data to fit the schema.\n${prompt}`.trim(),
-      },
-      { role: "user", content: data },
-    ],
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: "resolve",
-          description: "Resolve the formatted data",
-          parameters: schema,
-        },
-      },
-    ],
-    tool_choice: { type: "function", function: { name: "resolve" } },
-  });
-  try {
-    const out = result.choices[0]?.message.tool_calls?.[0]?.function?.arguments ?? "{}";
-    return JSON.parse(out);
-  } catch (error) {
-    console.error("Failed to parse output", error, result);
-    if (env.DOPPLER_ENVIRONMENT === "dev") writeFileSync(`error-${Date.now()}.json`, JSON.stringify(result, null, 2));
-    throw error;
-  }
 }
 
 const anthropic = new Anthropic({ apiKey: env.CLAUDE_API_KEY });

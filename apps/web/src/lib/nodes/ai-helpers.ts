@@ -22,7 +22,7 @@ ${document}`.trim(),
   return uniq(directRelevantFiles.files);
 }
 
-export async function xmlProjectSettings(settings: ProjectSettings) {
+export function xmlProjectSettings(settings: ProjectSettings) {
   const rules = (settings.rules?.map((r) => r.text) ?? DEFAULT_RULES).join("\n").trim();
   if (!rules) return "";
   return `<context>\n${rules}\n</context>`;

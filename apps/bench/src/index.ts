@@ -64,7 +64,7 @@ async function runGoal(rootDirectory: string, goal: string) {
     globalCacheSet: cacheSet,
     writeDebugFile: (name, content) => writeFileSync(name, content),
   };
-  const runner = GraphRunner.fromGoal(projectContext, goal);
+  const runner = GraphRunner.fromGoal(projectContext, goal, false);
   await runner.run();
 }
 

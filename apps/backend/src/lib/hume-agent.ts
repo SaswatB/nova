@@ -53,7 +53,7 @@ export const HumeMessagesPayload = z.object({
 export type HumeMessagesPayload = z.infer<typeof HumeMessagesPayload>;
 
 export class HumeAgent {
-  private openai = container.resolve(OpenAIService);
+  private openai = container.resolve(OpenAIService).client;
   private voiceStateService = container.resolve(VoiceStateService);
 
   public async respond(messagesPayload: HumeMessagesPayload, messageStream: Subject<unknown>) {

@@ -1,3 +1,4 @@
+import { Badge } from "@radix-ui/themes";
 import uniq from "lodash/uniq";
 import { z } from "zod";
 
@@ -9,28 +10,107 @@ import { ContextNNode, registerContextId } from "./ContextNNode";
 import { ExecuteNNode } from "./ExecuteNNode";
 import { ProjectAnalysisNNode, xmlFileSystemResearch } from "./ProjectAnalysisNNode";
 import { RelevantFileAnalysisNNode } from "./RelevantFileAnalysisNNode";
+import { WebResearchNNode } from "./WebResearchNNode";
 
 export const PlanNNode = createNodeDef(
   "plan",
-  z.object({ goal: orRef(z.string()) }),
+  z.object({ goal: orRef(z.string()), enableWebResearch: z.boolean().default(false) }),
   z.object({ result: z.string(), relevantFiles: z.array(z.string()) }),
   {
     run: async (value, nrc) => {
+      const extraContext = await nrc.findNodeForResult(ContextNNode, (n) => n.contextId === PlanNNode_ContextId);
+
+      // analyze the project
       const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
-      const { files: relevantFiles } = await nrc.getOrAddDependencyForResult(
+
+      // find relevant files for the goal
+      const relevantFilesPromise = nrc.getOrAddDependencyForResult(
         RelevantFileAnalysisNNode,
         { goal: value.goal },
         true,
       );
-      const extraContext = await nrc.findNodeForResult(ContextNNode, (n) => n.contextId === PlanNNode_ContextId);
+
+      // do web research if needed
+      let webResearchResults: { query: string; result: string }[] = [];
+      if (value.enableWebResearch) {
+        const webResearchTopics = await nrc.aiJson(
+          z.object({
+            webResearchRequests: z.array(
+              z.object({
+                priority: z.union(
+                  [
+                    z.literal("explicitly-requested"),
+                    z.literal("likely-needed"),
+                    z.literal("relevant"),
+                    z.literal("helpful"),
+                    z.literal("other"),
+                  ],
+                  {
+                    description: `
+  The priority of this web research request, this influences the order in which web research is done:
+  explicitly-requested - This is a request that the user explicitly asked for
+  likely-needed - This is a request that is almost certainly needed to achieve the goal
+  relevant - This is a request that is potentially relevant but not strictly necessary to achieve the goal
+  helpful - This is a request that is potentially helpful but not strictly necessary to achieve the goal
+  other - Use this priority if none of the other options are appropriate
+                    `.trim(),
+                  },
+                ),
+                goal: z.string({
+                  description: `
+  A natural language goal to research for on the web, ex: 'Find out how Redis recommends using distributed locks, look for TypeScript examples.'. 
+  This will be sent to a person to research (not directly into a search engine) so make sure to add enough context so that the goal is clear.
+  Include info such as language, libraries, frameworks, etc. as applicable.
+                  `.trim(),
+                }),
+                urls: z
+                  .array(
+                    z.string({
+                      description:
+                        "A well formatted URL to search for on the web, this is expected to be a URL to specific content which can be used to answer the goal",
+                    }),
+                  )
+                  .optional(),
+              }),
+            ),
+          }),
+          `
+  ${xmlProjectSettings(nrc.settings)}
+  ${xmlFileSystemResearch(researchResult, { showResearch: true, filterFiles: () => false })}
+  ${extraContext ? `<extraContext>\n${extraContext.context}\n</extraContext>` : ""}
+
+  <goal>
+  ${value.goal}
+  </goal>
+
+  An engineer is about to create a plan for the given goal.
+  Please provide relevant web research requests that can help them achieve the goal, these will be researched separately and then given to the engineer to help them create the plan.
+  It's very important to consider that researching topics on the web takes time, so please provide as few requests as possible to cover the most relevant topics.
+  If you aren't confident any research needs to be done, please respond with an empty array (especially if the goal is minor).
+  `.trim(),
+        );
+        webResearchResults = await Promise.all(
+          webResearchTopics.webResearchRequests
+            .filter((r) => ["explicitly-requested", "likely-needed"].includes(r.priority))
+            .map(async (request) => {
+              const { result } = await nrc.getOrAddDependencyForResult(WebResearchNNode, { query: request.goal });
+              return { query: request.goal, result };
+            }),
+        );
+      }
+
+      const { result: relevantFiles } = await relevantFilesPromise;
+
       const planPrompt = `
 ${xmlProjectSettings(nrc.settings)}
-${xmlFileSystemResearch(researchResult, { showResearch: true, showFileContent: true, filterFiles: (f) => relevantFiles.includes(f) })}${extraContext ? `\n\n<extraContext>\n${extraContext.context}\n</extraContext>` : ""}
+${xmlFileSystemResearch(researchResult, { showResearch: true, showFileContent: true, filterFiles: (f) => relevantFiles.includes(f) })}
+${webResearchResults.length ? `<webResearchResults>\n${webResearchResults.map((r) => `<webResearch query=${JSON.stringify(r.query)}>\n${r.result}\n</webResearch>`).join("\n")}\n</webResearchResults>` : ""}
+${extraContext ? `<extraContext>\n${extraContext.context}\n</extraContext>` : ""}
 
-Please create a plan for the following goal:
 <goal>
 ${value.goal}
 </goal>
+Please create a plan for the given goal.
 The plan should include a list of steps to achieve the goal, as well as any potential obstacles or challenges that may arise.
 Call out specific areas of the codebase that may need to be modified or extended to support the new functionality, and provide a high-level overview of the changes that will be required.
 If using short file names, please include a legend at the top of the file with the absolute path to the file (this should include paths to new files your plan creates).
@@ -60,9 +140,16 @@ This plan will be sent to an engineer who'll make low-level changes to the codeb
       return { result: plan, relevantFiles: mergedRelevantFiles };
     },
     renderInputs: (v) => (
-      <Well title="Goal" markdownPreferred>
-        {v.goal}
-      </Well>
+      <>
+        <Well title="Goal" markdownPreferred>
+          {v.goal}
+        </Well>
+        {v.enableWebResearch ? (
+          <Badge color="green">Web Research Enabled</Badge>
+        ) : (
+          <Badge color="red">Web Research Disabled</Badge>
+        )}
+      </>
     ),
     renderResult: (res) => (
       <Well title="Result" markdownPreferred>

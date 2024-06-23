@@ -4,7 +4,7 @@ import { UnknownKeysParam, z, ZodTypeAny } from "zod";
 import { ProjectSettings } from "@repo/shared";
 
 import { ReadFileResult } from "../files";
-import { AppTRPCClient } from "../trpc-client";
+import { AppTRPCClient, RouterOutput } from "../trpc-client";
 import { CreateNodeRef, ResolveRefs } from "./ref-types";
 
 export interface NNodeDef<
@@ -90,7 +90,9 @@ export interface NodeRunnerContext {
     model: "groq" | "gpt4o" | "opus" | "sonnet" | "gemini" | "geminiFlash",
     messages: { role: "user" | "assistant"; content: string }[],
   ) => Promise<string>;
-  aiJson: <T extends object>(schema: z.ZodSchema<T>, input: string) => Promise<T>;
+  aiJson: <T extends object>(schema: z.ZodSchema<T>, data: string, prompt?: string) => Promise<T>;
+  aiScrape: <T extends object>(schema: z.ZodSchema<T>, url: string, prompt: string) => Promise<T>;
+  aiWebSearch: (query: string) => Promise<RouterOutput["ai"]["webSearch"]>;
 
   displayToast: (message: string, options?: ToastOptions) => void;
   writeDebugFile: (name: string, content: string) => void;

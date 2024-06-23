@@ -10,7 +10,7 @@ import {
   UseFormReturn,
 } from "react-hook-form";
 import { Link1Icon, TrashIcon } from "@radix-ui/react-icons";
-import { Button, IconButton, TextArea, TextField, Tooltip } from "@radix-ui/themes";
+import { Button, Checkbox, IconButton, TextArea, TextField, Tooltip } from "@radix-ui/themes";
 import { startCase } from "lodash";
 import { css } from "styled-system/css";
 import { Flex, Stack } from "styled-system/jsx";
@@ -22,8 +22,9 @@ import { GraphRunnerData, resolveNodeRef } from "../lib/nodes/run-graph";
 import { FormHelper } from "./base/FormHelper";
 
 export type ZodFormRef<T extends Record<string, unknown>> = {
-  setValue: (name: Path<T>, value: PathValue<T, Path<T>>, options?: SetValueConfig) => void;
-  getValue: (name: Path<T>) => PathValue<T, Path<T>>;
+  setValue: <P extends Path<T>>(name: P, value: PathValue<T, P>, options?: SetValueConfig) => void;
+  getValue: <P extends Path<T>>(name: P) => PathValue<T, P>;
+  getValues: () => T;
   reset: () => void;
 };
 
@@ -71,11 +72,11 @@ export function ZodForm<T extends Record<string, unknown>>({
   saveButtonText?: string | null;
 }) {
   const form = useZodForm({ schema, defaultValues });
-  useImperativeHandle(formRef, () => ({ setValue: form.setValue, getValue: form.getValues, reset: form.reset }), [
-    form.getValues,
-    form.reset,
-    form.setValue,
-  ]);
+  useImperativeHandle(
+    formRef,
+    () => ({ setValue: form.setValue, getValue: form.getValues, getValues: form.getValues, reset: form.reset }),
+    [form.getValues, form.reset, form.setValue],
+  );
   const handleSubmit = form.handleSubmit(async (values) => {
     await onSubmit(values);
     form.reset(values);
@@ -103,8 +104,27 @@ export function ZodForm<T extends Record<string, unknown>>({
     }
 
     if (!fieldNode) {
+      if (field instanceof z.ZodDefault) {
+        field = field._def.innerType;
+      }
       if (field instanceof z.ZodString) {
         fieldNode = <TextField.Root {...register()} onKeyDown={onSubmitEnter(handleSubmit)} />;
+      } else if (field instanceof z.ZodBoolean) {
+        return (
+          <Stack key={key} css={{ gap: 1 }}>
+            <label>
+              <Flex css={{ alignItems: "center", gap: 8 }}>
+                <Checkbox
+                  {...register()}
+                  defaultChecked={!!form.getValues(key as Path<T>)}
+                  onCheckedChange={(e) => form.setValue(key as Path<T>, (e === true) as any, { shouldDirty: true })}
+                />
+                {label}
+              </Flex>
+            </label>
+            <FormHelper helper={helper} error={error} />
+          </Stack>
+        );
       } else {
         console.error("Unsupported field type", key, field);
         return null;

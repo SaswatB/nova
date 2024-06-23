@@ -10,6 +10,7 @@ import zodToJsonSchema from "zod-to-json-schema";
 import { isDefined, IterationMode, OmitUnion } from "@repo/shared";
 
 import { formatError, throwError } from "../err";
+import { RouterOutput } from "../trpc-client";
 import { newId } from "../uid";
 import { ApplyFileChangesNNode } from "./defs/ApplyFileChangesNNode";
 import { ContextNNode } from "./defs/ContextNNode";
@@ -19,7 +20,8 @@ import { PlanNNode, PlanNNode_ContextId } from "./defs/PlanNNode";
 import { ProjectAnalysisNNode } from "./defs/ProjectAnalysisNNode";
 import { RelevantFileAnalysisNNode } from "./defs/RelevantFileAnalysisNNode";
 import { TypescriptDepAnalysisNNode } from "./defs/TypescriptDepAnalysisNNode";
-import { aiChat, aiJson } from "./ai-chat";
+import { WebResearchNNode } from "./defs/WebResearchNNode";
+import { aiChat, aiJson, aiScrape, aiWebSearch } from "./ai-chat";
 import { NNodeDef, NNodeResult, NNodeValue, NodeRunnerContext, ProjectContext } from "./node-types";
 import {
   CreateNodeRef,
@@ -105,10 +107,29 @@ export type NNodeTraceEvent =
       chatId: string;
       schema: unknown;
       input: string;
+      prompt?: string;
       timestamp: number;
       runId: string;
     }
   | { type: "ai-json-response"; chatId: string; result: unknown; timestamp: number; runId: string }
+  | { type: "ai-web-search-request"; chatId: string; query: string; timestamp: number; runId: string }
+  | {
+      type: "ai-web-search-response";
+      chatId: string;
+      result: RouterOutput["ai"]["webSearch"];
+      timestamp: number;
+      runId: string;
+    }
+  | {
+      type: "ai-scrape-request";
+      chatId: string;
+      schema: unknown;
+      url: string;
+      prompt: string;
+      timestamp: number;
+      runId: string;
+    }
+  | { type: "ai-scrape-response"; chatId: string; result: unknown; timestamp: number; runId: string }
   | { type: "error"; message: string; error: unknown; timestamp: number; runId: string }
   | { type: "result"; result: NNodeResult<NNodeDef>; timestamp: number; runId: string };
 
@@ -157,6 +178,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     [ProjectAnalysisNNode.typeId]: ProjectAnalysisNNode,
     [RelevantFileAnalysisNNode.typeId]: RelevantFileAnalysisNNode,
     [TypescriptDepAnalysisNNode.typeId]: TypescriptDepAnalysisNNode,
+    [WebResearchNNode.typeId]: WebResearchNNode,
   };
   private runId = "";
 
@@ -164,9 +186,9 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     super();
   }
 
-  public static fromGoal(projectContext: ProjectContext, goal: string) {
+  public static fromGoal(projectContext: ProjectContext, goal: string, enableWebResearch: boolean) {
     const graphRunner = new GraphRunner(projectContext);
-    graphRunner.addNode(PlanNNode, { goal });
+    graphRunner.addNode(PlanNNode, { goal, enableWebResearch });
     return graphRunner;
   }
 
@@ -303,19 +325,58 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           throw e;
         }
       },
-      aiJson: async (schema, input) => {
+      aiJson: async (schema, data, prompt) => {
         try {
           const traceId = newId.traceChat();
           this.addNodeTrace(node, {
             type: "ai-json-request",
             chatId: traceId,
             schema: zodToJsonSchema(schema, "S").definitions?.S,
-            input,
+            input: data,
+            prompt,
           });
-          const result = await aiJson(this.projectContext, "gpt4o", schema, input);
+          const result = await aiJson(this.projectContext, "gpt4o", schema, data, prompt);
           console.log("[GraphRunner] AI JSON result", result);
           this.addNodeTrace(node, {
             type: "ai-json-response",
+            chatId: traceId,
+            result,
+          });
+          return result;
+        } catch (e) {
+          console.error(e);
+          console.error(JSON.stringify(e, null, 2));
+          throw e;
+        }
+      },
+      aiWebSearch: async (query) => {
+        try {
+          const traceId = newId.traceChat();
+          this.addNodeTrace(node, { type: "ai-web-search-request", chatId: traceId, query });
+          const result = await aiWebSearch(this.projectContext, query);
+          console.log("[GraphRunner] AI Web Search result", result);
+          this.addNodeTrace(node, { type: "ai-web-search-response", chatId: traceId, result });
+          return result;
+        } catch (e) {
+          console.error(e);
+          console.error(JSON.stringify(e, null, 2));
+          throw e;
+        }
+      },
+      aiScrape: async (schema, url, prompt) => {
+        try {
+          const traceId = newId.traceChat();
+          this.addNodeTrace(node, {
+            type: "ai-scrape-request",
+            chatId: traceId,
+            schema: zodToJsonSchema(schema, "S").definitions?.S,
+            url,
+            prompt,
+          });
+          const result = await aiScrape(this.projectContext, schema, url, prompt);
+          console.log("[GraphRunner] AI Scrape result", result);
+          this.addNodeTrace(node, {
+            type: "ai-scrape-response",
             chatId: traceId,
             result,
           });
