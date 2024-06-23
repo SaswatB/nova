@@ -51,6 +51,9 @@ Prefer composing multiple snippets over large snippets.
 If creating a new file, please provide the full file path and content.
 Include general notes the developer should know, if any (such as packages to install).
 
+Your result will be split up file by file and given to an engineer to apply.
+This engineer will only be able to see your suggestions and the file that they'll be editing, so make sure to include enough content and context for them to be able to work in isolation.
+
 Example legend:
 * file.ts: /root/project/src/file.ts
 * file2.ts: /root/project/src/file2.ts (new file)
@@ -120,28 +123,37 @@ ${rawChangeSet}`.trim(),
 ${rawChangeSet}
 </change_set>
 
-Please extract and output only the contents of the given change set document that are relevant to the file at "${path}".
-Do not calculate or output a diff.
-Ensure the output retains the original markdown format & content, but only includes the relevant sections for the specified file.
-Do not attempt to merge snippets or omit comments for snippets.
-Only keep snippets that are relevant for the given file.
-
-<example_output>
-Now, let's modify the PaperDialog component:
-
-* Add the following import to PaperDialog.tsx:
-
-\`\`\`typescript
-import { TabNav } from "./base/TabNav";
-\`\`\`
-
-* Add a new state for the active tab in PaperDialog.tsx:
-
-\`\`\`typescript
-const [activeTab, setActiveTab] = useState("overview");
-\`\`\`
-</example_output>
+Go through the given changeset section by section.
+Output verbatim any section (with comments) that is relevant to the file at "${path}".
+Do not output anything else and do not modify the sections.
 `.trim(),
+                //                 content: `
+                // <change_set>
+                // ${rawChangeSet}
+                // </change_set>
+
+                // Please extract and output only the contents of the given change set document that are relevant to the file at "${path}".
+                // Do not calculate or output a diff.
+                // Ensure the output retains the original markdown format & content, but only includes the relevant sections for the specified file.
+                // Do not attempt to merge snippets or omit comments for snippets.
+                // Only keep snippets that are relevant for the given file.
+
+                // <example_output>
+                // Now, let's modify the PaperDialog component:
+
+                // * Add the following import to PaperDialog.tsx:
+
+                // \`\`\`typescript
+                // import { TabNav } from "./base/TabNav";
+                // \`\`\`
+
+                // * Add a new state for the active tab in PaperDialog.tsx:
+
+                // \`\`\`typescript
+                // const [activeTab, setActiveTab] = useState("overview");
+                // \`\`\`
+                // </example_output>
+                // `.trim(),
               },
             ]);
 

@@ -105,7 +105,7 @@ export const PlanNNode = createNodeDef(
         );
       }
 
-      const { result: relevantFiles } = await relevantFilesPromise;
+      const { files: relevantFiles } = await relevantFilesPromise;
 
       const planPrompt = `
 ${xmlProjectSettings(nrc.settings)}
