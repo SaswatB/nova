@@ -24,14 +24,10 @@ const ExecuteResult = z.object({
 });
 type ExecuteResult = z.infer<typeof ExecuteResult>;
 
-const typeId = "execute";
-const inputsSchema = z.object({ instructions: orRef(z.string()), relevantFiles: orRef(z.array(z.string())) });
-const outputsSchema = z.object({ result: ExecuteResult });
-
-export const ExecuteNNode = createNodeDef<typeof typeId, z.infer<typeof inputsSchema>, z.infer<typeof outputsSchema>>(
-  typeId,
-  inputsSchema,
-  outputsSchema,
+export const ExecuteNNode = createNodeDef(
+  "execute",
+  z.object({ instructions: orRef(z.string()), relevantFiles: orRef(z.array(z.string())) }),
+  z.object({ result: ExecuteResult }),
   {
     run: async (value, nrc) => {
       const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});

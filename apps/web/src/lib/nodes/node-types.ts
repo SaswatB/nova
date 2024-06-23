@@ -38,8 +38,9 @@ export function createNodeDef<
   resultSchema: NNodeDef<TypeId, Value, Result>["resultSchema"],
   funcs: {
     run: NNodeDef<TypeId, Value, Result>["run"];
-    renderInputs: NNodeDef<TypeId, Value, Result>["renderInputs"];
-    renderResult: NNodeDef<TypeId, Value, Result>["renderResult"];
+    // extends is used to push ts to prefer inference from the schemas
+    renderInputs: Value extends Record<string, unknown> ? NNodeDef<TypeId, Value, Result>["renderInputs"] : never;
+    renderResult: Result extends Record<string, unknown> ? NNodeDef<TypeId, Value, Result>["renderResult"] : never;
   },
 ): NNodeDef<TypeId, Value, Result> {
   return { typeId, valueSchema, resultSchema, ...funcs };
