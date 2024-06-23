@@ -120,7 +120,7 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
   useAddVoiceFunction(
     "run_goal",
     "Run the current goal. This should only be executed if the user explicitly requests to run the goal or plan.",
-    z.object({}),
+    z.object({ run: z.boolean() }),
     () => onSubmit(undefined, true),
     open,
   );
@@ -135,6 +135,7 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
         <ZodForm
           formRef={setForm}
           schema={PlanNNode.valueSchema}
+          defaultValues={{ enableWebResearch: false }}
           overrideFieldMap={{
             goal: createTextAreaField("Example: Change the color of the navigation bar to purple."),
             images: createImagesField(),
