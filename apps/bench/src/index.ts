@@ -6,7 +6,7 @@ import { simpleGit } from "simple-git";
 import { fileURLToPath } from "url";
 
 import { ProjectContext } from "@repo/web/src/lib/nodes/node-types";
-import { PROJECT_RULES, SUPPORTED_EXTENSIONS } from "@repo/web/src/lib/nodes/projectctx-constants";
+import { DEFAULT_EXTENSIONS, DEFAULT_RULES } from "@repo/web/src/lib/nodes/projectctx-constants";
 import { GraphRunner } from "@repo/web/src/lib/nodes/run-graph";
 
 import { env } from "./lib/env";
@@ -31,7 +31,7 @@ async function runGoal(rootDirectory: string, goal: string) {
     writeFileSync(fullPath, JSON.stringify(value));
   };
   const projectContext: ProjectContext = {
-    settings: { rules: PROJECT_RULES.map((r) => ({ text: r })), files: { extensions: SUPPORTED_EXTENSIONS } },
+    settings: { rules: DEFAULT_RULES.map((r) => ({ text: r })), files: { extensions: DEFAULT_EXTENSIONS } },
     trpcClient: createTRPCProxyClient({
       links: [
         httpBatchLink({
