@@ -1,6 +1,9 @@
 import { ToastOptions } from "react-toastify";
 import { UnknownKeysParam, z, ZodTypeAny } from "zod";
 
+import { ProjectSettings } from "@repo/shared";
+
+import { ReadFileResult } from "../files";
 import { AppTRPCClient } from "../trpc-client";
 import { CreateNodeRef, ResolveRefs } from "./ref-types";
 
@@ -42,15 +45,8 @@ export function createNodeDef<
   return { typeId, valueSchema, resultSchema, ...funcs };
 }
 
-export type ReadFileResult =
-  | { type: "not-found" }
-  | { type: "file"; content: string }
-  | { type: "directory"; files: string[] };
-
 export interface ProjectContext {
-  systemPrompt: string;
-  rules: string[];
-  extensions: string[];
+  settings: ProjectSettings;
 
   trpcClient: AppTRPCClient;
   dryRun: boolean;
@@ -69,7 +65,7 @@ export interface ProjectContext {
 }
 
 export interface NodeRunnerContext {
-  projectContext: Pick<ProjectContext, "displayToast" | "rules" | "extensions">; // todo move these to nrc
+  settings: ProjectSettings;
 
   addDependantNode: <V extends {}>(nodeDef: NNodeDef<string, V>, nodeValue: V) => void;
   getOrAddDependencyForResult: <T extends NNodeDef>(
@@ -95,5 +91,6 @@ export interface NodeRunnerContext {
   ) => Promise<string>;
   aiJson: <T extends object>(schema: z.ZodSchema<T>, input: string) => Promise<T>;
 
+  displayToast: (message: string, options?: ToastOptions) => void;
   writeDebugFile: (name: string, content: string) => void;
 }

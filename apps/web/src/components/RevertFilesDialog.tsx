@@ -1,29 +1,45 @@
 import { useState } from "react";
+import { useAsync } from "react-async-hook";
+import ReactDiffViewer from "react-diff-viewer";
 import { Button, CheckboxCards, Dialog } from "@radix-ui/themes";
-import { Flex } from "styled-system/jsx";
+import { css } from "styled-system/css";
+import { Flex, Stack, styled } from "styled-system/jsx";
 
 import { createDialog } from "./base/PromiseDialog";
 
 export const RevertFilesDialog = createDialog<
-  { files: { path: string; original: string }[] },
+  { files: { path: string; original: string }[]; getFileContent: (path: string) => Promise<string> },
   string[] // paths to change
->(({ files, resolve }) => {
+>(({ files, getFileContent, resolve }) => {
   const [selectedPaths, setSelectedPaths] = useState(() => files.map((f) => f.path));
+  const [expandedDiffs, setExpandedDiffs] = useState<Record<string, boolean>>({});
+
+  const toggleDiff = async (path: string) => {
+    setExpandedDiffs((prev) => ({ ...prev, [path]: !prev[path] }));
+  };
 
   return (
     <Dialog.Root open>
-      <Dialog.Content width="600px">
+      <Dialog.Content width="800px">
         <Dialog.Title>
-          Would you like to revert {selectedPaths.length} file write{selectedPaths.length !== 1 ? "s" : ""}?
+          Would you like to revert {selectedPaths.length} file{selectedPaths.length !== 1 ? "s" : ""}?
         </Dialog.Title>
 
         <CheckboxCards.Root columns="1" value={selectedPaths} onValueChange={setSelectedPaths}>
-          {files.map(({ path }) => (
-            <CheckboxCards.Item key={path} value={path}>
-              <Flex direction="column" width="100%">
-                <code>{path}</code>
+          {files.map(({ path, original }) => (
+            <Stack key={path}>
+              <Flex css={{ alignItems: "center", gap: 8 }}>
+                <CheckboxCards.Item value={path} className={css({ flex: 1 })}>
+                  <code>{path}</code>
+                </CheckboxCards.Item>
+                <Button variant="soft" onClick={() => toggleDiff(path)}>
+                  {expandedDiffs[path] ? "Hide" : "View"}
+                </Button>
               </Flex>
-            </CheckboxCards.Item>
+              {expandedDiffs[path] && (
+                <FileDiffViewer path={path} original={original} getFileContent={getFileContent} />
+              )}
+            </Stack>
           ))}
         </CheckboxCards.Root>
 
@@ -39,3 +55,22 @@ export const RevertFilesDialog = createDialog<
     </Dialog.Root>
   );
 });
+
+function FileDiffViewer({
+  path,
+  original,
+  getFileContent,
+}: {
+  path: string;
+  original: string;
+  getFileContent: (path: string) => Promise<string>;
+}) {
+  const fileAsync = useAsync(getFileContent, [path]);
+
+  if (fileAsync.loading) return <div>Loading diff...</div>;
+  return (
+    <styled.div css={{ maxHeight: "300px", overflow: "auto" }}>
+      <ReactDiffViewer oldValue={fileAsync.result} newValue={original} splitView={false} useDarkTheme />
+    </styled.div>
+  );
+}

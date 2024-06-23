@@ -1,7 +1,10 @@
 import uniq from "lodash/uniq";
 import { z } from "zod";
 
+import { ProjectSettings } from "@repo/shared";
+
 import { NodeRunnerContext } from "./node-types";
+import { DEFAULT_RULES } from "./projectctx-constants";
 
 export async function getRelevantFiles(nrc: NodeRunnerContext, files: string[], document: string) {
   const RelevantFilesSchema = z.object({ files: z.array(z.string()) });
@@ -17,4 +20,10 @@ Document:
 ${document}`.trim(),
   );
   return uniq(directRelevantFiles.files);
+}
+
+export async function xmlProjectSettings(settings: ProjectSettings) {
+  const rules = (settings.rules?.map((r) => r.text) ?? DEFAULT_RULES).join("\n").trim();
+  if (!rules) return "";
+  return `<context>\n${rules}\n</context>`;
 }

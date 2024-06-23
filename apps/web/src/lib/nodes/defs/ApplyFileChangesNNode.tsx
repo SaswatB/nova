@@ -2,6 +2,7 @@ import ReactDiffViewer from "react-diff-viewer";
 import { z } from "zod";
 
 import { Well } from "../../../components/base/Well";
+import { xmlProjectSettings } from "../ai-helpers";
 import { createNodeDef } from "../node-types";
 import { orRef } from "../ref-types";
 
@@ -19,9 +20,7 @@ export const ApplyFileChangesNNode = createNodeDef(
         {
           role: "user",
           content: `
-<context>
-${nrc.projectContext.rules.join("\n")}
-</context>
+${xmlProjectSettings(nrc.settings)}
 
 <file path="${value.path}">
 ${original}

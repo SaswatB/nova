@@ -13,17 +13,17 @@ import { stack } from "styled-system/patterns";
 import { VList } from "virtua";
 import { z } from "zod";
 
-import { asyncToArray, dirname, IterationMode, VoiceStatusPriority } from "@repo/shared";
+import { dirname, IterationMode, ProjectSettings, VoiceStatusPriority } from "@repo/shared";
 
-import { getFileHandleForPath } from "../lib/browser-fs";
+import { getFileHandleForPath, readFileHandle } from "../lib/browser-fs";
 import { formatError } from "../lib/err";
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
+import { idbKey, lsKey } from "../lib/keys";
 import { ExecuteNNode } from "../lib/nodes/defs/ExecuteNNode";
 import { PlanNNode } from "../lib/nodes/defs/PlanNNode";
 import { ProjectContext } from "../lib/nodes/node-types";
-import { PROJECT_RULES, SUPPORTED_EXTENSIONS, SYSTEM_PROMPT } from "../lib/nodes/projectctx-constants";
-import { GraphRunner, GraphRunnerData, GraphTraceEvent, NNode } from "../lib/nodes/run-graph";
+import { GraphRunner, GraphRunnerData, NNode } from "../lib/nodes/run-graph";
 import { routes } from "../lib/routes";
 import { AppTRPCClient, trpc } from "../lib/trpc-client";
 import { newId } from "../lib/uid";
@@ -37,14 +37,12 @@ import { textAreaField, ZodForm, ZodFormRef } from "./ZodForm";
 
 const getProjectContext = (
   projectId: string,
+  settings: ProjectSettings,
   folderHandle: FileSystemDirectoryHandle,
   trpcClient: AppTRPCClient,
   dryRun: boolean,
 ): ProjectContext => ({
-  systemPrompt: SYSTEM_PROMPT,
-  rules: PROJECT_RULES,
-  extensions: SUPPORTED_EXTENSIONS,
-
+  settings,
   trpcClient,
   dryRun,
 
@@ -53,12 +51,7 @@ const getProjectContext = (
       if ((await folderHandle.requestPermission({ mode: "readwrite" })) !== "granted")
         throw new Error("Permission denied");
   },
-  readFile: async (path) => {
-    const handle = await getFileHandleForPath(path, folderHandle);
-    if (!handle) return { type: "not-found" };
-    if (handle.kind === "file") return { type: "file", content: await (await handle.getFile()).text() };
-    return { type: "directory", files: await asyncToArray(handle.keys()) };
-  },
+  readFile: (path) => readFileHandle(path, folderHandle),
   writeFile: async (path, content) => {
     const dir = dirname(path);
     const dirHandle = await getFileHandleForPath(dir, folderHandle, true);
@@ -73,12 +66,16 @@ const getProjectContext = (
     return originalContent;
   },
 
-  projectCacheGet: (key) => idb.get(`project-${projectId}:graph-cache:${key}`),
-  projectCacheSet: (key, value) => idb.set(`project-${projectId}:graph-cache:${key}`, value),
+  projectCacheGet: (key) => idb.get(idbKey.projectCache(projectId, key)),
+  projectCacheSet: (key, value) => idb.set(idbKey.projectCache(projectId, key), value),
   globalCacheGet: (key) => idb.get(key),
   globalCacheSet: (key, value) => idb.set(key, value),
   displayToast: toast,
-  showRevertFilesDialog: (files) => RevertFilesDialog({ files }),
+  showRevertFilesDialog: (files) =>
+    RevertFilesDialog({
+      files,
+      getFileContent: (path) => readFileHandle(path, folderHandle).then((f) => (f.type === "file" ? f.content : "")),
+    }),
   writeDebugFile: () => void 0, // noop
 });
 
@@ -243,34 +240,38 @@ interface Page {
 export function SpaceEditor({
   projectName,
   projectId,
+  projectSettings,
   spaceId,
   pageId,
+  onIsRunningChange,
 }: {
   projectName: string;
   projectId: string;
+  projectSettings: ProjectSettings;
   spaceId: string;
   pageId?: string;
+  onIsRunningChange: (isRunning: boolean) => void;
 }) {
   const navigate = useNavigate();
 
-  const trpcClient = trpc.useUtils().client;
-  const [dryRun, setDryRun] = useLocalStorage("dryRun", false);
-  const [sizes, setSizes] = useLocalStorage<number[]>("space:sizes", [60, 40]);
-  const handle = useAsync(() => idb.get<FileSystemDirectoryHandle>(`project:${projectId}:root`), [projectId]);
+  const trpcUtils = trpc.useUtils();
+  const [dryRun, setDryRun] = useLocalStorage(lsKey.dryRun, false);
+  const [sizes, setSizes] = useLocalStorage(lsKey.spaceSizes, [60, 40]);
+  const handle = useAsync(() => idb.get<FileSystemDirectoryHandle>(idbKey.projectRoot(projectId)), [projectId]);
 
-  const pagesAsync = useAsync((spaceId: string) => idb.get<Page[]>(`space:${spaceId}:pages`), [spaceId]);
+  const pagesAsync = useAsync((spaceId: string) => idb.get<Page[]>(idbKey.spacePages(spaceId)), [spaceId]);
   const pagesRef = useUpdatingRef(pagesAsync.result);
   const setPages = (pages: Page[] | ((pages: Page[]) => Page[])) => {
     const newPages = typeof pages === "function" ? pages(pagesRef.current || []) : pages;
     pagesAsync.set({ status: "success", loading: false, error: undefined, result: newPages });
     pagesRef.current = newPages;
-    void idb.set(`space:${spaceId}:pages`, newPages).catch(console.error);
+    void idb.set(idbKey.spacePages(spaceId), newPages).catch(console.error);
   };
 
   const selectedPage = pagesRef.current?.find((page) => page.id === pageId);
 
   // track the last page id for this space
-  const [lastPageId, setLastPageId] = useLocalStorage<string | null>(`space:${spaceId}:lastPageId`, null);
+  const [lastPageId, setLastPageId] = useLocalStorage(lsKey.spaceLastPage(spaceId), null);
   useEffect(() => {
     if (selectedPage) setLastPageId(selectedPage.id);
   }, [selectedPage, setLastPageId]);
@@ -285,13 +286,17 @@ export function SpaceEditor({
 
   const [iterationActive, setIterationActive] = useState(false);
 
+  const projectContext = useMemo(
+    () => handle.result && getProjectContext(projectId, projectSettings, handle.result, trpcUtils.client, dryRun),
+    [projectId, handle.result, trpcUtils, dryRun, projectSettings],
+  );
   const graphRunner = useMemo(
-    () =>
-      !!selectedPage?.graphData && handle.result
-        ? GraphRunner.fromData(getProjectContext(projectId, handle.result, trpcClient, dryRun), selectedPage.graphData)
-        : undefined,
+    () => {
+      if (!projectContext || !selectedPage?.graphData) return;
+      return GraphRunner.fromData(projectContext, selectedPage.graphData);
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [!!selectedPage?.graphData, pageId, handle.result, dryRun],
+    [!!selectedPage?.graphData, projectContext],
   );
   (window as any).graphRunner = graphRunner; // for debugging
   useEffect(() => {
@@ -314,6 +319,8 @@ export function SpaceEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graphRunner]);
   const runGraph = useAsyncCallback(async () => (graphRunner || undefined)?.run());
+  const onIsRunningChangeRef = useUpdatingRef(onIsRunningChange);
+  useEffect(() => onIsRunningChangeRef.current?.(runGraph.loading), [runGraph.loading, onIsRunningChangeRef]);
 
   // block browser navigation when Nova is running
   useBlocker(() => {
@@ -409,14 +416,11 @@ Currently working on the project "${projectName}".
               </Flex>
             }
           />
-        ) : (
+        ) : projectContext ? (
           <Stack css={{ alignItems: "center", justifyContent: "center", height: "100%" }}>
             <NewPlan
               onNewGoal={(goal) => {
-                const graphData = GraphRunner.fromGoal(
-                  getProjectContext(projectId, handle.result!, trpcClient, dryRun),
-                  goal,
-                ).toData();
+                const graphData = GraphRunner.fromGoal(projectContext, goal).toData();
                 if (selectedPage) {
                   setPages(
                     produce((draft) => {
@@ -432,7 +436,7 @@ Currently working on the project "${projectName}".
               }}
             />
           </Stack>
-        )}
+        ) : null}
       </Pane>
       <Pane minSize={15} className={stack({ bg: "background.secondary" })}>
         {selectedNode ? (

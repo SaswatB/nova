@@ -1,11 +1,12 @@
-import ignore, { Ignore } from "ignore";
 import llamaTokenizer from "llama-tokenizer-js";
 import pLimit from "p-limit";
 import { z } from "zod";
 
 import { Well } from "../../../components/base/Well";
+import { readFilesRecursively } from "../../files";
 import { generateCacheKey } from "../../hash";
 import { createNodeDef, NodeRunnerContext } from "../node-types";
+import { DEFAULT_EXTENSIONS } from "../projectctx-constants";
 
 const ResearchedFile = z.object({
   path: z.string(),
@@ -19,68 +20,6 @@ const ResearchedFileSystem = z.object({
   research: z.string(),
 });
 type ResearchedFileSystem = z.infer<typeof ResearchedFileSystem>;
-
-function checkIgnores(ignores: { dir: string; ignore: Ignore }[], path: string) {
-  for (const { dir, ignore } of ignores) {
-    if (path.startsWith(dir)) {
-      const relativePath = path.slice(dir.length);
-      if (ignore.ignores(relativePath)) return true;
-    } else {
-      console.error("Path does not start with dir", path, dir);
-    }
-  }
-  return false;
-}
-
-async function readFilesRecursively(
-  nrc: NodeRunnerContext,
-  path: string, // ends with /
-  extensions: string[],
-  ignores: { dir: string; ignore: Ignore }[] = [],
-): Promise<{ path: string; content: string }[]> {
-  if (checkIgnores(ignores, path)) return [];
-
-  const limit = pLimit(5);
-
-  const file = await nrc.readFile(path);
-  // file is unexpected here, since directories are supposed to be provided to this function
-  if (file.type === "not-found" || file.type === "file") return [];
-
-  const newIgnores = [...ignores];
-  await Promise.all(
-    [".gitignore", ".novaignore"].map(async (ignoreFileName) => {
-      const ignoreFile = await nrc.readFile(`${path}${ignoreFileName}`);
-      if (ignoreFile.type === "file") {
-        newIgnores.push({ dir: path, ignore: ignore().add(ignoreFile.content) });
-      }
-    }),
-  );
-
-  const result: { path: string; content: string }[] = [];
-
-  // Collect all file reading promises, but limit concurrency
-  const filePromises = file.files.map((f) =>
-    limit(async () => {
-      if (f === ".git") return;
-
-      const p = `${path}${f}`;
-      if (checkIgnores(newIgnores, p)) return;
-
-      const file = await nrc.readFile(p);
-      if (file.type === "not-found") return;
-      if (file.type === "file") {
-        if (extensions.some((ext) => p.endsWith(ext)) && file.content.length < 1e6) {
-          result.push({ path: p, content: file.content });
-        }
-      } else {
-        result.push(...(await readFilesRecursively(nrc, `${p}/`, extensions, newIgnores)));
-      }
-    }),
-  );
-  await Promise.all(filePromises);
-
-  return result;
-}
 
 export function xmlFilePrompt(
   file: ResearchedFile,
@@ -122,7 +61,9 @@ async function projectAnalysis(nrc: NodeRunnerContext): Promise<ResearchedFileSy
   // const pendingFiles = [...Object.keys(typescriptResult)];
   // const dependencies = typescriptResult;
 
-  const rawFiles = await readFilesRecursively(nrc, "/", nrc.projectContext.extensions);
+  const rawFiles = (
+    await readFilesRecursively(nrc.readFile, "/", nrc.settings.files?.extensions ?? DEFAULT_EXTENSIONS)
+  ).filter((f) => f.type === "file");
   nrc.writeDebugFile("debug.json", JSON.stringify({ count: rawFiles.length, rawFiles }, null, 2));
   const limit = pLimit(50);
   const researchPromises = rawFiles.map((f) =>

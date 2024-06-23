@@ -1,43 +1,47 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { z } from "zod";
 
-export function useLocalStorage<T>(key: string, initialValue: T) {
-  // State to store our value
-  // Pass initial state function to useState so logic is only executed once
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    if (typeof window === "undefined") {
-      return initialValue;
-    }
+import { useUpdatingRef } from "./useUpdatingRef";
 
+export function useLocalStorage<T>({ key, schema }: { key: string; schema: z.ZodType<T> }, initialValue: T) {
+  const schemaRef = useUpdatingRef(schema);
+  const initialValueRef = useUpdatingRef(initialValue);
+  const storedValue = useMemo((): T => {
     try {
       // Get from local storage by key
       const item = window.localStorage.getItem(key);
       // Parse stored json or if none return initialValue
-      return item ? JSON.parse(item) : initialValue;
+      return item ? schemaRef.current.parse(JSON.parse(item)) : initialValueRef.current;
     } catch (error) {
       // If error also return initialValue
       console.log(error);
-      return initialValue;
+      return initialValueRef.current;
     }
-  });
+  }, [initialValueRef, key, schemaRef]);
 
-  // Return a wrapped version of useState's setter function that ...
-  // ... persists the new value to localStorage.
-  const setValue = (value: T | ((val: T) => T)) => {
-    try {
-      // Allow value to be a function so we have same API as useState
-      const valueToStore =
-        value instanceof Function ? value(storedValue) : value;
-      // Save state
-      setStoredValue(valueToStore);
-      // Save to local storage
-      if (typeof window !== "undefined") {
+  // State to store our value
+  const [currentValue, setCurrentValue] = useState(storedValue);
+  const currentValueRef = useUpdatingRef(currentValue);
+  useEffect(() => setCurrentValue(storedValue), [storedValue]);
+
+  // Return a wrapped version of useState's setter function that persists the new value to localStorage.
+  const setValue = useCallback(
+    (value: T | ((val: T) => T)) => {
+      try {
+        // Allow value to be a function so we have same API as useState
+        const valueToStore = value instanceof Function ? value(currentValueRef.current) : value;
+        currentValueRef.current = valueToStore;
+        // Save to local storage
         window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        // Save state
+        setCurrentValue(valueToStore);
+      } catch (error) {
+        // A more advanced implementation would handle the error case
+        console.log(error);
       }
-    } catch (error) {
-      // A more advanced implementation would handle the error case
-      console.log(error);
-    }
-  };
+    },
+    [currentValueRef, key],
+  );
 
-  return [storedValue, setValue] as const;
+  return [currentValue, setValue] as const;
 }

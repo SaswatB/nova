@@ -2,7 +2,7 @@ import uniq from "lodash/uniq";
 import { z } from "zod";
 
 import { Well } from "../../../components/base/Well";
-import { getRelevantFiles } from "../ai-helpers";
+import { getRelevantFiles, xmlProjectSettings } from "../ai-helpers";
 import { createNodeDef } from "../node-types";
 import { orRef } from "../ref-types";
 import { ContextNNode, registerContextId } from "./ContextNNode";
@@ -24,10 +24,7 @@ export const PlanNNode = createNodeDef(
       );
       const extraContext = await nrc.findNodeForResult(ContextNNode, (n) => n.contextId === PlanNNode_ContextId);
       const planPrompt = `
-<context>
-${nrc.projectContext.rules.join("\n")}
-</context>
-
+${xmlProjectSettings(nrc.settings)}
 ${xmlFileSystemResearch(researchResult, { showResearch: true, showFileContent: true, filterFiles: (f) => relevantFiles.includes(f) })}${extraContext ? `\n\n<extraContext>\n${extraContext.context}\n</extraContext>` : ""}
 
 Please create a plan for the following goal:

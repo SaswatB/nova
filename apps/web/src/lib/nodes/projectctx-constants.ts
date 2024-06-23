@@ -1,10 +1,4 @@
-export const SYSTEM_PROMPT = `
-You are an expert staff level software engineer.
-Working with other staff level engineers on a project.
-Do not bikeshed unless asked.
-Provide useful responses, make sure to consider when to stay high level and when to dive deep.
-`.trim();
-export const PROJECT_RULES = [
+export const DEFAULT_RULES = [
   "Prefer concise and expressive code over verbose code, but keep things readable and use comments if necessary.",
   "Do not refactor the codebase unless required for the task.",
   "Do not delete dead code or comments unless it is directly related to the task.",
@@ -12,7 +6,7 @@ export const PROJECT_RULES = [
   "Don't worry about unit tests unless they are explicitly asked for.",
   "It's fine to have large complex functions during the initial implementation.",
 ];
-export const SUPPORTED_EXTENSIONS = [
+export const DEFAULT_EXTENSIONS = [
   ".ts",
   ".mts",
   ".cts",

@@ -1,3 +1,7 @@
+import { asyncToArray } from "@repo/shared";
+
+import { ReadFileResult } from "./files";
+
 export async function getFileHandleForPath(path: string, root: FileSystemDirectoryHandle, createAsDirectory = false) {
   const parts = path.split("/");
   if (parts[0] === "") parts.shift(); // remove leading slash
@@ -31,4 +35,11 @@ export async function getFileHandleForPath(path: string, root: FileSystemDirecto
   }
 
   return null;
+}
+
+export async function readFileHandle(path: string, root: FileSystemDirectoryHandle): Promise<ReadFileResult> {
+  const handle = await getFileHandleForPath(path, root);
+  if (!handle) return { type: "not-found" };
+  if (handle.kind === "file") return { type: "file", content: await (await handle.getFile()).text() };
+  return { type: "directory", files: await asyncToArray(handle.keys()) };
 }

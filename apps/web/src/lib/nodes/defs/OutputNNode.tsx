@@ -11,7 +11,7 @@ export const OutputNNode = createNodeDef(
   {
     run: async (value, nrc) => {
       console.log("[OutputNode] ", value.description, value.value);
-      nrc.projectContext.displayToast(`[OutputNode] ${value.value}`, { type: "info", autoClose: false });
+      nrc.displayToast(`[OutputNode] ${value.value}`, { type: "info", autoClose: false });
       return {};
     },
     renderInputs: (v) => renderJsonWell(v.description, v.value),

@@ -194,7 +194,8 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     this.addTrace({ type: "start-node", node });
 
     const nodeRunnerContext: NodeRunnerContext = {
-      projectContext: this.projectContext,
+      settings: this.projectContext.settings,
+
       addDependantNode: (newNodeDef, newNodeValue) => {
         console.log("[GraphRunner] Adding dependant node", newNodeValue);
         const newNode = this.addNode(newNodeDef, newNodeValue, [node.id]);
@@ -255,13 +256,18 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       readFile: async (path) => {
         console.log("[GraphRunner] Read file", path);
 
+        if (this.projectContext.settings.files?.blockedPaths?.some((bp) => path.startsWith(bp))) {
+          console.log("[GraphRunner] Blocking read operation for:", path);
+          return { type: "not-found" };
+        }
+
         const result = await this.projectContext.readFile(path);
         this.addNodeTrace(node, { type: "read-file", path, result });
         return result;
       },
       writeFile: async (path, content) => {
         if (this.projectContext.dryRun) {
-          console.log(`[Dry Run] Skipping write operation for: ${path}`);
+          console.log(`[GraphRunner] (Dry Run) Skipping write operation for: ${path}`);
           this.addNodeTrace(node, { type: "write-file", path, content, dryRun: true });
           return;
         }
@@ -287,7 +293,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         try {
           const traceId = newId.traceChat();
           this.addNodeTrace(node, { type: "ai-chat-request", chatId: traceId, model, messages });
-          const result = await aiChat(this.projectContext, model, this.projectContext.systemPrompt, messages);
+          const result = await aiChat(this.projectContext, model, messages);
           console.log("[GraphRunner] AI chat result", result);
           this.addNodeTrace(node, { type: "ai-chat-response", chatId: traceId, result });
           return result;
@@ -320,6 +326,8 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           throw e;
         }
       },
+
+      displayToast: this.projectContext.displayToast,
       writeDebugFile: this.projectContext.writeDebugFile,
     };
 

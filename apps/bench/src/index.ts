@@ -6,9 +6,9 @@ import { simpleGit } from "simple-git";
 import { fileURLToPath } from "url";
 
 import { ProjectContext } from "@repo/web/src/lib/nodes/node-types";
-import { PROJECT_RULES, SUPPORTED_EXTENSIONS, SYSTEM_PROMPT } from "@repo/web/src/lib/nodes/projectctx-constants";
+import { PROJECT_RULES, SUPPORTED_EXTENSIONS } from "@repo/web/src/lib/nodes/projectctx-constants";
+import { GraphRunner } from "@repo/web/src/lib/nodes/run-graph";
 
-import { GraphRunner } from "../../web/src/lib/nodes/run-graph";
 import { env } from "./lib/env";
 
 const rootCacheDirectory = join(dirname(fileURLToPath(import.meta.url)), "cache");
@@ -31,9 +31,7 @@ async function runGoal(rootDirectory: string, goal: string) {
     writeFileSync(fullPath, JSON.stringify(value));
   };
   const projectContext: ProjectContext = {
-    systemPrompt: SYSTEM_PROMPT,
-    rules: PROJECT_RULES,
-    extensions: SUPPORTED_EXTENSIONS,
+    settings: { rules: PROJECT_RULES.map((r) => ({ text: r })), files: { extensions: SUPPORTED_EXTENSIONS } },
     trpcClient: createTRPCProxyClient({
       links: [
         httpBatchLink({

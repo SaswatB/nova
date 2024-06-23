@@ -3,6 +3,7 @@ import pLimit from "p-limit";
 import { z } from "zod";
 
 import { renderJsonWell, Well } from "../../../components/base/Well";
+import { xmlProjectSettings } from "../ai-helpers";
 import { createNodeDef } from "../node-types";
 import { orRef } from "../ref-types";
 import { ApplyFileChangesNNode } from "./ApplyFileChangesNNode";
@@ -37,9 +38,7 @@ export const ExecuteNNode = createNodeDef<typeof typeId, z.infer<typeof inputsSc
       const extraContext = await nrc.findNodeForResult(ContextNNode, (n) => n.contextId === ExecuteNNode_ContextId);
 
       const executePrompt = `
-<context>
-${nrc.projectContext.rules.join("\n")}
-</context>
+${xmlProjectSettings(nrc.settings)}
 ${xmlFileSystemResearch(researchResult, { showResearch: true, showFileContent: true, filterFiles: (f) => value.relevantFiles.includes(f) })}
 <instructions>
 ${value.instructions}

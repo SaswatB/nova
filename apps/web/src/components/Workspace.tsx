@@ -14,9 +14,11 @@ import { stack } from "styled-system/patterns";
 import { z } from "zod";
 
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
+import { idbKey, lsKey } from "../lib/keys";
 import { routes, RoutesPathParams } from "../lib/routes";
 import { newId } from "../lib/uid";
 import { Select } from "./base/Select";
+import { ProjectSettingsEditor } from "./ProjectSettingsEditor";
 import { SpaceEditor } from "./SpaceEditor";
 import { VoiceChat } from "./VoiceChat";
 import { ZodForm } from "./ZodForm";
@@ -81,15 +83,10 @@ function AddProject({ onAdd }: { onAdd: (project: { name: string; handle: FileSy
   );
 }
 
-const getSpacesId = (projectId: string) => `spaces:${projectId}`;
-
 function SpaceSelector({ projectId, spaceId }: { projectId: string; spaceId?: string }) {
   const navigate = useNavigate();
 
-  const [spacesImpl, setSpaces] = useLocalStorage<{ id: string; name: string | null; timestamp: number }[]>(
-    getSpacesId(projectId),
-    [],
-  );
+  const [spacesImpl, setSpaces] = useLocalStorage(lsKey.projectSpaces(projectId), []);
   const spaces = useMemo(() => spacesImpl.sort((a, b) => b.timestamp - a.timestamp), [spacesImpl]);
 
   useEffect(() => {
@@ -134,9 +131,10 @@ export function Workspace() {
   const navigate = useNavigate();
   const { projectId, spaceId, pageId } = useParams<Partial<RoutesPathParams["projectSpacePage"]>>();
 
-  const [sizes, setSizes] = useLocalStorage<number[]>("workspace:sizes", [15, 85]);
-
-  const [projects, setProjects] = useLocalStorage<{ id: string; name: string }[]>("projects", []);
+  const [sizes, setSizes] = useLocalStorage(lsKey.workspaceSizes, [15, 85]);
+  const [projects, setProjects] = useLocalStorage(lsKey.projects, []);
+  const [settings, setSettings] = useLocalStorage(lsKey.projectSettings(projectId || ""), {});
+  const [isRunning, setIsRunning] = useState(false);
 
   // track the most recent project
   const [lastProjectId, setLastProjectId] = useState<string | null>(projectId || null);
@@ -165,7 +163,7 @@ export function Workspace() {
             <AddProject
               onAdd={(project) => {
                 const id = newId.project();
-                idb.set(`project:${id}:root`, project.handle).catch(console.error);
+                idb.set(idbKey.projectRoot(id), project.handle).catch(console.error);
                 setProjects([...projects, { id, name: project.name }]);
                 navigate(routes.project.getPath({ projectId: id }));
               }}
@@ -175,13 +173,22 @@ export function Workspace() {
             {projectId ? <SpaceSelector key={projectId} projectId={projectId} spaceId={spaceId} /> : null}
           </Stack>
           <VoiceChat />
-          <Flex css={{ justifyContent: "center", mt: 24, gap: 24 }}>
+          <Flex css={{ justifyContent: "space-evenly", mt: 24, gap: 24 }}>
             <a href="https://discord.gg/bZxutN8A2q" target="_blank" rel="noreferrer">
               <IconButton variant="surface" radius="full">
                 <DiscordLogoIcon />
               </IconButton>
             </a>
             <UserButton />
+            {projectId && (
+              <ProjectSettingsEditor
+                key={projectId}
+                projectId={projectId}
+                allowEdit={isRunning ? "Nova is currently running." : true}
+                settings={settings}
+                onChange={setSettings}
+              />
+            )}
           </Flex>
         </Stack>
       </Pane>
@@ -191,8 +198,10 @@ export function Workspace() {
             key={spaceId}
             projectId={projectId}
             projectName={projects.find((project) => project.id === projectId)?.name || ""}
+            projectSettings={settings}
             spaceId={spaceId}
             pageId={pageId}
+            onIsRunningChange={setIsRunning}
           />
         ) : null}
       </Pane>

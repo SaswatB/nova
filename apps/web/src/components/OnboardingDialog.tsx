@@ -7,9 +7,10 @@ import { css } from "styled-system/css";
 import { Flex, Stack } from "styled-system/jsx";
 
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
+import { lsKey } from "../lib/keys";
 
 export function OnboardingDialog() {
-  const [doNotShowAgain, setDoNotShowAgain] = useLocalStorage("onboardingDialogShown", false);
+  const [doNotShowAgain, setDoNotShowAgain] = useLocalStorage(lsKey.onboardingDialogShown, false);
   const [showDialog, setShowDialog] = useState(!doNotShowAgain);
 
   const handleCheckboxChange = () => setDoNotShowAgain(true);
