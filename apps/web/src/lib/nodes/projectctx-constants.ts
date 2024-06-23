@@ -1,3 +1,5 @@
+import { ProjectSettings } from "@repo/shared";
+
 export const DEFAULT_RULES = [
   "Prefer concise and expressive code over verbose code, but keep things readable and use comments if necessary.",
   "Do not refactor the codebase unless required for the task.",
@@ -41,3 +43,7 @@ export const DEFAULT_EXTENSIONS = [
   ".ps1",
   ".bat",
 ];
+
+export function getEffectiveExtensions(settings: ProjectSettings): string[] {
+  return settings.files?.extensions ?? DEFAULT_EXTENSIONS;
+}

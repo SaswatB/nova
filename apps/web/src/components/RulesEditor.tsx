@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button, TextArea } from "@radix-ui/themes";
 import { Flex, Stack } from "styled-system/jsx";
 
@@ -15,23 +15,19 @@ export function RulesEditor({
 }) {
   const givenRules = (rules?.map((rule) => rule.text) ?? DEFAULT_RULES).join("\n") ?? "";
   const [rulesText, setRulesText] = useState(givenRules);
-  useEffect(() => setRulesText(givenRules), [givenRules]);
 
   const handleChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setRulesText(event.target.value);
-  };
-
-  const handleSave = () => {
     const newRules = rulesText.split("\n").filter((rule) => rule.trim() !== "");
     onChange(newRules.map((rule) => ({ text: rule })));
+    setRulesText(event.target.value);
   };
 
   return (
     <Stack gap="3">
       <TextArea value={rulesText} onChange={handleChange} placeholder="Enter rules, one per line" rows={10} />
       <Flex gap="2" justifyContent="end">
-        <Button disabled={rulesText === givenRules} onClick={handleSave}>
-          Save Rules
+        <Button variant="soft" color="red" disabled={rules === undefined} onClick={() => onChange(undefined)}>
+          Reset
         </Button>
       </Flex>
     </Stack>

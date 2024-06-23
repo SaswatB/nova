@@ -6,7 +6,7 @@ import { Well } from "../../../components/base/Well";
 import { readFilesRecursively } from "../../files";
 import { generateCacheKey } from "../../hash";
 import { createNodeDef, NodeRunnerContext } from "../node-types";
-import { DEFAULT_EXTENSIONS } from "../projectctx-constants";
+import { getEffectiveExtensions } from "../projectctx-constants";
 
 const ResearchedFile = z.object({
   path: z.string(),
@@ -61,9 +61,9 @@ async function projectAnalysis(nrc: NodeRunnerContext): Promise<ResearchedFileSy
   // const pendingFiles = [...Object.keys(typescriptResult)];
   // const dependencies = typescriptResult;
 
-  const rawFiles = (
-    await readFilesRecursively(nrc.readFile, "/", nrc.settings.files?.extensions ?? DEFAULT_EXTENSIONS)
-  ).filter((f) => f.type === "file");
+  const rawFiles = (await readFilesRecursively(nrc.readFile, "/", getEffectiveExtensions(nrc.settings))).filter(
+    (f) => f.type === "file",
+  );
   nrc.writeDebugFile("debug.json", JSON.stringify({ count: rawFiles.length, rawFiles }, null, 2));
   const limit = pLimit(50);
   const researchPromises = rawFiles.map((f) =>
