@@ -685,9 +685,10 @@ export function resolveNodeValueRefs<T extends NNodeDef>(
 ): ResolveRefs<NNodeValue<T>> {
   const resolved = {} as ResolveRefs<NNodeValue<T>>;
   Object.entries(value).forEach(([key, val]) => {
-    resolved[key as keyof NNodeValue<T>] =
-      resolveNodeRef<NNodeValue<T>[keyof NNodeValue<T>]>(val, nodeMap, accessedNodeIds) ??
-      throwError(`Node ref not resolved: ${key}`);
+    resolved[key as keyof NNodeValue<T>] = !isNodeRef(val)
+      ? (val as NNodeValue<T>[keyof NNodeValue<T>])
+      : resolveNodeRef<NNodeValue<T>[keyof NNodeValue<T>]>(val, nodeMap, accessedNodeIds) ??
+        throwError(`Node ref not resolved: ${key}`);
   });
   return resolved;
 }

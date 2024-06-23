@@ -106,11 +106,16 @@ export class HumeAgent {
         const toolCalls = output.message.tool_calls;
         const toolResults = await Promise.all(
           (toolCalls || []).map(async (toolCall) => {
-            const toolArguments = JSON.parse(toolCall.function.arguments);
-            return {
-              toolCall,
-              result: handleVoiceFunction?.(toolCall.function.name, toolArguments) || {},
-            };
+            try {
+              const toolArguments = JSON.parse(toolCall.function.arguments);
+              return {
+                toolCall,
+                result: handleVoiceFunction?.(toolCall.function.name, toolArguments) || {},
+              };
+            } catch (e) {
+              console.error("Error handling tool call", e, toolCall);
+              return { toolCall, result: { error: (e as Error)?.message || e } };
+            }
           }),
         );
 
