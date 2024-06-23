@@ -33,7 +33,7 @@ import { NodeViewer } from "./NodeViewer";
 import { RevertFilesDialog } from "./RevertFilesDialog";
 import { TraceElementList, traceElementSourceSymbol } from "./TraceElementView";
 import { useAddVoiceFunction, useAddVoiceStatus } from "./VoiceChat";
-import { textAreaField, ZodForm, ZodFormRef } from "./ZodForm";
+import { createTextAreaField, ZodForm, ZodFormRef } from "./ZodForm";
 
 const getProjectContext = (
   projectId: string,
@@ -80,9 +80,9 @@ const getProjectContext = (
 });
 
 const NewPlanSchema = z.object({ goal: z.string().min(1) });
-function NewPlan({ onNewGoal }: { onNewGoal: (goal: string) => void }) {
+function NewPlan({ onNewGoal }: { onNewGoal: (goal: string, run: boolean) => void }) {
   const [form, setForm] = useState<ZodFormRef<z.infer<typeof NewPlanSchema>> | null>(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   // super ugly hack, idk a better way
   const [goal, setGoal] = useState("");
@@ -112,22 +112,41 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
     open,
   );
 
+  useAddVoiceFunction(
+    "run_goal",
+    "Run the current goal. This should only be executed if the user explicitly requests to run the goal or plan.",
+    z.object({}),
+    () => onNewGoal(form?.getValue("goal") || "", true),
+    open,
+  );
+
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger>
-        <Button>New Plan</Button>
+        <Button>New Change</Button>
       </Dialog.Trigger>
-      <Dialog.Content width="400px">
-        <Dialog.Title>New Plan</Dialog.Title>
+      <Dialog.Content width="600px">
+        <Dialog.Title>New Change</Dialog.Title>
         <ZodForm
           formRef={setForm}
           schema={NewPlanSchema}
-          overrideFieldMap={{ goal: textAreaField }}
+          overrideFieldMap={{
+            goal: createTextAreaField("Example: Change the color of the navigation bar to purple."),
+          }}
           onSubmit={({ goal }) => {
-            onNewGoal(goal);
+            onNewGoal(goal, true);
             setOpen(false);
           }}
+          saveButtonText={null}
         />
+        <Flex css={{ justifyContent: "flex-end", mt: 12, gap: 4 }}>
+          <Button variant="soft" onClick={() => onNewGoal(form?.getValue("goal") || "", false)}>
+            Save
+          </Button>
+          <Button color="green" onClick={() => onNewGoal(form?.getValue("goal") || "", true)}>
+            Save & Run
+          </Button>
+        </Flex>
       </Dialog.Content>
     </Dialog.Root>
   );
@@ -318,7 +337,13 @@ export function SpaceEditor({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graphRunner]);
-  const runGraph = useAsyncCallback(async () => (graphRunner || undefined)?.run());
+  const runGraph = useAsyncCallback(async () => (graphRunner || undefined)?.run(), {
+    onError: (error) => {
+      console.error(error);
+      toast.error(error.message);
+    },
+  });
+  const runGraphRef = useUpdatingRef(runGraph);
   const onIsRunningChangeRef = useUpdatingRef(onIsRunningChange);
   useEffect(() => onIsRunningChangeRef.current?.(runGraph.loading), [runGraph.loading, onIsRunningChangeRef]);
 
@@ -402,15 +427,7 @@ Currently working on the project "${projectName}".
                   </Flex>
                 </label>
 
-                <Button
-                  loading={runGraph.loading}
-                  onClick={() =>
-                    runGraph.execute().catch((error) => {
-                      console.error(error);
-                      toast.error(error.message);
-                    })
-                  }
-                >
+                <Button color="green" loading={runGraph.loading} onClick={() => void runGraph.execute()}>
                   Run
                 </Button>
               </Flex>
@@ -419,7 +436,7 @@ Currently working on the project "${projectName}".
         ) : projectContext ? (
           <Stack css={{ alignItems: "center", justifyContent: "center", height: "100%" }}>
             <NewPlan
-              onNewGoal={(goal) => {
+              onNewGoal={(goal, run) => {
                 const graphData = GraphRunner.fromGoal(projectContext, goal).toData();
                 if (selectedPage) {
                   setPages(
@@ -433,6 +450,7 @@ Currently working on the project "${projectName}".
                   setPages((p) => [...p, { id, name: `Iteration ${p.length + 1}`, graphData }]);
                   navigate(routes.projectSpacePage.getPath({ projectId, spaceId, pageId: id }), { replace: true });
                 }
+                if (run) setTimeout(() => void runGraphRef.current?.execute(), 300);
               }}
             />
           </Stack>

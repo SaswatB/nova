@@ -68,7 +68,7 @@ export function ZodForm<T extends Record<string, unknown>>({
   schema: z.ZodObject<{ [K in keyof T]: z.ZodType<T[K]> }, UnknownKeysParam, ZodTypeAny, T, T>;
   overrideFieldMap?: Partial<Record<Path<T>, FieldOverride<T>>>;
   onSubmit: (values: T) => void | Promise<void>;
-  saveButtonText?: string;
+  saveButtonText?: string | null;
 }) {
   const form = useZodForm({ schema, defaultValues });
   useImperativeHandle(formRef, () => ({ setValue: form.setValue, getValue: form.getValues, reset: form.reset }), [
@@ -126,20 +126,22 @@ export function ZodForm<T extends Record<string, unknown>>({
 
       {fields}
 
-      <Flex css={{ justifyContent: "flex-end" }}>
-        <Button disabled={!form.formState.isDirty} loading={form.formState.isSubmitting} onClick={handleSubmit}>
-          {saveButtonText}
-        </Button>
-      </Flex>
+      {saveButtonText !== null && (
+        <Flex css={{ justifyContent: "flex-end" }}>
+          <Button disabled={!form.formState.isDirty} loading={form.formState.isSubmitting} onClick={handleSubmit}>
+            {saveButtonText}
+          </Button>
+        </Flex>
+      )}
     </Stack>
   );
 }
 
-export const textAreaField: FieldOverride<any> = {
+export const createTextAreaField = (placeholder: string): FieldOverride<any> => ({
   renderField: ({ register, onSubmit }) => (
-    <TextArea resize="vertical" {...register()} onKeyDown={onSubmitEnter(onSubmit)} />
+    <TextArea resize="vertical" placeholder={placeholder} {...register()} onKeyDown={onSubmitEnter(onSubmit)} />
   ),
-};
+});
 
 function ResetRefButton({ onClick }: { onClick: () => void }) {
   return (
