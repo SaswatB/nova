@@ -9,7 +9,15 @@ import { WebResearchHelperNNode } from "./WebResearchHelperNNode";
 export const WebResearchOrchestratorNNode = createNodeDef(
   "web-research-orchestrator",
   z.object({ goal: z.string() }),
-  z.object({ results: z.array(z.object({ query: z.string(), result: z.string() })) }),
+  z.object({
+    results: z.array(
+      z.object({
+        query: z.string(),
+        result: z.string(),
+        sources: z.array(z.object({ url: z.string(), title: z.string().optional() })),
+      }),
+    ),
+  }),
   {
     run: async (value, nrc) => {
       const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
@@ -79,11 +87,11 @@ If you aren't confident any research needs to be done, please respond with an em
 
       const results = await Promise.all(
         prioritizedTopics.map(async (topic) => {
-          const { result } = await nrc.getOrAddDependencyForResult(WebResearchHelperNNode, {
+          const { result, sources } = await nrc.getOrAddDependencyForResult(WebResearchHelperNNode, {
             query: topic.goal,
             urls: topic.urls,
           });
-          return { query: topic.goal, result };
+          return { query: topic.goal, result, sources };
         }),
       );
 
@@ -97,7 +105,7 @@ If you aren't confident any research needs to be done, please respond with an em
     renderResult: (res) =>
       res.results.map((r, i) => (
         <Well key={i} title={r.query} markdownPreferred>
-          {r.result}
+          {r.result + "\n\nSources:\n" + r.sources?.map((u) => `- [${u.title || u.url}](${u.url})`).join("\n")}
         </Well>
       )),
   },

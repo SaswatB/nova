@@ -39,9 +39,11 @@ export const PlanNNode = createNodeDef(
       // do web research if needed
       let webResearchResults: { query: string; result: string }[] = [];
       if (value.enableWebResearch) {
-        const { results } = await nrc.getOrAddDependencyForResult(WebResearchOrchestratorNNode, {
-          goal: value.goal,
-        });
+        const { results } = await nrc.getOrAddDependencyForResult(
+          WebResearchOrchestratorNNode,
+          { goal: value.goal },
+          true,
+        );
         webResearchResults = results;
       }
 

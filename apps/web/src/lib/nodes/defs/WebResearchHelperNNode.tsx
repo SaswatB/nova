@@ -1,3 +1,4 @@
+import { uniq } from "lodash";
 import { z } from "zod";
 
 import { Well } from "../../../components/base/Well";
@@ -103,7 +104,10 @@ Highlight any gaps in the current information or areas that might benefit from f
           linksToVisit = searchResults.map((result) => result.link!);
         }
 
-        linksToVisit = linksToVisit.filter((link) => !allSources.some((source) => source.link === link)).slice(0, 5);
+        linksToVisit = uniq(linksToVisit.filter((link) => !allSources.some((source) => source.link === link))).slice(
+          0,
+          5,
+        );
         if (linksToVisit.length === 0) break;
 
         const scrapedData = await Promise.all(linksToVisit.map((link) => scrapeUrl(link, value.query)));
@@ -167,7 +171,7 @@ Synthesize all the information gathered across iterations, highlight key insight
         </Well>
         <Well title="Sources" markdownPreferred>
           {res.sources
-            .map((source) => [source.title?.trim(), source.url.trim()].filter((s) => !!s).join(" - "))
+            .map((source) => "* " + [source.title?.trim(), source.url.trim()].filter((s) => !!s).join(" - "))
             .join("\n")}
         </Well>
       </>
