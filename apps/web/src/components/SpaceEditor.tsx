@@ -22,7 +22,7 @@ import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
 import { idbKey, lsKey } from "../lib/keys";
 import { ExecuteNNode } from "../lib/nodes/defs/ExecuteNNode";
 import { PlanNNode, PlanNNodeValue } from "../lib/nodes/defs/PlanNNode";
-import { ProjectContext } from "../lib/nodes/node-types";
+import { ProjectContext } from "../lib/nodes/project-ctx";
 import { GraphRunner, GraphRunnerData, NNode } from "../lib/nodes/run-graph";
 import { routes } from "../lib/routes";
 import { AppTRPCClient, trpc } from "../lib/trpc-client";

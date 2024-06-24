@@ -4,7 +4,7 @@ import { Flex, Stack } from "styled-system/jsx";
 
 import { ProjectSettings } from "@repo/shared";
 
-import { DEFAULT_RULES } from "../lib/nodes/projectctx-constants";
+import { DEFAULT_RULES } from "../lib/nodes/project-ctx";
 
 export function RulesEditor({
   rules,

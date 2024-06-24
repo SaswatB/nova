@@ -4,13 +4,12 @@ import { toast } from "react-toastify";
 import { Button, Checkbox, Text, TextField } from "@radix-ui/themes";
 import * as idb from "idb-keyval";
 import { isEqual } from "lodash";
-import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 
 import { ProjectSettings } from "@repo/shared";
 
 import { idbKey } from "../lib/keys";
-import { DEFAULT_EXTENSIONS, getEffectiveExtensions } from "../lib/nodes/projectctx-constants";
+import { DEFAULT_EXTENSIONS, getEffectiveExtensions } from "../lib/nodes/project-ctx";
 import { FolderTree } from "./FolderTree";
 
 interface ExtensionsManagerProps {

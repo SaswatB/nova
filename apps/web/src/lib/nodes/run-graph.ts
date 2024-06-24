@@ -24,7 +24,8 @@ import { WebResearchHelperNNode } from "./defs/WebResearchHelperNNode";
 import { WebResearchOrchestratorNNode } from "./defs/WebResearchOrchestratorNNode";
 import { WebScraperNNode } from "./defs/WebScraperNNode";
 import { aiChat, aiJson, aiScrape, aiWebSearch } from "./ai-chat";
-import { NNodeDef, NNodeResult, NNodeValue, NodeRunnerContext, ProjectContext } from "./node-types";
+import { NNodeDef, NNodeResult, NNodeValue, NodeRunnerContext } from "./node-types";
+import { ProjectContext } from "./project-ctx";
 import {
   CreateNodeRef,
   isNodeRef,

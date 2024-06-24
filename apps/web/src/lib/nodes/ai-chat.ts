@@ -3,7 +3,7 @@ import zodToJsonSchema from "zod-to-json-schema";
 
 import { generateCacheKey } from "../hash";
 import { RouterInput } from "../trpc-client";
-import { ProjectContext } from "./node-types";
+import { ProjectContext } from "./project-ctx";
 
 const SYSTEM_PROMPT = `
 You are an expert staff level software engineer.

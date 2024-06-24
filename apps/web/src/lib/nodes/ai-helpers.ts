@@ -4,7 +4,7 @@ import { z } from "zod";
 import { ProjectSettings } from "@repo/shared";
 
 import { NodeRunnerContext } from "./node-types";
-import { DEFAULT_RULES } from "./projectctx-constants";
+import { DEFAULT_RULES } from "./project-ctx";
 
 export async function getRelevantFiles(nrc: NodeRunnerContext, files: string[], document: string) {
   const RelevantFilesSchema = z.object({ files: z.array(z.string()) });

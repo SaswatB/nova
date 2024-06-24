@@ -5,7 +5,7 @@ import { dirname, join } from "path";
 import { simpleGit } from "simple-git";
 import { fileURLToPath } from "url";
 
-import { ProjectContext } from "@repo/web/src/lib/nodes/node-types";
+import { ProjectContext } from "@repo/web/src/lib/nodes/project-ctx";
 import { DEFAULT_EXTENSIONS, DEFAULT_RULES } from "@repo/web/src/lib/nodes/projectctx-constants";
 import { GraphRunner } from "@repo/web/src/lib/nodes/run-graph";
 

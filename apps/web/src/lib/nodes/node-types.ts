@@ -4,7 +4,7 @@ import { UnknownKeysParam, z, ZodTypeAny } from "zod";
 import { ProjectSettings } from "@repo/shared";
 
 import { ReadFileResult } from "../files";
-import { AppTRPCClient, RouterInput, RouterOutput } from "../trpc-client";
+import { RouterInput, RouterOutput } from "../trpc-client";
 import { CreateNodeRef, ResolveRefs } from "./ref-types";
 
 export interface NNodeDef<
@@ -44,26 +44,6 @@ export function createNodeDef<
   },
 ): NNodeDef<TypeId, Value, Result> {
   return { typeId, valueSchema, resultSchema, ...funcs };
-}
-
-export interface ProjectContext {
-  settings: ProjectSettings;
-
-  trpcClient: AppTRPCClient;
-  dryRun: boolean;
-
-  ensureFS: () => Promise<void>;
-  readFile: (path: string) => Promise<ReadFileResult>;
-  writeFile: (path: string, content: string) => Promise<string>;
-  deleteFile: (path: string) => Promise<void>;
-
-  displayToast: (message: string, options?: ToastOptions) => void;
-  showRevertFilesDialog: (files: { path: string; original: string }[]) => Promise<string[]>;
-  projectCacheGet: <T>(key: string) => Promise<T | undefined>;
-  projectCacheSet: (key: string, value: unknown) => Promise<void>;
-  globalCacheGet: <T>(key: string) => Promise<T | undefined>;
-  globalCacheSet: (key: string, value: unknown) => Promise<void>;
-  writeDebugFile: (name: string, content: string) => void;
 }
 
 export interface NodeRunnerContext {

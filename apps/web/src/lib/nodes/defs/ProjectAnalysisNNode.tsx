@@ -6,7 +6,7 @@ import { Well } from "../../../components/base/Well";
 import { readFilesRecursively } from "../../files";
 import { generateCacheKey } from "../../hash";
 import { createNodeDef, NodeRunnerContext } from "../node-types";
-import { getEffectiveExtensions } from "../projectctx-constants";
+import { getEffectiveExtensions } from "../project-ctx";
 
 const ResearchedFile = z.object({
   path: z.string(),
