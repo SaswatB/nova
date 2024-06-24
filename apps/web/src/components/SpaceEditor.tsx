@@ -65,6 +65,12 @@ const getProjectContext = (
     await writable.close();
     return originalContent;
   },
+  deleteFile: async (path) => {
+    const fileHandle = await getFileHandleForPath(dirname(path), folderHandle);
+    if (fileHandle?.kind !== "directory") throw new Error(`Directory not found: ${dirname(path)}`);
+    const name = path.split("/").at(-1)!;
+    await fileHandle.removeEntry(name);
+  },
 
   projectCacheGet: (key) => idb.get(idbKey.projectCache(projectId, key)),
   projectCacheSet: (key, value) => idb.set(idbKey.projectCache(projectId, key), value),

@@ -1,6 +1,6 @@
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import duckdb from "duckdb";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { simpleGit } from "simple-git";
 import { fileURLToPath } from "url";
@@ -56,6 +56,10 @@ async function runGoal(rootDirectory: string, goal: string) {
       writeFileSync(fullPath, content);
       return originalContent;
     },
+    deleteFile: async (path) => {
+      const fullPath = join(rootDirectory, path);
+      if (existsSync(fullPath)) unlinkSync(fullPath);
+    },
     displayToast: (message) => console.log(message),
     showRevertFilesDialog: (files) => Promise.resolve(files.map((f) => f.path)),
     projectCacheGet: (key) => cacheGet(`${projectId}-${key}`),
@@ -64,7 +68,7 @@ async function runGoal(rootDirectory: string, goal: string) {
     globalCacheSet: cacheSet,
     writeDebugFile: (name, content) => writeFileSync(name, content),
   };
-  const runner = GraphRunner.fromGoal(projectContext, goal, false, []);
+  const runner = GraphRunner.fromGoal(projectContext, { goal, enableWebResearch: false, images: [] });
   await runner.run();
 }
 

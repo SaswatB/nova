@@ -123,37 +123,62 @@ ${rawChangeSet}`.trim(),
 ${rawChangeSet}
 </change_set>
 
-Go through the given changeset section by section.
-Output verbatim any section (with comments) that is relevant to the file at "${path}".
-Do not output anything else and do not modify the sections.
-`.trim(),
-                //                 content: `
-                // <change_set>
-                // ${rawChangeSet}
-                // </change_set>
+# Change Set Extraction Prompt
 
-                // Please extract and output only the contents of the given change set document that are relevant to the file at "${path}".
-                // Do not calculate or output a diff.
-                // Ensure the output retains the original markdown format & content, but only includes the relevant sections for the specified file.
-                // Do not attempt to merge snippets or omit comments for snippets.
-                // Only keep snippets that are relevant for the given file.
+Given the change set enclosed in <change_set> tags and a specific file path, extract and output only the relevant sections for that file. Follow these guidelines:
 
-                // <example_output>
-                // Now, let's modify the PaperDialog component:
+1. Analyze the change set section by section.
+2. Output only sections that explicitly mention or are relevant to the file at "${path}".
+3. Preserve the original formatting, including markdown, code blocks, and comments.
+4. Do not modify, merge, or omit any content from the relevant sections.
+5. Include all comments associated with the relevant sections.
+6. Do not add any explanations or modifications to the extracted content.
+7. If a section contains multiple file changes, only include the parts specific to "${path}".
 
-                // * Add the following import to PaperDialog.tsx:
+Output Structure:
+- Begin each section with the original heading or comment.
+- Use original markdown formatting for code blocks (\`\`\`) and other elements.
+- Separate distinct changes or steps with a horizontal rule (---).
 
-                // \`\`\`typescript
-                // import { TabNav } from "./base/TabNav";
-                // \`\`\`
+Example Output:
 
-                // * Add a new state for the active tab in PaperDialog.tsx:
+\`\`\`markdown
+## Modify ComponentA.tsx
 
-                // \`\`\`typescript
-                // const [activeTab, setActiveTab] = useState("overview");
-                // \`\`\`
-                // </example_output>
-                // `.trim(),
+Add the following import:
+
+\`\`\`typescript
+import { NewFeature } from './NewFeature';
+\`\`\`
+
+Update the render function:
+
+\`\`\`typescript
+function render() {
+  return (
+    <div>
+      <NewFeature />
+      {/* Existing content */}
+    </div>
+  );
+}
+\`\`\`
+
+---
+
+## Update ComponentA.tsx styles
+
+Add this CSS class:
+
+\`\`\`css
+.new-feature {
+  color: blue;
+  font-weight: bold;
+}
+\`\`\`
+
+Now, process the following change set and extract only the parts relevant to "${path}":
+                `.trim(),
               },
             ]);
 

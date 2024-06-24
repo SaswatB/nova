@@ -35,9 +35,10 @@ Based on the research, please identify the relevant files for the goal.
 The relevant files are the ones that are most likely to be impacted by the goal and may need to be modified or extended to support the new functionality.
 Related files may also include files that would be useful to reference or provide context for the changes.
 Also include 1 level of important dependencies for each file, with the full path to the dependency.
-Finally, included a few files that can be used as inspiration for the changes.
-I'd also recommend including the file paths for any relevant files that define dependencies, like a package.json or requirements.txt.
+Finally, include a few files that can be used as inspiration for the changes.
+I'd also recommend including any relevant files that define dependencies, like a package.json or requirements.txt.
 Do not output code or code snippets, and do not attempt to create a plan to achieve the goal, an engineer will take the files you produce and create a plan with that additional context.
+Do not list a file more than once.
 `.trim(),
         },
       ]);

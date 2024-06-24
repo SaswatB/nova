@@ -84,6 +84,7 @@ export type NNodeTraceEvent =
       path: string;
       content: string;
       original?: string;
+      created?: boolean;
       dryRun?: boolean;
       timestamp: number;
       runId: string;
@@ -295,8 +296,8 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           return;
         }
 
-        const original = await this.writeFile(path, content);
-        this.addNodeTrace(node, { type: "write-file", path, content, original });
+        const { original, created } = await this.writeFile(path, content);
+        this.addNodeTrace(node, { type: "write-file", path, content, original, created });
       },
 
       getCache: async (key, schema) => {
@@ -483,7 +484,14 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 
   public async writeFile(path: string, content: string) {
     console.log("[GraphRunner] Write file", path);
-    return this.projectContext.writeFile(path, content);
+    const fileExisted = (await this.projectContext.readFile(path)).type !== "not-found";
+    const result = await this.projectContext.writeFile(path, content);
+    return { original: result, created: !fileExisted };
+  }
+
+  public async deleteFile(path: string) {
+    console.log("[GraphRunner] Delete file", path);
+    await this.projectContext.deleteFile(path);
   }
 
   public addNode<D extends NNodeDef>(nodeDef: D, nodeValue: NNodeValue<D>, dependencies?: string[]) {
@@ -556,7 +564,11 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       if (selectedFiles.length) {
         const fileWritesToUndo = fileWrites.filter((w) => selectedFiles.includes(w.path));
         for (const write of fileWritesToUndo) {
-          await this.writeFile(write.path, write.original || "");
+          if (write.created) {
+            await this.deleteFile(write.path);
+          } else {
+            await this.writeFile(write.path, write.original || "");
+          }
         }
         this.projectContext.displayToast(
           `Reverted ${fileWritesToUndo.length} file${fileWritesToUndo.length > 1 ? "s" : ""}`,

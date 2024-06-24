@@ -55,6 +55,7 @@ export interface ProjectContext {
   ensureFS: () => Promise<void>;
   readFile: (path: string) => Promise<ReadFileResult>;
   writeFile: (path: string, content: string) => Promise<string>;
+  deleteFile: (path: string) => Promise<void>;
 
   displayToast: (message: string, options?: ToastOptions) => void;
   showRevertFilesDialog: (files: { path: string; original: string }[]) => Promise<string[]>;
