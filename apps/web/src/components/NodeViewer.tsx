@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { Button, Tabs } from "@radix-ui/themes";
 import { startCase } from "lodash";
@@ -9,6 +9,43 @@ import { formatError } from "../lib/err";
 import { GraphRunner, GraphRunnerData, NNode, resolveNodeValueRefs } from "../lib/nodes/run-graph";
 import { TraceElementList, traceElementSourceSymbol } from "./TraceElementView";
 import { createImagesField, createTextAreaRefArrayField, createTextAreaRefField, ZodForm } from "./ZodForm";
+
+const CollapsibleContent = styled("div", {
+  base: {
+    minHeight: "100px",
+    overflow: "hidden",
+    position: "relative",
+  },
+  variants: {
+    hideInput: {
+      true: {
+        maxHeight: "100px",
+      },
+      false: {
+        maxHeight: "none",
+      },
+    },
+    isOverflowing: {
+      true: {
+        "&::after": {
+          content: '""',
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: "20px",
+          background: "linear-gradient(transparent, var(--colors-background-secondary))",
+          opacity: 1,
+        },
+      },
+      false: {
+        "&::after": {
+          opacity: 0,
+        },
+      },
+    },
+  },
+});
 
 export function NodeViewer({
   graphData,
@@ -27,6 +64,8 @@ export function NodeViewer({
 }) {
   const [editInput, setEditInput] = useState(false);
   const [hideInput, setHideInput] = useState(true);
+  const [isContentOverflowing, setIsContentOverflowing] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const nodeDef = useMemo(() => graphRunner?.getNodeDef(node), [graphRunner, node]);
 
@@ -42,6 +81,12 @@ export function NodeViewer({
       return [error, error];
     }
   }, [nodeDef, node.value, graphData, node.state?.result]);
+
+  useEffect(() => {
+    if (contentRef.current) {
+      setIsContentOverflowing(contentRef.current.scrollHeight > contentRef.current.clientHeight);
+    }
+  }, [nodeInputs]);
 
   return (
     <Stack css={{ p: 24, gap: 0, overflowY: "auto" }}>
@@ -69,18 +114,9 @@ export function NodeViewer({
           {nodeInputs ? (
             <>
               <Flex>
-                <styled.div css={{ mb: hideInput ? 0 : 8 }}>Inputs</styled.div>
+                <styled.div css={{ mb: 8 }}>Inputs</styled.div>
                 <styled.div css={{ flex: 1 }} />
                 <Flex css={{ gap: 8 }}>
-                  {editInput ? null : hideInput ? (
-                    <Button variant="soft" size="1" onClick={() => setHideInput(false)}>
-                      Expand
-                    </Button>
-                  ) : (
-                    <Button variant="soft" size="1" onClick={() => setHideInput(true)}>
-                      Collapse
-                    </Button>
-                  )}
                   {hideInput ? null : editInput ? (
                     <Button variant="soft" size="1" color="red" onClick={() => setEditInput(false)}>
                       Cancel
@@ -90,9 +126,14 @@ export function NodeViewer({
                       Edit
                     </Button>
                   )}
+                  {editInput ? null : (
+                    <Button variant="soft" size="1" onClick={() => setHideInput(!hideInput)}>
+                      {hideInput ? "Expand" : "Show Less"}
+                    </Button>
+                  )}
                 </Flex>
               </Flex>
-              {hideInput || !nodeDef ? null : editInput ? (
+              {!nodeDef ? null : editInput ? (
                 <ZodForm
                   schema={nodeDef.valueSchema}
                   defaultValues={node.value}
@@ -119,7 +160,13 @@ export function NodeViewer({
                   saveButtonText="Save & Reset Node"
                 />
               ) : (
-                <Stack>{nodeInputs}</Stack>
+                <CollapsibleContent
+                  ref={contentRef}
+                  hideInput={hideInput}
+                  isOverflowing={hideInput && isContentOverflowing}
+                >
+                  <Stack>{nodeInputs}</Stack>
+                </CollapsibleContent>
               )}
             </>
           ) : null}
