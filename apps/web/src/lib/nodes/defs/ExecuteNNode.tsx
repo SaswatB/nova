@@ -35,6 +35,9 @@ export const ExecuteNNode = createNodeDef(
 
       const executePrompt = `
 ${xmlProjectSettings(nrc.settings)}
+<knownFiles>
+${researchResult.files.map((f) => f.path).join("\n")}
+</knownFiles>
 ${xmlFileSystemResearch(researchResult, { showResearch: true, showFileContent: true, filterFiles: (f) => value.relevantFiles.includes(f) })}
 <instructions>
 ${value.instructions}

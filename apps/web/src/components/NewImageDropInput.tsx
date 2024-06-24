@@ -67,50 +67,55 @@ export function NewImageDropInput({
       {...getRootProps()}
       css={{
         border: "1px solid",
-        borderColor: isDragActive ? "white" : "white/40",
+        borderColor: isDragActive ? "white" : "white/20",
         borderRadius: "4px",
         padding: "20px",
         textAlign: "center",
         cursor: "pointer",
         backgroundColor: isDragActive ? "white/10" : "black/25",
+        color: "white/80",
       }}
     >
       <input {...getInputProps()} />
-      {processingImages ? (
-        <p>Processing images ...</p>
-      ) : isDragActive ? (
-        <p>Drop the images here ...</p>
-      ) : (
-        <p>Drag 'n' drop some images here, or click to select images</p>
-      )}
-      <Flex css={{ flexWrap: "wrap", gap: "10px", marginTop: "10px" }}>
-        {value?.map((image, index) => (
-          <styled.div key={index} css={{ position: "relative" }}>
-            <styled.img
-              src={image}
-              alt={`uploaded-${index}`}
-              css={{ width: "100px", height: "100px", objectFit: "contain", backgroundColor: "black" }}
-            />
-            <IconButton
-              color="red"
-              variant="soft"
-              className={css({
-                position: "absolute",
-                top: "5px",
-                right: "5px",
-                padding: "2px 5px",
-                fontSize: "12px",
-              })}
-              onClick={(e) => {
-                e.stopPropagation();
-                onChangeRef.current(value.filter((_, i) => i !== index));
-              }}
-            >
-              <TrashIcon />
-            </IconButton>
-          </styled.div>
-        ))}
-      </Flex>
+      <styled.p css={{ fontSize: "14px" }}>
+        {processingImages
+          ? "Processing images ..."
+          : isDragActive
+            ? "Drop the images here ..."
+            : "Drag 'n' drop some images here, or click to select images"}
+      </styled.p>
+      {value?.length ? (
+        <Flex css={{ flexWrap: "wrap", gap: "10px", marginTop: "10px" }}>
+          {value.map((image, index) => (
+            <styled.div key={index} css={{ position: "relative", borderRadius: "4px", overflow: "hidden" }}>
+              <styled.img
+                src={image}
+                alt={`uploaded-${index}`}
+                css={{ width: "100px", height: "100px", objectFit: "contain", backgroundColor: "black/50" }}
+              />
+              <IconButton
+                color="red"
+                variant="soft"
+                className={css({
+                  position: "absolute",
+                  top: "5px",
+                  right: "5px",
+                  padding: "2px 5px",
+                  fontSize: "12px",
+                  backgroundColor: "white/20",
+                  "&:hover": { backgroundColor: "white/40" },
+                })}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChangeRef.current(value.filter((_, i) => i !== index));
+                }}
+              >
+                <TrashIcon />
+              </IconButton>
+            </styled.div>
+          ))}
+        </Flex>
+      ) : null}
     </styled.div>
   );
 }
