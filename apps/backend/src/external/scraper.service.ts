@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer";
+import puppeteer, { TimeoutError } from "puppeteer";
 import { singleton } from "tsyringe";
 
 import { env } from "../lib/env";
@@ -14,7 +14,13 @@ export class ScraperService {
     const browser = await this.getBrowser();
     try {
       const page = await browser.newPage();
-      await page.goto(url, { waitUntil: "networkidle2", timeout: 15000 });
+      try {
+        await page.goto(url, { waitUntil: "networkidle2", timeout: 15000 });
+      } catch (e) {
+        console.error("Error navigating to URL", e);
+        // if the navigation timed out, try to get whatever has loaded
+        if (!(e instanceof TimeoutError)) throw e;
+      }
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       const title = await page.title();
