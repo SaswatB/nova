@@ -182,7 +182,9 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     [TypescriptDepAnalysisNNode.typeId]: TypescriptDepAnalysisNNode,
     [WebResearchNNode.typeId]: WebResearchNNode,
   };
+
   private runId = "";
+  private abortController: AbortController | null = null;
 
   private constructor(private projectContext: ProjectContext) {
     super();
@@ -211,9 +213,11 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
    */
   private async startNode<D extends NNodeDef>(
     node: NNode<D>,
+    signal: AbortSignal,
     queueNode: (node: NNode) => void,
     waitForNode: <D2 extends NNodeDef>(node: NNode<D2>) => Promise<NNodeResult<D2>>,
   ): Promise<NNodeResult<D>> {
+    if (signal.aborted) throw new RunStoppedError();
     console.log("[GraphRunner] Starting node", node.value);
     this.addTrace({ type: "start-node", node });
 
@@ -317,7 +321,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         try {
           const traceId = newId.traceChat();
           this.addNodeTrace(node, { type: "ai-chat-request", chatId: traceId, model, messages });
-          const result = await aiChat(this.projectContext, model, messages);
+          const result = await aiChat(this.projectContext, model, messages, signal);
           console.log("[GraphRunner] AI chat result", result);
           this.addNodeTrace(node, { type: "ai-chat-response", chatId: traceId, result });
           return result;
@@ -337,7 +341,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
             input: data,
             prompt,
           });
-          const result = await aiJson(this.projectContext, "gpt4o", schema, data, prompt);
+          const result = await aiJson(this.projectContext, "gpt4o", schema, data, prompt, signal);
           console.log("[GraphRunner] AI JSON result", result);
           this.addNodeTrace(node, {
             type: "ai-json-response",
@@ -355,7 +359,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         try {
           const traceId = newId.traceChat();
           this.addNodeTrace(node, { type: "ai-web-search-request", chatId: traceId, query });
-          const result = await aiWebSearch(this.projectContext, query);
+          const result = await aiWebSearch(this.projectContext, query, signal);
           console.log("[GraphRunner] AI Web Search result", result);
           this.addNodeTrace(node, { type: "ai-web-search-response", chatId: traceId, result });
           return result;
@@ -375,7 +379,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
             url,
             prompt,
           });
-          const result = await aiScrape(this.projectContext, schema, url, prompt);
+          const result = await aiScrape(this.projectContext, schema, url, prompt, signal);
           console.log("[GraphRunner] AI Scrape result", result);
           this.addNodeTrace(node, {
             type: "ai-scrape-response",
@@ -413,8 +417,14 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     return result;
   }
 
-  public async run() {
+  public async run(signal?: AbortSignal) {
     this.runId = newId.graphRun();
+    this.abortController = new AbortController();
+    const abortSignal = signal ? AbortSignal.any([signal, this.abortController.signal]) : this.abortController.signal;
+    const abortPromise = new Promise((resolve, reject) => {
+      abortSignal.addEventListener("abort", () => reject(new RunStoppedError()), { once: true });
+    });
+
     try {
       this.addTrace({ type: "start" });
       await this.projectContext.ensureFS();
@@ -438,7 +448,12 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
             node.id,
             (async () => {
               try {
-                return await this.startNode(node, (newNode) => runStack.push(newNode), startNodeWrapped as any);
+                return await this.startNode(
+                  node,
+                  abortSignal,
+                  (newNode) => runStack.push(newNode),
+                  startNodeWrapped as any,
+                );
               } catch (e) {
                 console.error("[GraphRunner] Node failed", node.value, e);
                 (node.state ||= {}).error = e;
@@ -461,13 +476,18 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         runnableNodes.forEach((node) => runStack.splice(runStack.indexOf(node), 1));
 
         // run all runnable nodes in parallel
-        await Promise.all(runnableNodes.map(startNodeWrapped));
+        await Promise.race([Promise.all(runnableNodes.map(startNodeWrapped)), abortPromise]);
       }
       // todo clean up any outstanding promises with rejects
     } finally {
       this.addTrace({ type: "end" });
       this.runId = "";
+      this.abortController = null;
     }
+  }
+
+  public stopRun(): void {
+    this.abortController?.abort();
   }
 
   public toData() {
@@ -703,4 +723,11 @@ export function resolveNodeValueRefs<T extends NNodeDef>(
         throwError(`Node ref not resolved: ${key}`);
   });
   return resolved;
+}
+
+export class RunStoppedError extends Error {
+  public constructor() {
+    super("Run was stopped");
+    this.name = "RunStoppedError";
+  }
 }

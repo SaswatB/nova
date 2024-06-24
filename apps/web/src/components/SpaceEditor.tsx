@@ -454,9 +454,15 @@ Currently working on the project "${projectName}".
                   </Flex>
                 </label>
 
-                <Button color="green" loading={runGraph.loading} onClick={() => void runGraph.execute()}>
-                  Run
-                </Button>
+                {!runGraph.loading ? (
+                  <Button color="green" onClick={() => void runGraph.execute()}>
+                    Run
+                  </Button>
+                ) : (
+                  <Button color="red" onClick={() => void graphRunner?.stopRun()}>
+                    Stop
+                  </Button>
+                )}
               </Flex>
             }
           />
