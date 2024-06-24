@@ -9,6 +9,7 @@ import {
   UseFormRegisterReturn,
   UseFormReturn,
 } from "react-hook-form";
+import TextareaAutosize from "react-textarea-autosize";
 import { Link1Icon, TrashIcon } from "@radix-ui/react-icons";
 import { Button, Checkbox, IconButton, TextArea, TextField, Tooltip } from "@radix-ui/themes";
 import { startCase } from "lodash";
@@ -153,10 +154,29 @@ export function ZodForm<T extends Record<string, unknown>>({
     </Stack>
   );
 }
+const textareaStyles = {
+  width: "100%",
+  resize: "none",
+  padding: "8px",
+  borderRadius: "4px",
+  border: "1px solid",
+  borderColor: "white/20",
+  backgroundColor: "black/25",
+  color: "white",
+  "&:focus": {
+    outlineColor: "accent.primary",
+  },
+};
 
 export const createTextAreaField = (placeholder: string): FieldOverride<any> => ({
   renderField: ({ register, onSubmit }) => (
-    <TextArea resize="vertical" placeholder={placeholder} {...register()} onKeyDown={onSubmitEnter(onSubmit)} />
+    <TextareaAutosize
+      placeholder={placeholder}
+      {...register()}
+      onKeyDown={onSubmitEnter(onSubmit)}
+      minRows={3}
+      className={css(textareaStyles)}
+    />
   ),
 });
 
@@ -188,14 +208,12 @@ function TextAreaRefField({
   });
   const isRef = isNodeRef(field.value);
   const refNode = isRef ? graphData.nodes[field.value.nodeId] : undefined;
-  const refValue = refNode ? resolveNodeRef(field.value, graphData.nodes) : undefined; // todo print if ref is broken?
+  const refValue = refNode ? resolveNodeRef(field.value, graphData.nodes) : undefined;
 
   return (
     <Flex css={{ width: "100%" }}>
-      <TextArea
-        ref={field.ref}
-        className={css({ flex: 1 })}
-        resize="vertical"
+      <TextareaAutosize
+        className={css({ ...textareaStyles, flex: 1 })}
         name={field.name}
         value={
           isRef
@@ -206,6 +224,7 @@ function TextAreaRefField({
         onBlur={field.onBlur}
         onChange={field.onChange}
         onKeyDown={onSubmitEnter(onSubmit)}
+        minRows={3}
       />
 
       {isRef ? <ResetRefButton onClick={() => field.onChange(refValue)} /> : null}

@@ -1,18 +1,20 @@
 import { defineConfig, defineGlobalStyles } from "@pandacss/dev";
 
 const colors = {
-  // Primary
+  // Accent, matched with radix themes
   indigo: {
-    50: "#E0E8F9",
-    100: "#BED0F7",
-    200: "#98AEEB",
-    300: "#7B93DB",
-    400: "#647ACB",
-    500: "#4C63B6",
-    600: "#4055A8",
-    700: "#35469C",
-    800: "#2D3A8C",
-    900: "#19216C",
+    50: "#D6E1FF",
+    100: "#9EB1FF",
+    200: "#5472E4",
+    300: "#3E63DD",
+    400: "#435DB1",
+    500: "#3A4F97",
+    600: "#304384",
+    700: "#253974",
+    800: "#1D2E62",
+    900: "#182449",
+    950: "#141726",
+    1000: "#11131F",
   },
   // Neutrals
   "cool-grey": {

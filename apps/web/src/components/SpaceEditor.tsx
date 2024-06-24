@@ -365,6 +365,7 @@ export function SpaceEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graphRunner]);
   const runGraph = useAsyncCallback(async () => (graphRunner || undefined)?.run(), {
+    onSuccess: () => toast.success("Nova finished running."),
     onError: (error) => {
       console.error(error);
       toast.error(error.message);

@@ -20,7 +20,7 @@ export const WebScraperNNode = createNodeDef(
           title: z.string().optional(),
           relevantInfo: z.string(),
           keyPoints: z.array(z.string()),
-          codeSnippets: z.array(z.string()),
+          codeSnippets: z.array(z.string({ description: "Code snippet blocks, with comments, in markdown" })),
           helpfulLinks: z.array(z.object({ url: z.string(), justification: z.string() })),
         }),
         value.url,
@@ -44,7 +44,7 @@ export const WebScraperNNode = createNodeDef(
           {res.keyPoints.map((point, index) => `${index + 1}. ${point}`).join("\n")}
         </Well>
         <Well title="Code Snippets" markdownPreferred>
-          {res.codeSnippets.map((snippet, index) => `Snippet ${index + 1}:\n\`\`\`\n${snippet}\n\`\`\``).join("\n\n")}
+          {res.codeSnippets.map((snippet, index) => `Snippet ${index + 1}:\n${snippet}`).join("\n\n")}
         </Well>
         <Well title="Helpful Links" markdownPreferred>
           {res.helpfulLinks

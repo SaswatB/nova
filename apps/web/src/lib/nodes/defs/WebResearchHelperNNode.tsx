@@ -116,19 +116,23 @@ Highlight any gaps in the current information or areas that might benefit from f
         finalResult += (finalResult ? "\n\n" : "") + `Iteration ${i + 1}:\n${iterationSummary}`;
 
         const continueResearch = await nrc.aiJson(
-          z.object({ shouldContinue: z.boolean(), urls: z.array(z.string()).optional() }),
+          z.object({
+            shouldContinue: z.boolean(),
+            justification: z.string(),
+            prioritizedUrls: z.array(z.string()).optional(),
+          }),
           finalResult,
           `
 Based on the current research progress, should we continue with another iteration of search to gather more information for the research query: "${value.query}"?
 Consider if there are significant gaps or if the current information is sufficient.
 Respond with true to continue or false to conclude the research.
-If you continue, provide an array of URLs to search for in the next iteration.
+If you continue, provide an array of the best URLs to search for in the next iteration, (only if any look promising).
 If you choose to continue, consider adding urls that would be good candidates for further research.
           `.trim(),
         );
 
         if (!continueResearch.shouldContinue) break;
-        linksToVisit = continueResearch.urls?.filter((url) => finalResult.includes(url)) || []; // only allow links that are explicitly mentioned in the final result (to avoid hallucinations)
+        linksToVisit = continueResearch.prioritizedUrls?.filter((url) => finalResult.includes(url)) || []; // only allow links that are explicitly mentioned in the final result (to avoid hallucinations)
       }
 
       const finalSummary = finalResult

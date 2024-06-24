@@ -47,6 +47,6 @@ ${prompt}
   private getBrowser() {
     return env.DOPPLER_ENVIRONMENT !== "dev"
       ? puppeteer.connect({ browserWSEndpoint: `wss://chrome.browserless.io?token=${env.BROWSERLESS_API_KEY}` })
-      : puppeteer.launch({ headless: true, timeout: 100000, defaultViewport: null, args: [] });
+      : puppeteer.launch({ headless: false, timeout: 100000, defaultViewport: null, args: [] });
   }
 }
