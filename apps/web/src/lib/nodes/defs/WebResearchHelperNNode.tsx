@@ -20,17 +20,21 @@ export const WebResearchHelperNNode = createNodeDef(
       const performSearch = async (query: string, context: string) => {
         // generate search terms
         const { terms } = await nrc.aiJson(
-          z.object({ terms: z.array(z.string()).min(0).max(3) }),
-          `<query>\n${query}\n</query>\n<context>\n${context}\n</context>`,
+          z.object({ terms: z.array(z.string()).min(0) }),
           `
-Based on the research query and any previous context, suggest 1-3 specific search terms that would be effective for a web search.
+<query>
+${query}
+</query>
+${context ? `<context>\n${context}\n</context>` : ""}`.trim(),
+          `
+Based on the research query and any previous context, suggest 1-3 specific search terms, ordered in relevance to the research query, that would be effective for a web search.
 Focus on terms that will yield diverse and relevant results.
 If the provided context sufficiently answers the research query, you can return an empty array.
           `.trim(),
         );
 
         // perform the search
-        const searchResults = (await Promise.all(terms.map((term) => nrc.aiWebSearch(term)))).flat();
+        const searchResults = (await Promise.all(terms.slice(0, 3).map((term) => nrc.aiWebSearch(term)))).flat();
 
         // evaluate the search results
         const relevantResults = await nrc.aiJson(
