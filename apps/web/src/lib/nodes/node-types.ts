@@ -7,12 +7,26 @@ import { ReadFileResult } from "../files";
 import { RouterInput, RouterOutput } from "../trpc-client";
 import { CreateNodeRef, ResolveRefs } from "./ref-types";
 
+export enum NodeScopeType {
+  Space, // top level, only one in a graph
+  Task,
+}
+export type NodeScopeDef =
+  | { type: NodeScopeType.Space }
+  | { type: NodeScopeType.Task; value: "code-change" | "web-research" };
+export const NSDef = {
+  space: { type: NodeScopeType.Space },
+  codeChange: { type: NodeScopeType.Task, value: "code-change" },
+  webResearch: { type: NodeScopeType.Task, value: "web-research" },
+} satisfies Record<string, NodeScopeDef>;
+
 export interface NNodeDef<
   TypeId extends string = string,
   Value extends Record<string, unknown> = any,
   Result extends Record<string, unknown> = any,
 > {
   typeId: TypeId;
+  scopeDef?: NodeScopeDef;
   valueSchema: z.ZodObject<{ [K in keyof Value]: z.ZodType<Value[K]> }, UnknownKeysParam, ZodTypeAny, Value, Value>;
   resultSchema: z.ZodObject<
     { [K in keyof Result]: z.ZodType<Result[K]> },
@@ -33,7 +47,7 @@ export function createNodeDef<
   Value extends Record<string, unknown>,
   Result extends Record<string, unknown>,
 >(
-  typeId: TypeId,
+  options: TypeId | { typeId: TypeId; scopeDef?: NodeScopeDef },
   valueSchema: NNodeDef<TypeId, Value, Result>["valueSchema"],
   resultSchema: NNodeDef<TypeId, Value, Result>["resultSchema"],
   funcs: {
@@ -43,7 +57,8 @@ export function createNodeDef<
     renderResult: Result extends Record<string, unknown> ? NNodeDef<TypeId, Value, Result>["renderResult"] : never;
   },
 ): NNodeDef<TypeId, Value, Result> {
-  return { typeId, valueSchema, resultSchema, ...funcs };
+  const o = typeof options === "string" ? { typeId: options } : options;
+  return { ...o, valueSchema, resultSchema, ...funcs };
 }
 
 export interface NodeRunnerContext {
@@ -53,11 +68,10 @@ export interface NodeRunnerContext {
   getOrAddDependencyForResult: <T extends NNodeDef>(
     nodeDef: T,
     nodeValue: NNodeValue<T>,
-    inheritDependencies?: boolean,
   ) => Promise<NNodeResult<T> & { createNodeRef: CreateNodeRef /* create a reference to the dependency node */ }>;
   findNodeForResult: <T extends NNodeDef>(
     nodeDef: T,
-    filter: (node: NNodeValue<T>) => boolean,
+    filter: (node: NNodeValue<T>, extra: { scopeDef: NodeScopeDef; isCurrentScope: boolean }) => boolean,
   ) => Promise<NNodeResult<T> | null>;
   createNodeRef: CreateNodeRef; // create a reference to the current node
 

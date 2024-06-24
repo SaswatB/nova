@@ -6,7 +6,7 @@ import { z } from "zod";
 import { Flex, styled } from "../../../../styled-system/jsx/index.mjs";
 import { Well } from "../../../components/base/Well";
 import { getRelevantFiles, xmlProjectSettings } from "../ai-helpers";
-import { createNodeDef } from "../node-types";
+import { createNodeDef, NSDef } from "../node-types";
 import { orRef } from "../ref-types";
 import { ContextNNode, registerContextId } from "./ContextNNode";
 import { ExecuteNNode } from "./ExecuteNNode";
@@ -15,7 +15,7 @@ import { RelevantFileAnalysisNNode } from "./RelevantFileAnalysisNNode";
 import { WebResearchOrchestratorNNode } from "./WebResearchOrchestratorNNode";
 
 export const PlanNNode = createNodeDef(
-  "plan",
+  { typeId: "plan", scopeDef: NSDef.codeChange },
   z.object({
     goal: orRef(z.string()),
     enableWebResearch: z.boolean().default(false),
@@ -30,20 +30,12 @@ export const PlanNNode = createNodeDef(
       const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
 
       // find relevant files for the goal
-      const relevantFilesPromise = nrc.getOrAddDependencyForResult(
-        RelevantFileAnalysisNNode,
-        { goal: value.goal },
-        true,
-      );
+      const relevantFilesPromise = nrc.getOrAddDependencyForResult(RelevantFileAnalysisNNode, { goal: value.goal });
 
       // do web research if needed
       let webResearchResults: { query: string; result: string }[] = [];
       if (value.enableWebResearch) {
-        const { results } = await nrc.getOrAddDependencyForResult(
-          WebResearchOrchestratorNNode,
-          { goal: value.goal },
-          true,
-        );
+        const { results } = await nrc.getOrAddDependencyForResult(WebResearchOrchestratorNNode, { goal: value.goal });
         webResearchResults = results;
       }
 

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { Well } from "../../../components/base/Well";
 import { readFilesRecursively } from "../../files";
 import { generateCacheKey } from "../../hash";
-import { createNodeDef, NodeRunnerContext } from "../node-types";
+import { createNodeDef, NodeRunnerContext, NSDef } from "../node-types";
 import { getEffectiveExtensions } from "../project-ctx";
 
 const ResearchedFile = z.object({
@@ -214,7 +214,7 @@ ${docs.map((doc) => `<docs>\n<files>\n${doc.files.join("\n")}\n</files>\n<resear
 }
 
 export const ProjectAnalysisNNode = createNodeDef(
-  "project-analysis",
+  { typeId: "project-analysis", scopeDef: NSDef.space },
   z.object({}),
   z.object({ result: ResearchedFileSystem }),
   {

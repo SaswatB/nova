@@ -3,11 +3,12 @@ import { produce } from "immer";
 import cloneDeep from "lodash/cloneDeep";
 import get from "lodash/get";
 import isEqual from "lodash/isEqual";
+import isFunction from "lodash/isFunction";
 import uniq from "lodash/uniq";
 import { match } from "ts-pattern";
 import zodToJsonSchema from "zod-to-json-schema";
 
-import { isDefined, IterationMode, OmitUnion } from "@repo/shared";
+import { IterationMode, OmitUnion } from "@repo/shared";
 
 import { formatError, throwError } from "../err";
 import { RouterInput, RouterOutput } from "../trpc-client";
@@ -24,7 +25,7 @@ import { WebResearchHelperNNode } from "./defs/WebResearchHelperNNode";
 import { WebResearchOrchestratorNNode } from "./defs/WebResearchOrchestratorNNode";
 import { WebScraperNNode } from "./defs/WebScraperNNode";
 import { aiChat, aiJson, aiScrape, aiWebSearch } from "./ai-chat";
-import { NNodeDef, NNodeResult, NNodeValue, NodeRunnerContext } from "./node-types";
+import { NNodeDef, NNodeResult, NNodeValue, NodeRunnerContext, NodeScopeDef, NodeScopeType, NSDef } from "./node-types";
 import { ProjectContext } from "./project-ctx";
 import {
   CreateNodeRef,
@@ -137,12 +138,19 @@ export type NNodeTraceEvent =
   | { type: "error"; message: string; error: unknown; timestamp: number; runId: string }
   | { type: "result"; result: NNodeResult<NNodeDef>; timestamp: number; runId: string };
 
+export interface NNodeScope {
+  id: string;
+  def: NodeScopeDef;
+  parent: NNodeScope | null;
+}
+
 export interface NNode<D extends NNodeDef = NNodeDef> {
   id: string;
 
   typeId: D["typeId"];
   value: NNodeValue<D>;
 
+  scope: NNodeScope; // only undefined in legacy
   dependencies?: string[]; // node ids
   state?: {
     result?: NNodeResult<D>;
@@ -155,19 +163,27 @@ export interface NNode<D extends NNodeDef = NNodeDef> {
   };
 }
 
+/**
+ * Resolves nodes, respecting scope
+ */
 function findNode<D extends NNodeDef>(
-  nodes: NNode[],
+  scope: NNodeScope,
   def: D,
-  filter: (node: NNode) => boolean,
-  nodeMap: Record<string, NNode<D>>, // used to look up nodes by node ids
+  filter: NNodeValue<D> | ((node: NNode<D>) => boolean),
+  nodeMap: Record<string, NNode>, // used to look up nodes by scope
+  maxDepth = 100,
 ): NNode<D> | undefined {
-  const directDep = nodes.find((n): n is NNode<D> => n.typeId === def.typeId && filter(n));
-  if (directDep) return directDep;
-  for (const node of nodes) {
-    const found = findNode((node.dependencies || []).map((id) => nodeMap[id]).filter(isDefined), def, filter, nodeMap);
-    if (found) return found;
-  }
-  return undefined;
+  if (maxDepth === 0) return undefined;
+  const filterFunc = isFunction(filter) ? filter : (n: NNode<D>) => isEqual(n.value, filter);
+
+  // find node in current scope
+  const nodes = Object.values(nodeMap).filter((n) => n.scope.id === scope.id);
+  const nodeInScope = nodes.find((n): n is NNode<D> => n.typeId === def.typeId && filterFunc(n as NNode<D>));
+  if (nodeInScope) return nodeInScope;
+
+  // search parent scope
+  if (!scope.parent) return undefined;
+  return findNode(scope.parent, def, filterFunc, nodeMap, maxDepth - 1);
 }
 
 export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
@@ -230,18 +246,13 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
 
       addDependantNode: (newNodeDef, newNodeValue) => {
         console.log("[GraphRunner] Adding dependant node", newNodeValue);
-        const newNode = this.addNode(newNodeDef, newNodeValue, [node.id]);
+        const newNode = this.addNode(newNodeDef, newNodeValue, node.scope, [node.id]);
         ((node.state ||= {}).createdNodes ||= []).push(newNode.id);
         queueNode(newNode);
         this.addNodeTrace(node, { type: "dependant", node: newNode });
       },
-      getOrAddDependencyForResult: async (nodeDef, nodeValue, inheritDependencies) => {
-        let depNode = findNode(
-          (node.dependencies || []).map((id) => this.nodes[id]).filter(isDefined),
-          nodeDef,
-          (n) => isEqual(n.value, nodeValue),
-          this.nodes,
-        );
+      getOrAddDependencyForResult: async (nodeDef, nodeValue) => {
+        let depNode = findNode(node.scope, nodeDef, nodeValue, this.nodes);
         let subResult: NNodeResult<typeof nodeDef>;
         let existing = undefined;
         if (depNode) {
@@ -252,14 +263,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           node.dependencies = uniq([...(node.dependencies || []), depNode.id]);
         } else {
           console.log("[GraphRunner] Adding dependency node", nodeValue);
-          depNode = this.addNode(
-            nodeDef,
-            nodeValue,
-            inheritDependencies
-              ? // kinda a hack, only copy deps that are complete
-                [...(node.dependencies || []).filter((n) => this.nodes[n]?.state?.completedAt)]
-              : undefined,
-          );
+          depNode = this.addNode(nodeDef, nodeValue, node.scope);
           (node.dependencies ||= []).push(depNode.id);
           ((node.state ||= {}).createdNodes ||= []).push(depNode.id);
           this.addNodeTrace(node, { type: "dependency", node: depNode });
@@ -274,14 +278,12 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         return { ...subResult, createNodeRef };
       },
       findNodeForResult: async (nodeDef, filter) => {
-        // prefer deps, then search whole graph
-        const foundNode =
-          findNode(
-            (node.dependencies || []).map((id) => this.nodes[id]).filter(isDefined),
-            nodeDef,
-            (n) => filter(n.value),
-            this.nodes,
-          ) || Object.values(this.nodes).find((n) => n.typeId === nodeDef.typeId && filter(n.value));
+        const foundNode = findNode(
+          node.scope,
+          nodeDef,
+          (n) => filter(n.value, { scopeDef: n.scope.def, isCurrentScope: n.scope.id === node.scope.id }),
+          this.nodes,
+        );
         if (!foundNode) return null;
 
         node.dependencies = uniq([...(node.dependencies || []), foundNode.id]);
@@ -525,8 +527,35 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     await this.projectContext.deleteFile(path);
   }
 
-  public addNode<D extends NNodeDef>(nodeDef: D, nodeValue: NNodeValue<D>, dependencies?: string[]) {
-    const node: NNode<D> = { id: newId.graphNode(), typeId: nodeDef.typeId, value: nodeValue, dependencies };
+  public addNode<D extends NNodeDef>(
+    nodeDef: D,
+    nodeValue: NNodeValue<D>,
+    parentScope?: NNodeScope,
+    dependencies?: string[],
+  ) {
+    // resolve scope
+    let scope = parentScope;
+    if (!scope || nodeDef.scopeDef?.type === NodeScopeType.Space) {
+      Object.values(this.nodes).forEach((n) => {
+        if (n.scope.def.type === NodeScopeType.Space) {
+          scope = n.scope;
+        }
+      });
+      // if no space scope is found, create a new one
+      if (!scope) scope = { id: newId.nodeScope(), def: NSDef.space, parent: null };
+    }
+    // create a child scope
+    if (nodeDef.scopeDef && nodeDef.scopeDef.type !== NodeScopeType.Space) {
+      scope = { id: newId.nodeScope(), def: nodeDef.scopeDef, parent: scope };
+    }
+
+    const duplicateNode = findNode(scope, nodeDef, nodeValue, this.nodes);
+    if (duplicateNode) {
+      console.warn("[GraphRunner] Duplicate node found while adding node", nodeDef.typeId, nodeValue, duplicateNode.id);
+      return duplicateNode;
+    }
+
+    const node: NNode<D> = { id: newId.graphNode(), typeId: nodeDef.typeId, value: nodeValue, scope, dependencies };
     this.nodes[node.id] = node;
     this.emit("dataChanged");
     return node;
@@ -619,14 +648,16 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
   }
 
   public async iterate(prompt: string, iterationMode: IterationMode) {
+    // todo this should target specific nodes, not just the first one it finds
     const { node, oldGeneration, contextId } = match(iterationMode)
       .with(IterationMode.MODIFY_PLAN, () => {
         const planNode = Object.values(this.nodes).find(
           (n): n is NNode<typeof PlanNNode> => n.typeId === PlanNNode.typeId,
         );
+        if (!planNode) throw new Error("Plan node not found");
         return {
           node: planNode,
-          oldGeneration: planNode?.state?.result?.result || "No plan generated",
+          oldGeneration: planNode.state?.result?.result || "No plan generated",
           contextId: PlanNNode_ContextId,
         };
       })
@@ -634,6 +665,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         const executeNode = Object.values(this.nodes).find(
           (n): n is NNode<typeof ExecuteNNode> => n.typeId === ExecuteNNode.typeId,
         );
+        if (!executeNode) throw new Error("Execute node not found");
         return {
           node: executeNode,
           oldGeneration: executeNode?.state?.result?.result.rawChangeSet || "No change set generated",
@@ -654,15 +686,13 @@ ${prompt}
 </user_feedback>
       `.trim();
 
-    let contextNode = Object.values(this.nodes).find(
-      (n): n is NNode<typeof ContextNNode> => n.typeId === ContextNNode.typeId && n.value.contextId === contextId,
-    );
+    let contextNode = findNode(node.scope, ContextNNode, (n) => n.value.contextId === contextId, this.nodes);
     if (contextNode) {
       await this.editNode(contextNode.id, (n) => {
         n.value.context += `\n\n${newContext}`;
       });
     } else {
-      contextNode = this.addNode(ContextNNode, { contextId: contextId, context: newContext });
+      contextNode = this.addNode(ContextNNode, { contextId: contextId, context: newContext }, node?.scope);
       if (node) {
         (node.dependencies ||= []).push(contextNode.id);
         await this.resetNode(contextNode.id); // prepare for the next run

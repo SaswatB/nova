@@ -2,12 +2,12 @@ import { z } from "zod";
 
 import { Well } from "../../../components/base/Well";
 import { xmlProjectSettings } from "../ai-helpers";
-import { createNodeDef } from "../node-types";
+import { createNodeDef, NSDef } from "../node-types";
 import { ProjectAnalysisNNode, xmlFileSystemResearch } from "./ProjectAnalysisNNode";
 import { WebResearchHelperNNode } from "./WebResearchHelperNNode";
 
 export const WebResearchOrchestratorNNode = createNodeDef(
-  "web-research-orchestrator",
+  { typeId: "web-research-orchestrator", scopeDef: NSDef.webResearch },
   z.object({ goal: z.string() }),
   z.object({
     results: z.array(

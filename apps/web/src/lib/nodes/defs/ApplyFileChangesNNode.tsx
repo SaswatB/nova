@@ -1,5 +1,4 @@
 import ReactDiffViewer from "react-diff-viewer";
-import { Badge } from "@radix-ui/themes";
 import { z } from "zod";
 
 import { Well } from "../../../components/base/Well";

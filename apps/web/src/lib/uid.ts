@@ -29,6 +29,7 @@ enum ID_TYPE {
   project = "p",
   graphNode = "gn",
   graphRun = "gr",
+  nodeScope = "ns",
   frontendSession = "fs",
   space = "s",
   spacePage = "sp",

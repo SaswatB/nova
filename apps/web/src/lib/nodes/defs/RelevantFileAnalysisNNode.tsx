@@ -20,7 +20,7 @@ export const RelevantFileAnalysisNNode = createNodeDef(
       //   type: NNodeType.TypescriptDepAnalysis,
       // });
       const typescriptResult = {} as Record<string, { fileName: string }[]>;
-      const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {}, true);
+      const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
 
       const rawRelevantFiles = await nrc.aiChat("geminiFlash", [
         {
