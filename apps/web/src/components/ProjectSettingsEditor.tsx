@@ -40,7 +40,7 @@ export function ProjectSettingsEditor({ projectId, allowEdit, settings, onChange
       </Dialog.Trigger>
       <Dialog.Content style={{ maxWidth: 800, width: "90vw" }}>
         <Dialog.Title>Project Settings</Dialog.Title>
-        <styled.div css={{ display: "flex", gap: 4 }}>
+        <styled.div css={{ display: "flex", gap: 16 }}>
           <SidebarNav
             items={[
               { value: "file-access", label: "File Access" },

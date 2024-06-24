@@ -5,7 +5,6 @@ import get from "lodash/get";
 import isEqual from "lodash/isEqual";
 import uniq from "lodash/uniq";
 import { match } from "ts-pattern";
-import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
 
 import { isDefined, IterationMode, OmitUnion } from "@repo/shared";
@@ -21,7 +20,9 @@ import { PlanNNode, PlanNNode_ContextId, PlanNNodeValue } from "./defs/PlanNNode
 import { ProjectAnalysisNNode } from "./defs/ProjectAnalysisNNode";
 import { RelevantFileAnalysisNNode } from "./defs/RelevantFileAnalysisNNode";
 import { TypescriptDepAnalysisNNode } from "./defs/TypescriptDepAnalysisNNode";
-import { WebResearchNNode } from "./defs/WebResearchNNode";
+import { WebResearchHelperNNode } from "./defs/WebResearchHelperNNode";
+import { WebResearchOrchestratorNNode } from "./defs/WebResearchOrchestratorNNode";
+import { WebScraperNNode } from "./defs/WebScraperNNode";
 import { aiChat, aiJson, aiScrape, aiWebSearch } from "./ai-chat";
 import { NNodeDef, NNodeResult, NNodeValue, NodeRunnerContext, ProjectContext } from "./node-types";
 import {
@@ -180,7 +181,9 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     [ProjectAnalysisNNode.typeId]: ProjectAnalysisNNode,
     [RelevantFileAnalysisNNode.typeId]: RelevantFileAnalysisNNode,
     [TypescriptDepAnalysisNNode.typeId]: TypescriptDepAnalysisNNode,
-    [WebResearchNNode.typeId]: WebResearchNNode,
+    [WebResearchHelperNNode.typeId]: WebResearchHelperNNode,
+    [WebResearchOrchestratorNNode.typeId]: WebResearchOrchestratorNNode,
+    [WebScraperNNode.typeId]: WebScraperNNode,
   };
 
   private runId = "";

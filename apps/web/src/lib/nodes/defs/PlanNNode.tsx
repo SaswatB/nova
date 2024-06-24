@@ -12,7 +12,7 @@ import { ContextNNode, registerContextId } from "./ContextNNode";
 import { ExecuteNNode } from "./ExecuteNNode";
 import { ProjectAnalysisNNode, xmlFileSystemResearch } from "./ProjectAnalysisNNode";
 import { RelevantFileAnalysisNNode } from "./RelevantFileAnalysisNNode";
-import { WebResearchNNode } from "./WebResearchNNode";
+import { WebResearchOrchestratorNNode } from "./WebResearchOrchestratorNNode";
 
 export const PlanNNode = createNodeDef(
   "plan",
@@ -39,70 +39,10 @@ export const PlanNNode = createNodeDef(
       // do web research if needed
       let webResearchResults: { query: string; result: string }[] = [];
       if (value.enableWebResearch) {
-        const webResearchTopics = await nrc.aiJson(
-          z.object({
-            webResearchRequests: z.array(
-              z.object({
-                priority: z.union(
-                  [
-                    z.literal("explicitly-requested"),
-                    z.literal("likely-needed"),
-                    z.literal("relevant"),
-                    z.literal("helpful"),
-                    z.literal("other"),
-                  ],
-                  {
-                    description: `
-  The priority of this web research request, this influences the order in which web research is done:
-  explicitly-requested - This is a request that the user explicitly asked for
-  likely-needed - This is a request that is almost certainly needed to achieve the goal
-  relevant - This is a request that is potentially relevant but not strictly necessary to achieve the goal
-  helpful - This is a request that is potentially helpful but not strictly necessary to achieve the goal
-  other - Use this priority if none of the other options are appropriate
-                    `.trim(),
-                  },
-                ),
-                goal: z.string({
-                  description: `
-  A natural language goal to research for on the web, ex: 'Find out how Redis recommends using distributed locks, look for TypeScript examples.'. 
-  This will be sent to a person to research (not directly into a search engine) so make sure to add enough context so that the goal is clear.
-  Include info such as language, libraries, frameworks, etc. as applicable.
-                  `.trim(),
-                }),
-                urls: z
-                  .array(
-                    z.string({
-                      description:
-                        "A well formatted URL to search for on the web, this is expected to be a URL to specific content which can be used to answer the goal",
-                    }),
-                  )
-                  .optional(),
-              }),
-            ),
-          }),
-          `
-  ${xmlProjectSettings(nrc.settings)}
-  ${xmlFileSystemResearch(researchResult, { showResearch: true, filterFiles: () => false })}
-  ${extraContext ? `<extraContext>\n${extraContext.context}\n</extraContext>` : ""}
-
-  <goal>
-  ${value.goal}
-  </goal>
-
-  An engineer is about to create a plan for the given goal.
-  Please provide relevant web research requests that can help them achieve the goal, these will be researched separately and then given to the engineer to help them create the plan.
-  It's very important to consider that researching topics on the web takes time, so please provide as few requests as possible to cover the most relevant topics.
-  If you aren't confident any research needs to be done, please respond with an empty array (especially if the goal is minor).
-  `.trim(),
-        );
-        webResearchResults = await Promise.all(
-          webResearchTopics.webResearchRequests
-            .filter((r) => ["explicitly-requested", "likely-needed"].includes(r.priority))
-            .map(async (request) => {
-              const { result } = await nrc.getOrAddDependencyForResult(WebResearchNNode, { query: request.goal });
-              return { query: request.goal, result };
-            }),
-        );
+        const { results } = await nrc.getOrAddDependencyForResult(WebResearchOrchestratorNNode, {
+          goal: value.goal,
+        });
+        webResearchResults = results;
       }
 
       const { files: relevantFiles } = await relevantFilesPromise;
