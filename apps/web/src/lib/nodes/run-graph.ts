@@ -251,7 +251,14 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
           node.dependencies = uniq([...(node.dependencies || []), depNode.id]);
         } else {
           console.log("[GraphRunner] Adding dependency node", nodeValue);
-          depNode = this.addNode(nodeDef, nodeValue, inheritDependencies ? [...(node.dependencies || [])] : undefined);
+          depNode = this.addNode(
+            nodeDef,
+            nodeValue,
+            inheritDependencies
+              ? // kinda a hack, only copy deps that are complete
+                [...(node.dependencies || []).filter((n) => this.nodes[n]?.state?.completedAt)]
+              : undefined,
+          );
           (node.dependencies ||= []).push(depNode.id);
           ((node.state ||= {}).createdNodes ||= []).push(depNode.id);
           this.addNodeTrace(node, { type: "dependency", node: depNode });
