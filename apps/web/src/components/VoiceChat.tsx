@@ -77,7 +77,7 @@ export function VoiceChat() {
 
   return (
     <Stack ref={setContainer} css={{ w: "100%", alignSelf: "center" }}>
-      <Portal>
+      <Portal name="voice-portal">
         <Stack
           ref={setPortalContainer}
           css={{

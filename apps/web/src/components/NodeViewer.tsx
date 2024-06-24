@@ -164,6 +164,7 @@ export function NodeViewer({
                   ref={contentRef}
                   hideInput={hideInput}
                   isOverflowing={hideInput && isContentOverflowing}
+                  onClick={() => setHideInput(false)}
                 >
                   <Stack>{nodeInputs}</Stack>
                 </CollapsibleContent>

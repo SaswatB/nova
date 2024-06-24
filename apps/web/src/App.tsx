@@ -9,6 +9,7 @@ import { Stack } from "styled-system/jsx";
 
 import { ApiProvider } from "./components/ApiProvider";
 import { Loader } from "./components/base/Loader";
+import { Portal } from "./components/base/Portal";
 import { DialogContainer } from "./components/base/PromiseDialog";
 import { BrowserGate } from "./components/BrowserGate";
 import { OnboardingDialog } from "./components/OnboardingDialog";
@@ -64,7 +65,9 @@ export function App(): JSX.Element {
             </SignedIn>
           </BrowserGate>
         </Stack>
-        <ToastContainer position="bottom-right" theme="dark" hideProgressBar newestOnTop />
+        <Portal name="toast-portal">
+          <ToastContainer position="bottom-right" theme="dark" hideProgressBar newestOnTop />
+        </Portal>
         <DialogContainer />
         <OnboardingDialog />
       </Theme>

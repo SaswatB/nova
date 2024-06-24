@@ -115,11 +115,7 @@ export function ZodForm<T extends Record<string, unknown>>({
           <Stack key={key} css={{ gap: 1 }}>
             <label>
               <Flex css={{ alignItems: "center", gap: 8 }}>
-                <Checkbox
-                  {...register()}
-                  defaultChecked={!!form.getValues(key as Path<T>)}
-                  onCheckedChange={(e) => form.setValue(key as Path<T>, (e === true) as any, { shouldDirty: true })}
-                />
+                <CheckboxField control={form.control as any} name={key} />
                 {label}
               </Flex>
             </label>
@@ -302,3 +298,13 @@ export const createImagesField = (): FieldOverride<any> => ({
   // for base64 jpeg string array fields
   renderField: ({ form, name }) => <ImagesField control={form.control} name={name} />,
 });
+
+function CheckboxField({ control, name }: { control: Control; name: string }) {
+  const { field } = useController({
+    name,
+    control,
+    rules: { required: true },
+  });
+
+  return <Checkbox checked={field.value} onCheckedChange={(e) => field.onChange(e === true)} />;
+}

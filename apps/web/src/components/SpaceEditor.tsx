@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAsync, useAsyncCallback } from "react-async-hook";
 import { useBlocker, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -85,12 +85,24 @@ const getProjectContext = (
   writeDebugFile: () => void 0, // noop
 });
 
+function detectURL(text: string): boolean {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return urlRegex.test(text);
+}
+
 function NewPlan({ onNewGoal }: { onNewGoal: (params: PlanNNodeValue, run: boolean) => void }) {
   const [form, setForm] = useState<ZodFormRef<PlanNNodeValue> | null>(null);
   const [open, setOpen] = useState(true);
-
-  // super ugly hack, idk a better way
   const [goal, setGoal] = useState("");
+  const enabledWebResearchAutomaticallyRef = useRef(false);
+
+  useEffect(() => {
+    if (form && detectURL(goal) && !enabledWebResearchAutomaticallyRef.current) {
+      form.setValue("enableWebResearch", true, { shouldDirty: true });
+      enabledWebResearchAutomaticallyRef.current = true;
+    }
+  }, [form, goal]);
+
   useEffect(() => {
     if (!open || !form) return;
     const intervalId = setInterval(() => setGoal(`${form.getValue("goal") || ""}`), 500);
