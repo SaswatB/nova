@@ -1,6 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { GenerativeModel, GoogleGenerativeAI, Part } from "@google/generative-ai";
-import Groq from "groq-sdk";
 import { match, P } from "ts-pattern";
 import { container } from "tsyringe";
 import { z } from "zod";
@@ -42,25 +41,30 @@ export const aiRouter = router({
       }),
     )
     .mutation(async ({ input }) => {
-      return match(input.model)
-        .with("groq", () => groqChat(input.system, input.messages))
-        .with("gpt4o", () => openai.chat(input.system, input.messages))
-        .with(P.union("opus", "sonnet"), (model) => claudeChat(model, input.system, input.messages))
-        .with(P.union("gemini", "geminiFlash"), async (model) => {
-          const selectedModel = model === "gemini" ? gemini : geminiFlash;
-          try {
-            return await geminiChat(selectedModel, input.system, input.messages);
-          } catch (error1) {
-            console.error(`Failed to use ${model}, falling back to gpt4o`, error1);
+      return (
+        match(input.model)
+          // .with("groq", () => groqChat(input.system, input.messages))
+          .with("groq", () => {
+            throw new Error("Groq is not supported");
+          })
+          .with("gpt4o", () => openai.chat(input.system, input.messages))
+          .with(P.union("opus", "sonnet"), (model) => claudeChat(model, input.system, input.messages))
+          .with(P.union("gemini", "geminiFlash"), async (model) => {
+            const selectedModel = model === "gemini" ? gemini : geminiFlash;
             try {
-              return await openai.chat(input.system, input.messages);
-            } catch (error2) {
-              console.error("Failed to use gpt4o, throwing original error", error2);
-              throw error1;
+              return await geminiChat(selectedModel, input.system, input.messages);
+            } catch (error1) {
+              console.error(`Failed to use ${model}, falling back to gpt4o`, error1);
+              try {
+                return await openai.chat(input.system, input.messages);
+              } catch (error2) {
+                console.error("Failed to use gpt4o, throwing original error", error2);
+                throw error1;
+              }
             }
-          }
-        })
-        .exhaustive();
+          })
+          .exhaustive()
+      );
     }),
   json: procedure
     .input(z.object({ model: z.enum(["gpt4o"]), schema: z.record(z.unknown()), prompt: z.string(), data: z.string() }))
@@ -78,16 +82,16 @@ export const aiRouter = router({
   }),
 });
 
-const groq = new Groq({ apiKey: env.GROQ_API_KEY });
-// const groq = new OpenAI({ apiKey: env.VITE_TOGETHERAI_API_KEY, baseURL: "https://api.together.xyz/v1" });
-async function groqChat(system: string, messages: Message[]): Promise<string> {
-  const result = await groq.chat.completions.create({
-    model: "llama3-70b-8192",
-    // model: "meta-llama/Llama-3-70b-chat-hf",
-    messages: [{ role: "system", content: system }, ...messages],
-  });
-  return result.choices[0]?.message.content ?? "";
-}
+// const groq = new Groq({ apiKey: env.GROQ_API_KEY });
+// // const groq = new OpenAI({ apiKey: env.VITE_TOGETHERAI_API_KEY, baseURL: "https://api.together.xyz/v1" });
+// async function groqChat(system: string, messages: Message[]): Promise<string> {
+//   const result = await groq.chat.completions.create({
+//     model: "llama3-70b-8192",
+//     // model: "meta-llama/Llama-3-70b-chat-hf",
+//     messages: [{ role: "system", content: system }, ...messages],
+//   });
+//   return result.choices[0]?.message.content ?? "";
+// }
 
 const anthropic = new Anthropic({ apiKey: env.CLAUDE_API_KEY });
 async function claudeChat(model: "opus" | "sonnet", system: string, messages: Message[]): Promise<string> {

@@ -12,9 +12,9 @@ export const env = z
     HUME_CLIENT_SECRET: z.string(),
     GEMINI_API_KEY: z.string(),
     GOOGLESEARCH_API_KEY: z.string(),
-    GROQ_API_KEY: z.string(),
+    // GROQ_API_KEY: z.string(),
     OPENAI_API_KEY: z.string(),
     PORT: z.string().optional(),
-    TOGETHERAI_API_KEY: z.string(),
+    // TOGETHERAI_API_KEY: z.string(),
   })
   .parse(process.env);
