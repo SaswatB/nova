@@ -1,4 +1,5 @@
 import CTASection from "./components/CTASection";
+import DemoVideo from "./components/DemoVideo";
 import Features from "./components/Features";
 import Footer from "./components/Footer";
 import Header from "./components/Header";
@@ -11,6 +12,7 @@ function App() {
     <div className="App">
       <Header />
       <Hero />
+      <DemoVideo />
       <Features />
       <HowItWorks />
       <Testimonials />

@@ -3,14 +3,14 @@
 @tailwind utilities;
 
 :root {
-  --color-primary: #3B82F6;
-  --color-secondary: #1E40AF;
-  --color-text: #1F2937;
-  --color-background: #F3F4F6;
+  --color-primary: #3b82f6;
+  --color-secondary: #1e40af;
+  --color-text: #1f2937;
+  --color-background: #f3f4f6;
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   color: var(--color-text);
   background-color: var(--color-background);
 }
@@ -19,7 +19,16 @@ body {
   @apply px-4;
 }
 
+@layer base {
+  body {
+    @apply bg-background-light text-text-light dark:bg-background-dark dark:text-text-dark transition-colors duration-200;
+  }
+}
+
 @layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-light to-secondary-light dark:from-primary-dark dark:to-secondary-dark;
+  }
   .text-gradient {
     background-clip: text;
     -webkit-background-clip: text;
