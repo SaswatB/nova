@@ -78,7 +78,7 @@ export const aiRouter = router({
   generateShortName: procedure.input(z.object({ goal: z.string() })).mutation(async ({ input }) => {
     const prompt = `Generate a short, catchy name (max 3 words) for a project space with the following goal: "${input.goal}"`;
     const shortName = await openai.chat("", [{ role: "user", content: prompt }]);
-    return shortName.trim();
+    return shortName.trim().replace(/^"|"$/g, "");
   }),
 });
 
