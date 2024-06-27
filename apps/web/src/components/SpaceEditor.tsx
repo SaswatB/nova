@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAsync, useAsyncCallback } from "react-async-hook";
 import { useBlocker, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { Button, Checkbox, Dialog, SegmentedControl, TextArea } from "@radix-ui/themes";
+import { GearIcon } from "@radix-ui/react-icons";
+import { Button, Dialog, DropdownMenu, IconButton, SegmentedControl, TextArea } from "@radix-ui/themes";
 import * as idb from "idb-keyval";
 import { produce } from "immer";
 import { uniqBy } from "lodash";
@@ -400,6 +401,21 @@ export function SpaceEditor({
     [selectedPage?.graphData?.nodes, selectedNodeId],
   );
 
+  const handleReSaveAllWrites = async () => {
+    if (!graphRunner) {
+      toast.error("Graph runner not initialized");
+      return;
+    }
+
+    try {
+      await graphRunner.reSaveAllWrites();
+      toast.success("All writes re-saved successfully");
+    } catch (error) {
+      console.error("Error re-saving writes:", error);
+      toast.error(`Failed to re-save writes: ${formatError(error)}`);
+    }
+  };
+
   useAddVoiceStatus(
     `
 ${selectedPage?.graphData ? xmlGraphDataPrompt(selectedPage.graphData) : ""}
@@ -444,17 +460,6 @@ Currently working on the project "${projectName}".
             }
             topRightActions={
               <Flex css={{ alignItems: "center", gap: 24 }}>
-                <label>
-                  <Flex css={{ alignItems: "center", gap: 8 }}>
-                    <Checkbox
-                      disabled={runGraph.loading}
-                      checked={dryRun}
-                      onCheckedChange={(c) => setDryRun(c === true)}
-                    />
-                    Dry Run
-                  </Flex>
-                </label>
-
                 {!runGraph.loading ? (
                   <Button color="green" onClick={() => void runGraph.execute()}>
                     Run
@@ -464,6 +469,20 @@ Currently working on the project "${projectName}".
                     Stop
                   </Button>
                 )}
+
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger>
+                    <IconButton variant="ghost">
+                      <GearIcon />
+                    </IconButton>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content>
+                    <DropdownMenu.Item onSelect={handleReSaveAllWrites}>Re-save all writes</DropdownMenu.Item>
+                    <DropdownMenu.Item onSelect={() => setDryRun(!dryRun)}>
+                      {dryRun ? "Disable" : "Enable"} Dry Run
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
               </Flex>
             }
           />

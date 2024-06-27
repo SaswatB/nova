@@ -724,6 +724,24 @@ ${prompt}
     console.log("[GraphRunner] Node trace", node.value, event);
     this.emit("dataChanged"); // whenever there's a change, there should be a trace, so this effectively occurs on every change to the node data
   }
+
+  public async reSaveAllWrites(): Promise<void> {
+    const writeEvents = this.trace.flatMap((event) =>
+      event.type === "end-node" && event.node.state?.trace
+        ? event.node.state.trace.filter((t) => t.type === "write-file")
+        : [],
+    );
+
+    for (const writeEvent of writeEvents) {
+      try {
+        await this.writeFile(writeEvent.path, writeEvent.content);
+        console.log(`Re-saved file: ${writeEvent.path}`);
+      } catch (error) {
+        console.error(`Failed to re-save file ${writeEvent.path}:`, error);
+        throw new Error(`Failed to re-save file ${writeEvent.path}: ${formatError(error)}`);
+      }
+    }
+  }
 }
 export type GraphRunnerData = ReturnType<GraphRunner["toData"]>;
 
