@@ -114,6 +114,8 @@ async function openAiJson({ model, schema, prompt, data, apiKeys, signal }: AIJs
   }
 }
 
+declare const window: {} | undefined;
+
 let anthropic: Anthropic | undefined;
 async function claudeChat({
   model,
@@ -123,7 +125,11 @@ async function claudeChat({
   signal,
 }: AIChatOptions & { model: "opus" | "sonnet" }): Promise<string> {
   const { anthropic: apiKey } = apiKeys;
-  if (!anthropic || anthropic.apiKey !== apiKey) anthropic = new Anthropic({ apiKey });
+  if (!anthropic || anthropic.apiKey !== apiKey)
+    anthropic = new Anthropic({
+      apiKey,
+      baseURL: typeof window !== "undefined" ? "http://localhost:8010/proxy" : undefined,
+    });
 
   const response = await anthropic.messages.create(
     {

@@ -1,4 +1,5 @@
 import { toast } from "react-toastify";
+import { styled } from "styled-system/jsx";
 import { z } from "zod";
 
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
@@ -45,6 +46,26 @@ export function AISettingsEditor() {
           label: "Enable Local Mode",
           helper:
             "When enabled, AI requests will be made directly from the browser instead of through the server. Some features will be disabled, such as web search and voice chat.",
+        },
+        anthropic: {
+          helper: (
+            <>
+              Anthropic does not support{" "}
+              <styled.a
+                css={{ textDecoration: "underline" }}
+                href="https://github.com/anthropics/anthropic-sdk-typescript/issues/219"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                direct calls from the browser
+              </styled.a>
+              . <br />
+              To bypass run{" "}
+              <styled.code css={{ bg: "background.primary", p: 1, borderRadius: "4px" }}>
+                npx local-cors-proxy --proxyUrl https://api.anthropic.com
+              </styled.code>
+            </>
+          ),
         },
       }}
     />

@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { Callout } from "@radix-ui/themes";
 import { styled } from "styled-system/jsx";
 
@@ -6,8 +7,8 @@ export function FormHelper({
   error,
   variant = "text",
 }: {
-  helper?: string;
-  error?: string;
+  helper?: ReactNode;
+  error?: ReactNode;
   variant?: "callout" | "text";
 }) {
   if (!error) {

@@ -48,7 +48,7 @@ type FieldOverride<T extends Record<string, unknown> = Record<string, unknown>> 
         name: Path<T>;
         onSubmit: () => void;
       }) => ReactNode;
-      helper?: string;
+      helper?: ReactNode;
     }
   | ((options: {
       register: () => UseFormRegisterReturn;
@@ -90,7 +90,7 @@ export function ZodForm<T extends Record<string, unknown>>({
     const register = () => form.register(key as Path<T>);
 
     let fieldNode: ReactNode | undefined;
-    let helper: string | undefined;
+    let helper: ReactNode | undefined;
     let label = field?.description || startCase(key);
     if (overrideFieldMap && key in overrideFieldMap) {
       const override = overrideFieldMap[key as Path<T>]!;
