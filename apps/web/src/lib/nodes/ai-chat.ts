@@ -1,7 +1,12 @@
 import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
 
+import { aiChatImpl, aiJsonImpl } from "@repo/shared";
+
+import { throwError } from "../err";
 import { generateCacheKey } from "../hash";
+import { getLocalStorage } from "../hooks/useLocalStorage";
+import { lsKey } from "../keys";
 import { RouterInput } from "../trpc-client";
 import { ProjectContext } from "./project-ctx";
 
@@ -23,7 +28,15 @@ export async function aiChat(
   const cachedValue = await ctx.globalCacheGet<string>(cacheKey);
   if (cachedValue) return cachedValue;
 
-  const response = await ctx.trpcClient.ai.chat.mutate({ model, system, messages }, { signal });
+  const response = getLocalStorage(lsKey.localModeEnabled, false)
+    ? await aiChatImpl({
+        model,
+        system,
+        messages,
+        signal,
+        apiKeys: getLocalStorage(lsKey.localModeSettings, {}).apiKeys || throwError("No API keys set"),
+      })
+    : await ctx.trpcClient.ai.chat.mutate({ model, system, messages }, { signal });
 
   await ctx.globalCacheSet(cacheKey, response);
   return response;
@@ -43,7 +56,16 @@ export async function aiJson<T extends object>(
   const cachedValue = await ctx.globalCacheGet<T>(cacheKey);
   if (cachedValue) return cachedValue;
 
-  const response = await ctx.trpcClient.ai.json.mutate({ model, schema: jsonSchema, prompt, data }, { signal });
+  const response = getLocalStorage(lsKey.localModeEnabled, false)
+    ? await aiJsonImpl({
+        model,
+        schema: jsonSchema,
+        prompt,
+        data,
+        signal,
+        apiKeys: getLocalStorage(lsKey.localModeSettings, {}).apiKeys || throwError("No API keys set"),
+      })
+    : await ctx.trpcClient.ai.json.mutate({ model, schema: jsonSchema, prompt, data }, { signal });
   const parsedResponse = schema.parse(response);
 
   await ctx.globalCacheSet(cacheKey, parsedResponse);

@@ -6,18 +6,12 @@ import { useUpdatingRef } from "./useUpdatingRef";
 export function useLocalStorage<T>({ key, schema }: { key: string; schema: z.ZodType<T> }, initialValue: T) {
   const schemaRef = useUpdatingRef(schema);
   const initialValueRef = useUpdatingRef(initialValue);
-  const storedValue = useMemo((): T => {
-    try {
-      // Get from local storage by key
-      const item = window.localStorage.getItem(key);
-      // Parse stored json or if none return initialValue
-      return item ? schemaRef.current.parse(JSON.parse(item)) : initialValueRef.current;
-    } catch (error) {
-      // If error also return initialValue
-      console.log(error);
-      return initialValueRef.current;
-    }
-  }, [initialValueRef, key, schemaRef]);
+
+  // Get the value from local storage
+  const storedValue = useMemo(
+    () => getLocalStorage({ key, schema: schemaRef.current }, initialValueRef.current),
+    [initialValueRef, key, schemaRef],
+  );
 
   // State to store our value
   const [currentValue, setCurrentValue] = useState(storedValue);
@@ -32,7 +26,7 @@ export function useLocalStorage<T>({ key, schema }: { key: string; schema: z.Zod
         const valueToStore = value instanceof Function ? value(currentValueRef.current) : value;
         currentValueRef.current = valueToStore;
         // Save to local storage
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        localStorage.setItem(key, JSON.stringify(valueToStore));
         // Save state
         setCurrentValue(valueToStore);
       } catch (error) {
@@ -44,4 +38,17 @@ export function useLocalStorage<T>({ key, schema }: { key: string; schema: z.Zod
   );
 
   return [currentValue, setValue] as const;
+}
+
+export function getLocalStorage<T>({ key, schema }: { key: string; schema: z.ZodType<T> }, initialValue: T): T {
+  try {
+    // Get from local storage by key
+    const item = localStorage.getItem(key);
+    // Parse stored json or if none return initialValue
+    return item ? schema.parse(JSON.parse(item)) : initialValue;
+  } catch (error) {
+    // If error also return initialValue
+    console.log(error);
+    return initialValue;
+  }
 }

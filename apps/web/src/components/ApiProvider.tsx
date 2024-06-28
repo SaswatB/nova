@@ -6,7 +6,9 @@ import { httpBatchLink } from "@trpc/client";
 
 import { env } from "../lib/env";
 import { formatError } from "../lib/err";
+import { getLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
+import { lsKey } from "../lib/keys";
 import { trpc } from "../lib/trpc-client";
 
 export function ApiProvider({ children }: { children: React.ReactNode }) {
@@ -25,9 +27,10 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
   const trpcClient = useMemo(() => {
     const link = httpBatchLink({
       url: `${env.VITE_API_URL}/trpc`,
-      headers: async () => ({
-        Authorization: `Bearer ${await getTokenRef.current()}`,
-      }),
+      headers: async () => {
+        if (getLocalStorage(lsKey.localModeEnabled, false)) throw new Error("Local mode is enabled");
+        return { Authorization: `Bearer ${await getTokenRef.current()}` };
+      },
     });
     return trpc.createClient({ links: [link] });
   }, [getTokenRef]);

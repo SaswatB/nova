@@ -14,7 +14,10 @@ import { Flex, Stack, styled } from "styled-system/jsx";
 import { stack } from "styled-system/patterns";
 import { z } from "zod";
 
-import { useLocalStorage } from "../lib/hooks/useLocalStorage";
+import { aiChatImpl } from "@repo/shared";
+
+import { throwError } from "../lib/err";
+import { getLocalStorage, useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useObservableCallback } from "../lib/hooks/useObservableCallback";
 import { useSubject } from "../lib/hooks/useSubject";
 import { idbKey, lsKey } from "../lib/keys";
@@ -135,16 +138,22 @@ function SpaceSelector({
     const space = spaces.find((space) => space.id === spaceId);
     if (space && isDefaultName(space.name || "")) {
       try {
-        const shortName = await generateShortNameMutation.mutateAsync({
-          model: "gpt4o",
+        const options = {
+          model: "gpt4o" as const,
           system: "You are a helpful assistant that generates short names for spaces.",
           messages: [
             {
-              role: "user",
+              role: "user" as const,
               content: `Generate a short, catchy name (max 3 words) for a project space with the following goal: "${goal}"`,
             },
           ],
-        });
+        };
+        const shortName = getLocalStorage(lsKey.localModeEnabled, false)
+          ? await aiChatImpl({
+              ...options,
+              apiKeys: getLocalStorage(lsKey.localModeSettings, {}).apiKeys || throwError("No API keys set"),
+            })
+          : await generateShortNameMutation.mutateAsync(options);
         setSpaces((prevSpaces) =>
           prevSpaces.map((space) => (space.id === spaceId ? { ...space, name: shortName } : space)),
         );

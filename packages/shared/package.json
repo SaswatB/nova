@@ -7,6 +7,10 @@
     "zod": "^3.22.5"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.22.0",
+    "@google/generative-ai": "^0.11.5",
+    "openai": "^4.47.3",
+    "ts-pattern": "^5.1.2",
     "typescript": "^5.5.2"
   }
 }

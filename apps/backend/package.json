@@ -11,9 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.22.0",
     "@clerk/clerk-sdk-node": "^5.0.10",
-    "@google/generative-ai": "^0.11.5",
     "@humeai/voice": "^0.1.6",
     "@prisma/client": "^5.14.0",
     "@repo/shared": "workspace:*",
@@ -23,12 +21,10 @@
     "googleapis": "^140.0.0",
     "groq-sdk": "^0.4.0",
     "lodash": "^4.17.21",
-    "openai": "^4.47.3",
     "puppeteer": "^22.12.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socket.io": "^4.7.5",
-    "ts-pattern": "^5.1.2",
     "tsyringe": "^4.8.0",
     "ws": "^8.17.0",
     "zod": "^3.22.5",

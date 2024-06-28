@@ -16,7 +16,9 @@ import zodToJsonSchema from "zod-to-json-schema";
 import { SIOClientToServerEvents, SIOServerToClientEvents, VoiceState, VoiceStatusPriority } from "@repo/shared";
 
 import { env } from "../lib/env";
+import { getLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
+import { lsKey } from "../lib/keys";
 import { frontendSessionIdAtom } from "../lib/state";
 import { Portal } from "./base/Portal";
 
@@ -127,12 +129,16 @@ export function VoiceChat() {
             <Button
               variant="soft"
               loading={readyState === VoiceReadyState.CONNECTING}
-              onClick={() =>
+              onClick={() => {
+                if (getLocalStorage(lsKey.localModeEnabled, false)) {
+                  toast.error("Local mode is enabled, please disable it to use voice");
+                  return;
+                }
                 connect().catch((e) => {
                   console.error(e);
                   toast.error("Failed to connect to voice");
-                })
-              }
+                });
+              }}
             >
               Talk to Nova
             </Button>

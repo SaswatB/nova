@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { GearIcon } from "@radix-ui/react-icons";
-import { Button, Dialog, IconButton, Separator, Text } from "@radix-ui/themes";
+import { Dialog, IconButton, Separator } from "@radix-ui/themes";
 import { css } from "styled-system/css";
-import { Flex, Stack, styled } from "styled-system/jsx";
+import { styled } from "styled-system/jsx";
 
 import { ProjectSettings } from "@repo/shared";
 
 import { SidebarNav } from "./base/SidebarNav";
+import { AISettingsEditor } from "./AISettingsEditor";
 import { FileAccessEditor } from "./FileAccessEditor";
 import { RulesEditor } from "./RulesEditor";
 
@@ -39,12 +40,13 @@ export function ProjectSettingsEditor({ projectId, allowEdit, settings, onChange
         </IconButton>
       </Dialog.Trigger>
       <Dialog.Content style={{ maxWidth: 800, width: "90vw" }}>
-        <Dialog.Title>Project Settings</Dialog.Title>
+        <Dialog.Title>Settings</Dialog.Title>
         <styled.div css={{ display: "flex", gap: 16 }}>
           <SidebarNav
             items={[
-              { value: "file-access", label: "File Access" },
-              { value: "rules", label: "Rules" },
+              { value: "file-access", label: "Project File Access" },
+              { value: "rules", label: "Project Rules" },
+              { value: "ai-settings", label: "AI Settings" },
             ]}
             activeValue={activeTab}
             onChange={setActiveTab}
@@ -57,6 +59,7 @@ export function ProjectSettingsEditor({ projectId, allowEdit, settings, onChange
             {activeTab === "rules" && (
               <RulesEditor rules={settings.rules} onChange={(newRules) => onChange({ ...settings, rules: newRules })} />
             )}
+            {activeTab === "ai-settings" && <AISettingsEditor />}
           </styled.div>
         </styled.div>
       </Dialog.Content>

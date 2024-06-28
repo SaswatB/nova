@@ -4,6 +4,13 @@ import { ProjectSettingsSchema } from "@repo/shared";
 
 export const lsKey = {
   dryRun: { key: "dryRun", schema: z.boolean() },
+  localModeEnabled: { key: "localModeEnabled", schema: z.boolean() },
+  localModeSettings: {
+    key: "localModeSettings",
+    schema: z.object({
+      apiKeys: z.object({ openai: z.string(), anthropic: z.string(), googleGenAI: z.string() }).optional(),
+    }),
+  },
   onboardingDialogShown: { key: "onboardingDialogShown", schema: z.boolean() },
   projects: { key: "projects", schema: z.array(z.object({ id: z.string(), name: z.string() })) },
   projectSettings: (projectId: string) => ({

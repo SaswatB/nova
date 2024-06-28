@@ -15,6 +15,8 @@ import { BrowserGate } from "./components/BrowserGate";
 import { OnboardingDialog } from "./components/OnboardingDialog";
 import { Workspace } from "./components/Workspace";
 import { env } from "./lib/env";
+import { getLocalStorage } from "./lib/hooks/useLocalStorage";
+import { lsKey } from "./lib/keys";
 import { routes } from "./lib/routes";
 import { frontendSessionIdAtom } from "./lib/state";
 import { trpc } from "./lib/trpc-client";
@@ -29,12 +31,15 @@ const router = createBrowserRouter(
 );
 
 function AppContent() {
-  const [voiceAccessToken] = trpc.voice.accessToken.useSuspenseQuery();
+  const { data: voiceAccessToken } = trpc.voice.accessToken.useQuery(undefined, {
+    enabled: !getLocalStorage(lsKey.localModeEnabled, false),
+    suspense: true,
+  });
   const frontendSessionId = useAtomValue(frontendSessionIdAtom);
 
   return (
     <VoiceProvider
-      auth={{ type: "accessToken", value: voiceAccessToken }}
+      auth={{ type: "accessToken", value: voiceAccessToken || "" }}
       configId={
         env.VITE_API_URL.includes("localhost")
           ? "7b9b894d-7d8c-4fbd-984f-132c2d0e0ffd" // https://beta.hume.ai/evi/configs/7b9b894d-7d8c-4fbd-984f-132c2d0e0ffd

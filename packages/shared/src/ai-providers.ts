@@ -33,7 +33,7 @@ export const AIChatOptionsSchema = z.object({
   messages: z.array(MessageSchema),
   apiKeys: z.object({ openai: z.string(), anthropic: z.string(), googleGenAI: z.string() }),
 });
-export type AIChatOptions = z.infer<typeof AIChatOptionsSchema>;
+export type AIChatOptions = z.infer<typeof AIChatOptionsSchema> & { signal?: AbortSignal };
 
 export function aiChatImpl(options: AIChatOptions) {
   return match(options)
@@ -50,54 +50,60 @@ export const AIJsonOptionsSchema = z.object({
   data: z.string(),
   apiKeys: z.object({ openai: z.string() }),
 });
-export type AIJsonOptions = z.infer<typeof AIJsonOptionsSchema>;
+export type AIJsonOptions = z.infer<typeof AIJsonOptionsSchema> & { signal?: AbortSignal };
 
 export function aiJsonImpl(options: AIJsonOptions) {
   return openAiJson(options);
 }
 
 let openai: OpenAI | undefined;
-async function openAiChat({ model, system, messages, apiKeys }: AIChatOptions & { model: "gpt4o" }) {
+async function openAiChat({ model, system, messages, apiKeys, signal }: AIChatOptions & { model: "gpt4o" }) {
   const { openai: apiKey } = apiKeys;
   if (!openai || openai.apiKey !== apiKey) openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
 
-  const result = await openai.chat.completions.create({
-    model: match(model)
-      .with("gpt4o", () => "gpt-4o")
-      .exhaustive(),
-    messages: [...(system ? [{ role: "system" as const, content: system }] : []), ...messages],
-  });
+  const result = await openai.chat.completions.create(
+    {
+      model: match(model)
+        .with("gpt4o", () => "gpt-4o")
+        .exhaustive(),
+      messages: [...(system ? [{ role: "system" as const, content: system }] : []), ...messages],
+    },
+    { signal },
+  );
   return result.choices[0]?.message.content ?? "";
 }
 
-async function openAiJson({ model, schema, prompt, data, apiKeys }: AIJsonOptions & { model: "gpt4o" }) {
+async function openAiJson({ model, schema, prompt, data, apiKeys, signal }: AIJsonOptions & { model: "gpt4o" }) {
   const { openai: apiKey } = apiKeys;
   if (!openai || openai.apiKey !== apiKey) openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
 
-  const result = await openai.chat.completions.create({
-    model: match(model)
-      .with("gpt4o", () => "gpt-4o")
-      .exhaustive(),
-    temperature: 0,
-    messages: [
-      {
-        role: "system",
-        content: `Please format the given data to fit the schema.\n${prompt ?? ""}`.trim(),
-      },
-      { role: "user", content: data },
-    ],
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: "resolve",
-          description: "Resolve the formatted data",
-          parameters: schema,
+  const result = await openai.chat.completions.create(
+    {
+      model: match(model)
+        .with("gpt4o", () => "gpt-4o")
+        .exhaustive(),
+      temperature: 0,
+      messages: [
+        {
+          role: "system",
+          content: `Please format the given data to fit the schema.\n${prompt ?? ""}`.trim(),
         },
-      },
-    ],
-    tool_choice: { type: "function", function: { name: "resolve" } },
-  });
+        { role: "user", content: data },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "resolve",
+            description: "Resolve the formatted data",
+            parameters: schema,
+          },
+        },
+      ],
+      tool_choice: { type: "function", function: { name: "resolve" } },
+    },
+    { signal },
+  );
 
   try {
     const out = result.choices[0]?.message.tool_calls?.[0]?.function?.arguments ?? "{}";
@@ -114,46 +120,48 @@ async function claudeChat({
   system,
   messages,
   apiKeys,
-}: AIChatOptions & {
-  model: "opus" | "sonnet";
-}): Promise<string> {
+  signal,
+}: AIChatOptions & { model: "opus" | "sonnet" }): Promise<string> {
   const { anthropic: apiKey } = apiKeys;
   if (!anthropic || anthropic.apiKey !== apiKey) anthropic = new Anthropic({ apiKey });
 
-  const response = await anthropic.messages.create({
-    model: match(model)
-      .with("opus", () => "claude-3-opus-20240229")
-      .with("sonnet", () => "claude-3-5-sonnet-20240620")
-      .exhaustive(),
-    max_tokens: 4096,
-    system,
-    messages: messages.map((m) =>
-      m.role === "assistant"
-        ? {
-            role: "assistant",
-            content: m.content,
-          }
-        : {
-            role: "user",
-            content:
-              typeof m.content === "string"
-                ? m.content
-                : m.content.map((c) =>
-                    c.type === "text"
-                      ? c
-                      : // lm_1b1492dd9c currently only supports base64 jpegs
-                        {
-                          type: "image",
-                          source: {
-                            type: "base64",
-                            data: c.image_url.url.split(",")[1]!,
-                            media_type: "image/jpeg",
+  const response = await anthropic.messages.create(
+    {
+      model: match(model)
+        .with("opus", () => "claude-3-opus-20240229")
+        .with("sonnet", () => "claude-3-5-sonnet-20240620")
+        .exhaustive(),
+      max_tokens: 4096,
+      system,
+      messages: messages.map((m) =>
+        m.role === "assistant"
+          ? {
+              role: "assistant",
+              content: m.content,
+            }
+          : {
+              role: "user",
+              content:
+                typeof m.content === "string"
+                  ? m.content
+                  : m.content.map((c) =>
+                      c.type === "text"
+                        ? c
+                        : // lm_1b1492dd9c currently only supports base64 jpegs
+                          {
+                            type: "image",
+                            source: {
+                              type: "base64",
+                              data: c.image_url.url.split(",")[1]!,
+                              media_type: "image/jpeg",
+                            },
                           },
-                        },
-                  ),
-          },
-    ),
-  });
+                    ),
+            },
+      ),
+    },
+    { signal },
+  );
   const message = response.content[0];
   return (message?.type === "text" && message?.text) || "";
 }
@@ -166,9 +174,8 @@ async function geminiChat({
   system,
   messages,
   apiKeys,
-}: AIChatOptions & {
-  model: "gemini" | "geminiFlash";
-}) {
+  signal, // google doesn't seem to support aborting requests
+}: AIChatOptions & { model: "gemini" | "geminiFlash" }) {
   const { googleGenAI: apiKey } = apiKeys;
   if (!googleGenAI || !gemini || !geminiFlash || googleGenAI.apiKey !== apiKey) {
     googleGenAI = new GoogleGenerativeAI(apiKey);
