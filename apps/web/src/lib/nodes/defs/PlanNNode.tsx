@@ -58,8 +58,11 @@ The plan should include a list of steps to achieve the goal, as well as any pote
 Call out specific areas of the codebase that may need to be modified or extended to support the new functionality, and provide a high-level overview of the changes that will be required.
 If using short file names, please include a legend at the top of the file with the absolute path to the file (this should include paths to new files your plan creates).
 Most files are omitted, but please comment on which files would be helpful to provide to improve the plan.
+
 This plan will be sent to an engineer who'll make low-level changes to the codebase and submit for review, so keep the plan on point and avoid suggesting extraneous steps such as reminding them to send for review.
 Any images won't be shown to the implementation engineer, so please include relevant details from them in the plan.
+The implementation engineer will attempt to implement the file changes described in the plan first, without running any commands (a later engineer will run any relevant commands if needed).
+  - consider this when suggesting file changes, especially as this means creating new projects would be best done by describing all the files that need to be created instead of suggesting to run a command to download boilerplate.
                     `.trim();
       nrc.writeDebugFile("debug-plan-prompt.json", JSON.stringify({ relevantFiles }, null, 2));
       nrc.writeDebugFile("debug-plan-prompt.txt", planPrompt);
