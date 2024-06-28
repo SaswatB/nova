@@ -3,7 +3,6 @@ import { styled } from "styled-system/jsx";
 import { z } from "zod";
 
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
-import { onSubmitEnter } from "../lib/key-press";
 import { lsKey } from "../lib/keys";
 import { PasswordField, ZodForm } from "./ZodForm";
 
@@ -52,14 +51,10 @@ export function AISettingsEditor() {
         },
         openai: {
           label: "OpenAI",
-          renderField: ({ register, onSubmit }) => (
-            <PasswordField {...register()} onKeyDown={onSubmitEnter(onSubmit)} placeholder="OpenAI API Key" />
-          ),
+          renderField: ({ register }) => <PasswordField {...register()} />,
         },
         anthropic: {
-          renderField: ({ register, onSubmit }) => (
-            <PasswordField {...register()} onKeyDown={onSubmitEnter(onSubmit)} placeholder="Anthropic API Key" />
-          ),
+          renderField: ({ register }) => <PasswordField {...register()} />,
           helper: (
             <>
               Anthropic does not support{" "}
@@ -80,9 +75,7 @@ export function AISettingsEditor() {
           ),
         },
         googleGenAI: {
-          renderField: ({ register, onSubmit }) => (
-            <PasswordField {...register()} onKeyDown={onSubmitEnter(onSubmit)} placeholder="Google GenAI API Key" />
-          ),
+          renderField: ({ register }) => <PasswordField {...register()} />,
         },
       }}
     />
