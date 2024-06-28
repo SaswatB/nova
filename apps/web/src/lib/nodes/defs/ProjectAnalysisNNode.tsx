@@ -65,6 +65,11 @@ async function projectAnalysis(nrc: NodeRunnerContext): Promise<ResearchedFileSy
     (f) => f.type === "file",
   );
   nrc.writeDebugFile("debug.json", JSON.stringify({ count: rawFiles.length, rawFiles }, null, 2));
+
+  if (rawFiles.length === 0) {
+    return { files: [], research: "This is an empty project. No files or directories were found for analysis." };
+  }
+
   const limit = pLimit(50);
   const researchPromises = rawFiles.map((f) =>
     limit(async (): Promise<ResearchedFile> => {
@@ -226,8 +231,9 @@ export const ProjectAnalysisNNode = createNodeDef(
           {res.result.research}
         </Well>
         <Well title="Files" markdownPreferred>
-          {/* todo maybe allow looking at individual files? */}
-          {`${res.result.files.length} source files processed`}
+          {res.result.files.length === 0
+            ? "No files found (empty project)"
+            : `${res.result.files.length} source files processed`}
         </Well>
       </>
     ),

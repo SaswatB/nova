@@ -22,6 +22,13 @@ export const RelevantFileAnalysisNNode = createNodeDef(
       const typescriptResult = {} as Record<string, { fileName: string }[]>;
       const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
 
+      if (researchResult.files.length === 0) {
+        return {
+          result: "This is an empty project. No relevant files could be identified.",
+          files: [],
+        };
+      }
+
       const rawRelevantFiles = await nrc.aiChat("geminiFlash", [
         {
           role: "user",
@@ -67,7 +74,7 @@ Do not list a file more than once.
         <Well title="Result" markdownPreferred>
           {res.result}
         </Well>
-        <Well title="Files">{res.files.join("\n")}</Well>
+        <Well title="Files">{res.files.length === 0 ? "No relevant files (empty project)" : res.files.join("\n")}</Well>
       </>
     ),
   },
