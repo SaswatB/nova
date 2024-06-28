@@ -3,12 +3,15 @@ import { styled } from "styled-system/jsx";
 import { z } from "zod";
 
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
+import { onSubmitEnter } from "../lib/key-press";
 import { lsKey } from "../lib/keys";
-import { ZodForm } from "./ZodForm";
+import { PasswordField, ZodForm } from "./ZodForm";
 
 const AISettingsSchema = z.object({
   enabled: z.boolean(),
-  ...lsKey.localModeSettings.schema.shape.apiKeys.unwrap().shape,
+  openai: z.string(),
+  anthropic: z.string(),
+  googleGenAI: z.string(),
 });
 
 export function AISettingsEditor() {
@@ -47,7 +50,16 @@ export function AISettingsEditor() {
           helper:
             "When enabled, AI requests will be made directly from the browser instead of through the server. Some features will be disabled, such as web search and voice chat.",
         },
+        openai: {
+          label: "OpenAI",
+          renderField: ({ register, onSubmit }) => (
+            <PasswordField {...register()} onKeyDown={onSubmitEnter(onSubmit)} placeholder="OpenAI API Key" />
+          ),
+        },
         anthropic: {
+          renderField: ({ register, onSubmit }) => (
+            <PasswordField {...register()} onKeyDown={onSubmitEnter(onSubmit)} placeholder="Anthropic API Key" />
+          ),
           helper: (
             <>
               Anthropic does not support{" "}
@@ -65,6 +77,11 @@ export function AISettingsEditor() {
                 npx local-cors-proxy --proxyUrl https://api.anthropic.com
               </styled.code>
             </>
+          ),
+        },
+        googleGenAI: {
+          renderField: ({ register, onSubmit }) => (
+            <PasswordField {...register()} onKeyDown={onSubmitEnter(onSubmit)} placeholder="Google GenAI API Key" />
           ),
         },
       }}

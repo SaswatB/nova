@@ -1,4 +1,5 @@
-import { Fragment, ReactNode, useImperativeHandle } from "react";
+import { forwardRef, Fragment, ReactNode, useImperativeHandle } from "react";
+import { useState } from "react";
 import {
   Control,
   DefaultValues,
@@ -11,6 +12,7 @@ import {
 } from "react-hook-form";
 import TextareaAutosize from "react-textarea-autosize";
 import { Link1Icon, TrashIcon } from "@radix-ui/react-icons";
+import { EyeNoneIcon, EyeOpenIcon } from "@radix-ui/react-icons";
 import { Button, Checkbox, IconButton, TextArea, TextField, Tooltip } from "@radix-ui/themes";
 import { startCase } from "lodash";
 import { css } from "styled-system/css";
@@ -18,6 +20,7 @@ import { Flex, Stack } from "styled-system/jsx";
 import { UnknownKeysParam, z, ZodTypeAny } from "zod";
 
 import { useZodForm } from "../lib/hooks/useZodForm";
+import { onSubmitEnter } from "../lib/key-press";
 import { isNodeRef } from "../lib/nodes/ref-types";
 import { GraphRunnerData, resolveNodeRef } from "../lib/nodes/run-graph";
 import { FormHelper } from "./base/FormHelper";
@@ -28,14 +31,6 @@ export type ZodFormRef<T extends Record<string, unknown>> = {
   getValue: <P extends Path<T>>(name: P) => PathValue<T, P>;
   getValues: () => T;
   reset: () => void;
-};
-
-const onSubmitEnter = (onSubmit: () => void) => (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-    e.preventDefault();
-    e.currentTarget.blur();
-    onSubmit();
-  }
 };
 
 type FieldOverride<T extends Record<string, unknown> = Record<string, unknown>> =
@@ -327,3 +322,18 @@ function CheckboxField({ control, name }: { control: Control; name: string }) {
 
   return <Checkbox checked={field.value} onCheckedChange={(e) => field.onChange(e === true)} />;
 }
+
+export const PasswordField = forwardRef<HTMLInputElement>(({ ...props }: TextField.RootProps, ref) => {
+  const [showPassword, setShowPassword] = useState(false);
+
+  return (
+    <TextField.Root ref={ref} type={showPassword ? "text" : "password"} {...props}>
+      <TextField.Slot>
+        <IconButton variant="ghost" onClick={() => setShowPassword(!showPassword)}>
+          {showPassword ? <EyeNoneIcon /> : <EyeOpenIcon />}
+        </IconButton>
+      </TextField.Slot>
+    </TextField.Root>
+  );
+});
+PasswordField.displayName = "PasswordField";
