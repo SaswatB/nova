@@ -84,7 +84,8 @@ function AddProject({ onAdd }: { onAdd: (project: { name: string; handle: FileSy
           onSubmit={onSubmit}
         />
         <styled.div css={{ fontSize: "10px", color: "text.secondary", textAlign: "center", mt: 8 }}>
-          Nova uploads all your source files to our backend to process them with AI. We don't store any of your files.
+          By default Nova uploads all your source files to our backend to process them with AI. We don't store any of
+          your files. Use local mode to run Nova with your own API keys.
         </styled.div>
       </Dialog.Content>
     </Dialog.Root>
