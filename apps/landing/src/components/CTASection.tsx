@@ -1,26 +1,23 @@
-import React from 'react';
+import React from "react";
+import { Helmet } from "react-helmet";
 
 const CTASection: React.FC = () => {
   return (
-    <section className="py-20 bg-blue-600 text-white">
+    <section id="cta" className="py-20 bg-blue-600 text-white">
       <div className="container mx-auto text-center">
         <h2 className="text-4xl font-bold mb-4">Ready to Supercharge Your Development?</h2>
-        <p className="text-xl mb-8">Join thousands of developers who are already using Nova to revolutionize their workflow.</p>
-        <form className="max-w-md mx-auto">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="flex-grow px-4 py-2 rounded-md text-gray-900"
-            />
-            <button
-              type="submit"
-              className="bg-white text-blue-600 px-6 py-2 rounded-md font-semibold hover:bg-gray-100 transition duration-300"
-            >
-              Get Started
-            </button>
-          </div>
-        </form>
+
+        <div className="flex justify-center w-fit mx-auto">
+          <div id="getWaitlistContainer" className="w-auto" data-waitlist_id="18214" data-widget_type="WIDGET_1"></div>
+        </div>
+        <Helmet>
+          <link
+            rel="stylesheet"
+            type="text/css"
+            href="https://prod-waitlist-widget.s3.us-east-2.amazonaws.com/getwaitlist.min.css"
+          />
+          <script src="https://prod-waitlist-widget.s3.us-east-2.amazonaws.com/getwaitlist.min.js"></script>
+        </Helmet>
       </div>
     </section>
   );

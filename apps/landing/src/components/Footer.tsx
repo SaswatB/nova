@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 const Footer: React.FC = () => {
   return (
@@ -8,7 +8,7 @@ const Footer: React.FC = () => {
           <h3 className="text-xl font-bold mb-4">Nova</h3>
           <p>Revolutionizing development with AI-powered solutions.</p>
         </div>
-        <div>
+        {/* <div>
           <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
           <ul className="space-y-2">
             <li><a href="#features" className="hover:text-blue-300">Features</a></li>
@@ -23,10 +23,10 @@ const Footer: React.FC = () => {
             <a href="#" className="hover:text-blue-300">LinkedIn</a>
             <a href="#" className="hover:text-blue-300">GitHub</a>
           </div>
-        </div>
+        </div> */}
       </div>
       <div className="mt-8 text-center">
-        <p>&copy; 2023 Nova. All rights reserved.</p>
+        <p>&copy; 2024 Saswat Bhattacharya. All rights reserved.</p>
       </div>
     </footer>
   );

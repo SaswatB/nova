@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 const Header: React.FC = () => {
   return (
@@ -7,10 +7,14 @@ const Header: React.FC = () => {
         <h1 className="text-2xl font-bold">Nova</h1>
         <nav>
           <ul className="flex space-x-6">
-            <li><a href="#features" className="hover:text-blue-500">Features</a></li>
+            {/* <li><a href="#features" className="hover:text-blue-500">Features</a></li>
             <li><a href="#how-it-works" className="hover:text-blue-500">How It Works</a></li>
-            <li><a href="#testimonials" className="hover:text-blue-500">Testimonials</a></li>
-            <li><a href="#cta" className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">Get Started</a></li>
+            <li><a href="#testimonials" className="hover:text-blue-500">Testimonials</a></li> */}
+            <li>
+              <a href="#cta" className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                Get Started
+              </a>
+            </li>
           </ul>
         </nav>
       </div>

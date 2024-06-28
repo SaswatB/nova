@@ -1,11 +1,25 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React from "react";
+import { motion } from "framer-motion";
+import { FaRobot, FaDatabase, FaBolt } from "react-icons/fa";
 
 const featureData = [
-  { title: 'AI-Powered Coding', description: 'Leverage AI to write, review, and optimize your code' },
-  { title: 'Seamless Integration', description: 'Easily integrate with your existing development workflow' },
-  { title: 'Real-time Collaboration', description: 'Work together with your team in real-time' },
-  // Add more features as needed
+  {
+    title: "AI-Powered Multi-file Editing",
+    description:
+      "Nova intelligently analyzes your codebase structure, enabling precise changes across multiple files with minimal guidance",
+    icon: FaRobot
+  },
+  {
+    title: "Local-First Approach",
+    description:
+      "All of Nova's changes are done directly on your local file system, allowing immediate access within your preferred IDE",
+    icon: FaDatabase
+  },
+  {
+    title: "Lightning-Fast Performance",
+    description: "Built for speed with high parallelization, Nova lets you iterate on changes in minutes, not hours",
+    icon: FaBolt
+  },
 ];
 
 const Features: React.FC = () => {
@@ -22,7 +36,10 @@ const Features: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
             >
-              <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+              <div className="flex items-center mb-4">
+                <feature.icon className="text-3xl text-primary-light dark:text-primary-dark mr-3" />
+                <h3 className="text-xl font-semibold">{feature.title}</h3>
+              </div>
               <p>{feature.description}</p>
             </motion.div>
           ))}

@@ -1,11 +1,23 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React from "react";
+import { motion } from "framer-motion";
+import { FaFileCode, FaSync, FaRocket } from "react-icons/fa";
 
 const steps = [
-  { title: 'Connect', description: 'Link Nova to your development environment' },
-  { title: 'Analyze', description: 'Nova analyzes your codebase and project structure' },
-  { title: 'Suggest', description: 'Receive AI-powered suggestions and optimizations' },
-  { title: 'Implement', description: 'Apply changes with a single click or customize as needed' },
+  {
+    title: "Define Your Goal",
+    description: "Clearly state what changes you want to make to your codebase.",
+    icon: FaFileCode
+  },
+  {
+    title: "Iterate and Refine",
+    description: "Nova generates changes and allows you to provide feedback for improvements.",
+    icon: FaSync
+  },
+  {
+    title: "Implement Changes",
+    description: "Once satisfied, apply the changes directly to your local files.",
+    icon: FaRocket
+  },
 ];
 
 const HowItWorks: React.FC = () => {
@@ -22,8 +34,10 @@ const HowItWorks: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
             >
-              <div className="text-3xl font-bold text-blue-500 mb-2">{index + 1}</div>
-              <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
+              <div className="flex items-center mb-2">
+                <step.icon className="text-3xl text-primary-light dark:text-primary-dark mr-3" />
+                <h3 className="text-xl font-semibold">{step.title}</h3>
+              </div>
               <p>{step.description}</p>
             </motion.div>
           ))}

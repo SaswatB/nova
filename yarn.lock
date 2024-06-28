@@ -3001,6 +3001,7 @@ __metadata:
     "@tsparticles/slim": "npm:^3.4.0"
     "@types/react": "npm:^18.2.48"
     "@types/react-dom": "npm:^18.2.18"
+    "@types/react-helmet": "npm:^6.1.11"
     "@vitejs/plugin-react": "npm:^4.2.1"
     autoprefixer: "npm:^10.4.14"
     clsx: "npm:^2.1.1"
@@ -3010,6 +3011,8 @@ __metadata:
     postcss: "npm:^8.4.24"
     react: "npm:^18.2.0"
     react-dom: "npm:^18.2.0"
+    react-helmet: "npm:^6.1.0"
+    react-icons: "npm:^5.2.1"
     react-router-dom: "npm:^6.23.1"
     tailwind-merge: "npm:^2.3.0"
     tailwindcss: "npm:^3.3.2"
@@ -4254,6 +4257,15 @@ __metadata:
   dependencies:
     "@types/react": "npm:*"
   checksum: 10c0/87604407eca6884c5b4d4657cb511dc5ba28ea1cfa5d0ce1fc2d659a7ad1b64ae85dcda60e3f010641f9a52a6a60dfcaa6be3b0d0de9d624475052a13dae01f4
+  languageName: node
+  linkType: hard
+
+"@types/react-helmet@npm:^6.1.11":
+  version: 6.1.11
+  resolution: "@types/react-helmet@npm:6.1.11"
+  dependencies:
+    "@types/react": "npm:*"
+  checksum: 10c0/f7b3bb2151d992a108ae46fed876fb9c8119108397d9a01d150c5642782997542c8b3c52e742b56e8689b7dbfa62ca9cfc76aa7e05dec4e60c652f7ef53fa783
   languageName: node
   linkType: hard
 
@@ -11331,7 +11343,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prop-types@npm:^15.6.2, prop-types@npm:^15.8.1":
+"prop-types@npm:^15.6.2, prop-types@npm:^15.7.2, prop-types@npm:^15.8.1":
   version: 15.8.1
   resolution: "prop-types@npm:15.8.1"
   dependencies:
@@ -11544,12 +11556,42 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-fast-compare@npm:^3.1.1":
+  version: 3.2.2
+  resolution: "react-fast-compare@npm:3.2.2"
+  checksum: 10c0/0bbd2f3eb41ab2ff7380daaa55105db698d965c396df73e6874831dbafec8c4b5b08ba36ff09df01526caa3c61595247e3269558c284e37646241cba2b90a367
+  languageName: node
+  linkType: hard
+
+"react-helmet@npm:^6.1.0":
+  version: 6.1.0
+  resolution: "react-helmet@npm:6.1.0"
+  dependencies:
+    object-assign: "npm:^4.1.1"
+    prop-types: "npm:^15.7.2"
+    react-fast-compare: "npm:^3.1.1"
+    react-side-effect: "npm:^2.1.0"
+  peerDependencies:
+    react: ">=16.3.0"
+  checksum: 10c0/1d2831d9c3b4f5c91f020076aeb6502437a4788077d0c438421e466eb9633d5dc2aacedf7b779a970b807d61cf87793c5ff76ee3190a185d71c90b5cfb367e96
+  languageName: node
+  linkType: hard
+
 "react-hook-form@npm:^7.51.5":
   version: 7.51.5
   resolution: "react-hook-form@npm:7.51.5"
   peerDependencies:
     react: ^16.8.0 || ^17 || ^18
   checksum: 10c0/5b13f99a125d92ee618f2d4e218d5ec854f8cac1b568e83b4b125efb002cc79eef0f5c06b54015c78e16a830cf1ea356a646e8c6abb00b7ca8225dba9a92091e
+  languageName: node
+  linkType: hard
+
+"react-icons@npm:^5.2.1":
+  version: 5.2.1
+  resolution: "react-icons@npm:5.2.1"
+  peerDependencies:
+    react: "*"
+  checksum: 10c0/9d52b975afaf27dab07dcaefd50497ba43cc57076fc26ccac5142965e01c7fd0c503a62ea31c3bb710e0b2959a4620c2fed12c3c86960ad8ceb63de7f0085f3a
   languageName: node
   linkType: hard
 
@@ -11660,6 +11702,15 @@ __metadata:
   peerDependencies:
     react: ">=16.8"
   checksum: 10c0/091949805745136350ab049b2a96281bf38742c9d3651019fb48ea79c5eafbfb0379f1d3e636602dd56b0ef278389e8fd25be983dc2c0ffd1103d06dfa8019f3
+  languageName: node
+  linkType: hard
+
+"react-side-effect@npm:^2.1.0":
+  version: 2.1.2
+  resolution: "react-side-effect@npm:2.1.2"
+  peerDependencies:
+    react: ^16.3.0 || ^17.0.0 || ^18.0.0
+  checksum: 10c0/5d934cae438f701ce646f566750ae6a445e99185ce1a026108f9db728147f7962a22ecf8db79ff26089953a3799b3607766904f4f10194ce42bcd5a1aa0215e8
   languageName: node
   linkType: hard
 

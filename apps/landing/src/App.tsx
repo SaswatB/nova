@@ -15,7 +15,7 @@ function App() {
       <DemoVideo />
       <Features />
       <HowItWorks />
-      <Testimonials />
+      {/* <Testimonials /> */}
       <CTASection />
       <Footer />
     </div>

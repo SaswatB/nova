@@ -34,14 +34,15 @@ const Hero: React.FC = () => {
         >
           {"50% done your feature in < 10 minutes"}
         </motion.p>
-        <motion.button
+        <motion.a
           className="bg-primary-light dark:bg-primary-dark text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-opacity-90 transition duration-300"
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.4 }}
+          href="#cta"
         >
           Get Started
-        </motion.button>
+        </motion.a>
       </div>
     </section>
   );
