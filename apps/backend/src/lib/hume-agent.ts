@@ -1,12 +1,13 @@
 import { sortBy } from "lodash";
+import OpenAI from "openai";
 import { ChatCompletionMessageParam } from "openai/resources/index.mjs";
+import { env } from "process";
 import { Subject } from "rxjs";
 import { container } from "tsyringe";
 import { z } from "zod";
 
 import { isDefined } from "@repo/shared";
 
-import { OpenAIService } from "../external/openai.service";
 import { VoiceStateService } from "../external/voicestate.service";
 
 const SYSTEM_PROMPT = `
@@ -53,7 +54,7 @@ export const HumeMessagesPayload = z.object({
 export type HumeMessagesPayload = z.infer<typeof HumeMessagesPayload>;
 
 export class HumeAgent {
-  private openai = container.resolve(OpenAIService).client;
+  private openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
   private voiceStateService = container.resolve(VoiceStateService);
 
   public async respond(messagesPayload: HumeMessagesPayload, messageStream: Subject<unknown>) {

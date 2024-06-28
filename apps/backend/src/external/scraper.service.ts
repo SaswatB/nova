@@ -1,14 +1,13 @@
 import puppeteer, { TimeoutError } from "puppeteer";
 import { singleton } from "tsyringe";
 
+import { aiJsonImpl } from "@repo/shared";
+
 import { env } from "../lib/env";
 import { extractWebNodes, getOpenGraphMetadata, superStripWebNodeWithImgMap } from "../lib/web-nodes";
-import { OpenAIService } from "./openai.service";
 
 @singleton()
 export class ScraperService {
-  public constructor(private openai: OpenAIService) {}
-
   public async scrapeWebsite(url: string, schema: Record<string, unknown>, prompt: string): Promise<unknown> {
     console.log("scrapePage", url, prompt);
     const browser = await this.getBrowser();
@@ -31,9 +30,10 @@ export class ScraperService {
       const siteData = { title, opengraph, html: strippedNodes };
       console.log("siteData", siteData);
 
-      const json = await this.openai.formatJson(
+      const json = await aiJsonImpl({
+        model: "gpt4o",
         schema,
-        `
+        prompt: `
 Here is a JSON representation of a website with the product I'm interested in.
 Assume you cannot navigate the website, only look at the data provided.
 Please take careful note of the area percent, text sizes and hierarchy to determine what's most important on the page.
@@ -41,8 +41,9 @@ Area percent indicates the percent of all the area on the site an element takes 
 
 ${prompt}
         `.trim(),
-        JSON.stringify(siteData),
-      );
+        data: JSON.stringify(siteData),
+        apiKeys: { openai: env.OPENAI_API_KEY },
+      });
 
       return json;
     } finally {

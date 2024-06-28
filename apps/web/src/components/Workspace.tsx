@@ -129,13 +129,22 @@ function SpaceSelector({
     [setSpaces, spaces, spaceId, navigate, projectId],
   );
 
-  const generateShortNameMutation = trpc.ai.generateShortName.useMutation();
+  const generateShortNameMutation = trpc.ai.chat.useMutation();
   const isDefaultName = useCallback((name: string) => /^Space \d+$/.test(name), []);
   useObservableCallback(newGoal$, async ({ spaceId, goal }) => {
     const space = spaces.find((space) => space.id === spaceId);
     if (space && isDefaultName(space.name || "")) {
       try {
-        const shortName = await generateShortNameMutation.mutateAsync({ goal });
+        const shortName = await generateShortNameMutation.mutateAsync({
+          model: "gpt4o",
+          system: "You are a helpful assistant that generates short names for spaces.",
+          messages: [
+            {
+              role: "user",
+              content: `Generate a short, catchy name (max 3 words) for a project space with the following goal: "${goal}"`,
+            },
+          ],
+        });
         setSpaces((prevSpaces) =>
           prevSpaces.map((space) => (space.id === spaceId ? { ...space, name: shortName } : space)),
         );
