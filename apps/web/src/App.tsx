@@ -33,7 +33,6 @@ const router = createBrowserRouter(
 function AppContent() {
   const { data: voiceAccessToken } = trpc.voice.accessToken.useQuery(undefined, {
     enabled: !getLocalStorage(lsKey.localModeEnabled, false),
-    suspense: true,
   });
   const frontendSessionId = useAtomValue(frontendSessionIdAtom);
 
