@@ -131,45 +131,67 @@ async function claudeChat({
       baseURL: typeof window !== "undefined" ? "http://localhost:8010/proxy" : undefined,
     });
 
-  const response = await anthropic.messages.create(
-    {
-      model: match(model)
-        .with("opus", () => "claude-3-opus-20240229")
-        .with("sonnet", () => "claude-3-5-sonnet-20240620")
-        .exhaustive(),
-      max_tokens: 4096,
-      system,
-      messages: messages.map((m) =>
-        m.role === "assistant"
-          ? {
-              role: "assistant",
-              content: m.content,
-            }
-          : {
-              role: "user",
-              content:
-                typeof m.content === "string"
-                  ? m.content
-                  : m.content.map((c) =>
-                      c.type === "text"
-                        ? c
-                        : // lm_1b1492dd9c currently only supports base64 jpegs
-                          {
-                            type: "image",
-                            source: {
-                              type: "base64",
-                              data: c.image_url.url.split(",")[1]!,
-                              media_type: "image/jpeg",
-                            },
-                          },
-                    ),
-            },
-      ),
-    },
-    { signal },
-  );
-  const message = response.content[0];
-  return (message?.type === "text" && message?.text) || "";
+  const maxAttempts = 3;
+  let attempt = 0;
+  let fullResponse = "";
+
+  while (attempt < maxAttempts) {
+    const response = await anthropic.messages.create(
+      {
+        model: match(model)
+          .with("opus", () => "claude-3-opus-20240229")
+          .with("sonnet", () => "claude-3-5-sonnet-20240620")
+          .exhaustive(),
+        max_tokens: 4096,
+        system,
+        messages: [
+          ...messages.map((m) =>
+            m.role === "assistant"
+              ? {
+                  role: "assistant" as const,
+                  content: m.content,
+                }
+              : {
+                  role: "user" as const,
+                  content:
+                    typeof m.content === "string"
+                      ? m.content
+                      : m.content.map((c) =>
+                          c.type === "text"
+                            ? c
+                            : {
+                                // lm_1b1492dd9c currently only supports base64 jpegs
+                                type: "image" as const,
+                                source: {
+                                  type: "base64" as const,
+                                  data: c.image_url.url.split(",")[1]!,
+                                  media_type: "image/jpeg" as const,
+                                },
+                              },
+                        ),
+                },
+          ),
+          ...(fullResponse ? [{ role: "assistant" as const, content: fullResponse }] : []),
+        ],
+      },
+      { signal },
+    );
+
+    const message = response.content[0];
+    if (message?.type === "text") {
+      fullResponse += message.text;
+      if (!response.stop_reason || response.stop_reason !== "max_tokens" || attempt === maxAttempts - 1) {
+        return fullResponse;
+      } else {
+        console.warn("Max tokens reached, continuing...");
+      }
+    }
+
+    attempt++;
+  }
+
+  // should never reach
+  throw new Error("Max attempts reached. Failed to get complete response.");
 }
 
 let googleGenAI: GoogleGenerativeAI | undefined;
@@ -207,21 +229,45 @@ async function geminiChat({
           },
     );
   }
+  const maxAttempts = 5;
+  let attempt = 0;
+  let fullResponse = "";
 
-  const chat = selectedModel.startChat({
-    history: [
-      ...(system
-        ? [
-            { role: "user", parts: [{ text: system }] },
-            { role: "model", parts: [{ text: "Understood." }] },
-          ]
-        : []),
-      ...messages.slice(0, -1).map((m) => ({
-        role: m.role === "user" ? "user" : "model",
-        parts: messageToParts(m),
-      })),
-    ],
-  });
-  const result = await chat.sendMessage(messageToParts(messages.at(-1)!));
-  return result.response.text();
+  while (attempt < maxAttempts) {
+    const chat = selectedModel.startChat({
+      history: [
+        ...(system
+          ? [
+              { role: "user", parts: [{ text: system }] },
+              { role: "model", parts: [{ text: "Understood." }] },
+            ]
+          : []),
+        ...messages.slice(0, -1).map((m) => ({
+          role: m.role === "user" ? "user" : "model",
+          parts: messageToParts(m),
+        })),
+      ],
+    });
+
+    const result = await chat.sendMessage(messageToParts(messages.at(-1)!));
+    fullResponse += result.response.text();
+
+    if (
+      !result.response.candidates?.[0]?.finishReason ||
+      result.response.candidates[0].finishReason !== "MAX_TOKENS" ||
+      attempt === maxAttempts - 1
+    ) {
+      return fullResponse;
+    } else {
+      if (signal?.aborted) throw new Error("Aborted");
+
+      console.warn("Max tokens reached, continuing...");
+      // Append the last message with the current response to continue the conversation
+      messages.push({ role: "assistant", content: fullResponse });
+    }
+
+    attempt++;
+  }
+
+  throw new Error("Max attempts reached. Failed to get complete response.");
 }

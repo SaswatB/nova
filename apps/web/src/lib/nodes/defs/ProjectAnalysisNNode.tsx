@@ -79,8 +79,15 @@ async function projectAnalysis(nrc: NodeRunnerContext): Promise<ResearchedFileSy
           role: "user",
           content: `
 Could you please provide the following information:
-- A description of the given file's purpose and contents.
-- An outline and description for every export.
+1. A description of the given file's purpose and contents.
+2. An outline and description for every export.
+3. A list of potential "gotchas" or non-obvious aspects of the code, including:
+   - Any unexpected behaviors or edge cases
+   - Complex or unusual patterns used
+   - Dependencies or assumptions that might not be immediately clear
+   - Areas that might be confusing for developers new to the codebase
+
+Use snippets if applicable.
 
 <file path="${f.path}">
 ${f.content}
@@ -127,6 +134,8 @@ Could you please provide the following information:
   - Be sure to call out important files and directories, and their purpose.
 - Any notable design patterns or architectural decisions evident in the codebase.
 - Any best practices or common patterns you can identify from the provided files.
+
+Use snippets if applicable.
 
 <files>
 ${batch.map((f) => xmlFilePrompt(f, { showFileContent: true })).join("\n\n")}

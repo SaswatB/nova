@@ -125,10 +125,8 @@ export function GraphCanvas({
   selectedNodeId: string | null;
   setSelectedNodeId: Dispatch<SetStateAction<string | null>>;
 }) {
-  const graphView = useMemo(() => convertChatNodesToFlowElements(graphData.nodes), [graphData.nodes]);
-  const nodes = useMemo(() => {
-    return graphView.nodes.map((node) => ({ ...node, selected: node.id === selectedNodeId }));
-  }, [graphView.nodes, selectedNodeId]);
+  const graphView = convertChatNodesToFlowElements(graphData.nodes);
+  const nodes = graphView.nodes.map((node) => ({ ...node, selected: node.id === selectedNodeId }));
 
   const graphRef = useRef<ReactFlowInstance<any>>();
   useEffect(() => {

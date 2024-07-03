@@ -43,35 +43,50 @@ ${xmlFileSystemResearch(researchResult, { showResearch: true, showFileContent: t
 ${value.instructions}
 </instructions>${extraContext ? `\n\n<extraContext>\n${extraContext.context}\n</extraContext>` : ""}
 
-Please suggest changes to the provided files based on the plan.
-Suggestions may either be snippets or full files (but not both), and it should be clear enough for a junior engineer to understand and apply.
-Do not output diffs, snippets must be human readable and usable without counting line numbers.
-Prefer snippets unless the file is small (about 50 lines or less) or the change is very large.
-Make sure to be very clear about which file is changing and what the change is.
-Please include a legend at the top of the file with the absolute path to the files you are changing or creating.
-Suggest adding imports in distinct, standalone snippets from the code changes.
-Prefer using multiple composable snippets over large snippets.
-If creating a new file, please provide the full file path and content.
-Include general notes the developer should know, if any (such as packages to install).
+Please suggest comprehensive changes to the provided files based on the plan and instructions. Your suggestions should be as thorough and complete as reasonably possible, implementing all necessary modifications to fulfill the requirements without deferring any changes as follow-ups.
 
-Your result will be split up file by file and given to an engineer to apply.
-This engineer will only be able to see your suggestions and the file that they'll be editing, so make sure to include enough content and context for them to be able to work in isolation.
+Guidelines for suggesting changes:
+1. Be comprehensive: Implement all necessary changes to fully realize the plan. Don't leave any required modifications as future tasks.
+2. Clarity: Ensure all suggestions are clear enough for a junior engineer to understand and apply without additional context.
+3. Format: Provide either snippets or full files (not both) for each change.
+4. Snippets vs. Full Files:
+- Use snippets for targeted changes in larger files.
+- Provide full file content for new files or when modifying small files (roughly 50 lines or less).
+- Use full file content if changes are extensive and affect multiple parts of the file.
+5. No diffs: Snippets must be human-readable and usable without line numbers or diff notation.
+6. File identification: Clearly specify which file is being changed for each suggestion.
+7. Imports: Suggest adding imports in separate, standalone snippets from code changes.
+8. Granularity: Prefer multiple composable snippets over large, monolithic snippets.
+9. New files: Provide the full file path and complete content for any new files.
+10. Context: Include sufficient content and context in each suggestion to allow an engineer to implement it in isolation.
+
+Output format:
+1. Start with a legend listing the absolute paths of all files being changed or created.
+2. For each file change:
+a. Clearly state the file being modified and the nature of the change.
+b. Provide the snippet or full file content as appropriate.
+c. If using snippets, clearly describe where in the file the snippet should be placed.
+3. Include any general notes for the developer (e.g., packages to install) at the end of your response.
 
 Example legend:
 * file.ts: /root/project/src/file.ts
 * file2.ts: /root/project/src/file2.ts (new file)
 
-Example snippet step (Please note how there are no comments within the snippet itself about where it should be placed, and that the snippet content is fully complete):
-* this snippet should be applied to /root/project/src/file.ts, after the function foobar.
+Example snippet:
+* Add the following function to /root/project/src/file.ts, after the existing function foobar:
 \`\`\`typescript
 function hello() {
-console.log("Hello, world!");
+console.log("Hello world!");
 }
 \`\`\`
-* rename function foobar to foo
+
+* Rename function foobar to foo in /root/project/src/file.ts:
 \`\`\`typescript
 function foo() {
 \`\`\`
+
+Remember, your suggestions will be split up file by file and given to an engineer to apply.
+Ensure each suggestion contains all necessary information for implementation without access to other parts of your response.
       `.trim();
       nrc.writeDebugFile("debug-execute-prompt.txt", executePrompt);
       const rawChangeSet = await nrc.aiChat("sonnet", [{ role: "user", content: executePrompt }]);
