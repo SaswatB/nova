@@ -425,6 +425,43 @@ Currently working on the project "${projectName}".
     VoiceStatusPriority.LOW,
   );
 
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  useEffect(() => {
+    if (!runGraph.loading) return;
+    if (!("wakeLock" in navigator)) {
+      console.warn("Wake Lock API is not supported in this browser");
+      return;
+    }
+
+    const requestWakeLock = async () => {
+      try {
+        wakeLockRef.current = await navigator.wakeLock.request("screen");
+        console.log("Wake Lock is active");
+      } catch (err) {
+        console.error(`Failed to request Wake Lock: ${err}`);
+        toast.error("Failed to keep the screen awake. The device may go to sleep during graph execution.");
+      }
+    };
+
+    const releaseWakeLock = async () => {
+      if (wakeLockRef.current) {
+        try {
+          await wakeLockRef.current.release();
+          wakeLockRef.current = null;
+          console.log("Wake Lock released");
+        } catch (err) {
+          console.error(`Failed to release Wake Lock: ${err}`);
+          toast.error("Failed to release the wake lock. This may affect battery life.");
+        }
+      }
+    };
+
+    requestWakeLock().catch(console.error);
+    return () => {
+      releaseWakeLock().catch(console.error);
+    };
+  }, [runGraph.loading]);
+
   if (!handle.result || pagesAsync.loading) return <Loader fill />;
   return (
     <SplitPane split="vertical" sizes={sizes} onChange={setSizes}>

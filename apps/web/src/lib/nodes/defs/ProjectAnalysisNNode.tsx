@@ -87,7 +87,8 @@ Could you please provide the following information:
    - Dependencies or assumptions that might not be immediately clear
    - Areas that might be confusing for developers new to the codebase
 
-Use snippets if applicable.
+Recommendations are not necessary
+Use snippets as needed.
 
 <file path="${f.path}">
 ${f.content}

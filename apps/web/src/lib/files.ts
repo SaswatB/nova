@@ -27,7 +27,7 @@ export async function readFilesRecursively(
 ): Promise<({ type: "file"; path: string; content: string } | { type: "directory"; path: string })[]> {
   if (checkIgnores(ignores, path) || maxDepth === 0) return [];
 
-  const limit = pLimit(5);
+  const limit = pLimit(50);
 
   const file = await readFile(path);
   // file is unexpected here, since directories are supposed to be provided to this function
