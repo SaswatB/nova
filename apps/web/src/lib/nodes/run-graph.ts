@@ -457,6 +457,9 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
             console.error("[GraphRunner] Node is not runnable", node.value);
             throw new Error("Node is not runnable");
           }
+          if (node.state?.startedAt) {
+            console.warn("[GraphRunner] Node marked as already started", node.value);
+          }
           nodePromises.set(
             node.id,
             (async () => {
@@ -507,12 +510,12 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     return { nodes: { ...this.nodes }, trace: [...this.trace] };
   }
 
+  public hasRunnableNodes() {
+    return Object.values(this.nodes).some((node) => this.isNodeRunnable(node));
+  }
+
   public isNodeRunnable(node: NNode) {
-    return (
-      !node.state?.startedAt &&
-      !node.state?.completedAt &&
-      !node.dependencies?.some((id) => !this.nodes[id]?.state?.completedAt)
-    );
+    return !node.state?.completedAt && !node.dependencies?.some((id) => !this.nodes[id]?.state?.completedAt);
   }
 
   public async writeFile(path: string, content: string) {

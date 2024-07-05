@@ -3,7 +3,7 @@ import { useAsync, useAsyncCallback } from "react-async-hook";
 import { useBlocker, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { GearIcon } from "@radix-ui/react-icons";
-import { Button, Dialog, DropdownMenu, IconButton, SegmentedControl, TextArea } from "@radix-ui/themes";
+import { Button, Dialog, DropdownMenu, IconButton, SegmentedControl, TextArea, Tooltip } from "@radix-ui/themes";
 import * as idb from "idb-keyval";
 import { produce } from "immer";
 import { uniqBy } from "lodash";
@@ -498,9 +498,15 @@ Currently working on the project "${projectName}".
             topRightActions={
               <Flex css={{ alignItems: "center", gap: 24 }}>
                 {!runGraph.loading ? (
-                  <Button color="green" onClick={() => void runGraph.execute()}>
-                    Run
-                  </Button>
+                  <Tooltip content={graphRunner?.hasRunnableNodes() ? "Run the graph" : "Nothing to run"}>
+                    <Button
+                      color="green"
+                      onClick={() => void runGraph.execute()}
+                      disabled={!graphRunner?.hasRunnableNodes()}
+                    >
+                      Run
+                    </Button>
+                  </Tooltip>
                 ) : (
                   <Button color="red" onClick={() => void graphRunner?.stopRun()}>
                     Stop
