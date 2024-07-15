@@ -24,6 +24,7 @@ import {
   ReactFlowInstance,
 } from "@xyflow/react";
 import { startCase } from "lodash";
+import { css } from "styled-system/css";
 import { Flex, Stack } from "styled-system/jsx";
 
 import { GraphRunnerData, NNode } from "../lib/nodes/run-graph";
@@ -158,7 +159,9 @@ export function GraphCanvas({
             if (selected.length) setSelectedNodeId(selected.find((s) => s.selected)?.id || null);
           }}
         >
-          <Panel position="top-left">{topLeftActions}</Panel>
+          <Panel position="top-left" className={css({ zIndex: 6 })}>
+            {topLeftActions}
+          </Panel>
           <Panel position="top-right">{topRightActions}</Panel>
           <Panel position="bottom-right">
             {selectedNodeId ? (

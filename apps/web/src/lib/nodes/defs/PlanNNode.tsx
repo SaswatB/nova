@@ -25,6 +25,14 @@ export const PlanNNode = createNodeDef(
   {
     run: async (value, nrc) => {
       const extraContext = await nrc.findNodeForResult(ContextNNode, (n) => n.contextId === PlanNNode_ContextId);
+      const prevIterationGoalContext = await nrc.findNodeForResult(
+        ContextNNode,
+        (n) => n.contextId === PlanNNode_PrevIterationGoalContextId,
+      );
+      const prevIterationChangeSetContext = await nrc.findNodeForResult(
+        ContextNNode,
+        (n) => n.contextId === PlanNNode_PrevIterationChangeSetContextId,
+      );
 
       // analyze the project
       const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
@@ -48,6 +56,31 @@ ${researchResult.files.map((f) => f.path).join("\n")}
 </knownFiles>
 ${xmlFileSystemResearch(researchResult, { showResearch: true, showFileContent: true, filterFiles: (f) => relevantFiles.includes(f) })}
 ${webResearchResults.length ? `<webResearchResults>\n${webResearchResults.map((r) => `<webResearch query=${JSON.stringify(r.query)}>\n${r.result}\n</webResearch>`).join("\n")}\n</webResearchResults>` : ""}
+${
+  prevIterationGoalContext || prevIterationChangeSetContext
+    ? `\n\nThe prevIteration represents changes made during the previous iteration of development.
+This context is provided to inform the current planning process, even if the new goal differs from the previous one.
+It may contain valuable information about:
+1. Recent modifications to the codebase
+2. New features or functionalities that were added
+3. Challenges encountered and how they were addressed
+4. Any architectural changes or design decisions made
+
+While the current goal may be different, this context can be useful for:
+- Understanding the current state of the project
+- Identifying potential synergies or conflicts with recent changes
+- Leveraging recent work that might be relevant to the new goal
+- Avoiding duplication of effort or contradictory changes
+
+Consider this information as you develop your plan, but remember that the new goal takes precedence.
+Use this context to inform your planning process, not to constrain it.
+Be aware the user may have manually updated files in the codebase after this change set was applied.
+<prevIteration>
+${prevIterationGoalContext ? `<goal>\n${prevIterationGoalContext.context}\n</goal>` : ""}
+${prevIterationChangeSetContext ? `<changeSet>\n${prevIterationChangeSetContext.context}\n</changeSet>` : ""}
+</prevIteration>`
+    : ""
+}
 ${extraContext ? `<extraContext>\n${extraContext.context}\n</extraContext>` : ""}
 
 <goal>
@@ -145,3 +178,14 @@ The implementation engineer will attempt to implement the file changes described
 
 export type PlanNNodeValue = z.infer<typeof PlanNNode.valueSchema>;
 export const PlanNNode_ContextId = registerContextId(PlanNNode, "plan-context", "Extra context for plan creation");
+
+export const PlanNNode_PrevIterationGoalContextId = registerContextId(
+  PlanNNode,
+  "plan-prev-iteration-goal-context",
+  "The goal for the previous iteration of development",
+);
+export const PlanNNode_PrevIterationChangeSetContextId = registerContextId(
+  PlanNNode,
+  "plan-prev-iteration-change-set-context",
+  "The change set for the previous iteration of development",
+);

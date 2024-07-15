@@ -17,7 +17,13 @@ import { ApplyFileChangesNNode } from "./defs/ApplyFileChangesNNode";
 import { ContextNNode } from "./defs/ContextNNode";
 import { ExecuteNNode, ExecuteNNode_ContextId } from "./defs/ExecuteNNode";
 import { OutputNNode } from "./defs/OutputNNode";
-import { PlanNNode, PlanNNode_ContextId, PlanNNodeValue } from "./defs/PlanNNode";
+import {
+  PlanNNode,
+  PlanNNode_ContextId,
+  PlanNNode_PrevIterationChangeSetContextId,
+  PlanNNode_PrevIterationGoalContextId,
+  PlanNNodeValue,
+} from "./defs/PlanNNode";
 import { ProjectAnalysisNNode } from "./defs/ProjectAnalysisNNode";
 import { RelevantFileAnalysisNNode } from "./defs/RelevantFileAnalysisNNode";
 import { TypescriptDepAnalysisNNode } from "./defs/TypescriptDepAnalysisNNode";
@@ -274,8 +280,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         console.log("[GraphRunner] Dependency result", subResult);
         this.addNodeTrace(node, { type: "dependency-result", node: depNode, existing, result: subResult });
 
-        const createNodeRef: CreateNodeRef = (accessor) => ({ sym: nnodeRefSymbol, nodeId: depNode.id, accessor });
-        return { ...subResult, createNodeRef };
+        return { ...subResult, createNodeRef: createNodeRefFactory(depNode.id) };
       },
       findNodeForResult: async (nodeDef, filter) => {
         const foundNode = findNode(
@@ -292,7 +297,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         this.addNodeTrace(node, { type: "find-node", node: foundNode, result });
         return result;
       },
-      createNodeRef: (accessor) => ({ sym: nnodeRefSymbol, nodeId: node.id, accessor }),
+      createNodeRef: createNodeRefFactory(node.id),
 
       readFile: async (path) => {
         console.log("[GraphRunner] Read file", path);
@@ -651,6 +656,42 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
   }
 
   public async iterate(prompt: string, iterationMode: IterationMode) {
+    if (iterationMode === IterationMode.NEW_PLAN) {
+      // todo this should target specific nodes, not just the first one it finds
+      const planNode = Object.values(this.nodes).find(
+        (n): n is NNode<typeof PlanNNode> => n.typeId === PlanNNode.typeId,
+      );
+      if (!planNode) throw new Error("Plan node not found");
+      const executeNode = Object.values(this.nodes).find(
+        (n): n is NNode<typeof ExecuteNNode> => n.typeId === ExecuteNNode.typeId,
+      );
+      if (!executeNode) throw new Error("Execute node not found");
+
+      const newPlan = this.addNode(PlanNNode, { goal: prompt });
+      this.addNode(
+        ContextNNode,
+        {
+          contextId: PlanNNode_PrevIterationGoalContextId,
+          context: createNodeRefFactory(planNode.id)({ path: "goal", type: "value", schema: "string" }),
+        },
+        newPlan.scope,
+      );
+      this.addNode(
+        ContextNNode,
+        {
+          contextId: PlanNNode_PrevIterationChangeSetContextId,
+          context: createNodeRefFactory(executeNode.id)({
+            path: "result.rawChangeSet",
+            type: "result",
+            schema: "string",
+          }),
+        },
+        newPlan.scope,
+      );
+
+      return;
+    }
+
     // todo this should target specific nodes, not just the first one it finds
     const { node, oldGeneration, contextId } = match(iterationMode)
       .with(IterationMode.MODIFY_PLAN, () => {
@@ -793,3 +834,7 @@ export class RunStoppedError extends Error {
     this.name = "RunStoppedError";
   }
 }
+
+const createNodeRefFactory =
+  (nodeId: string): CreateNodeRef =>
+  (accessor) => ({ sym: nnodeRefSymbol, nodeId, accessor });

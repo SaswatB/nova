@@ -4,6 +4,7 @@ export enum IterationMode {
   // AUTO = "auto",
   MODIFY_PLAN = "modifyPlan",
   MODIFY_CHANGE_SET = "modifyChangeSet",
+  NEW_PLAN = "newPlan",
 }
 
 export const ProjectSettingsSchema = z

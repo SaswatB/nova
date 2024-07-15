@@ -9,6 +9,7 @@ import { produce } from "immer";
 import { uniqBy } from "lodash";
 import { Pane } from "split-pane-react";
 import SplitPane from "split-pane-react/esm/SplitPane";
+import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 import { stack } from "styled-system/patterns";
 import { VList } from "virtua";
@@ -20,6 +21,7 @@ import { getFileHandleForPath, readFileHandle } from "../lib/browser-fs";
 import { formatError } from "../lib/err";
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
+import { onSubmitEnter } from "../lib/key-press";
 import { idbKey, lsKey } from "../lib/keys";
 import { ExecuteNNode } from "../lib/nodes/defs/ExecuteNNode";
 import { PlanNNode, PlanNNodeValue } from "../lib/nodes/defs/PlanNNode";
@@ -206,15 +208,15 @@ function IterationPane({
   onClose,
 }: {
   graphData: GraphRunnerData;
-  onIterate: (prompt: string, iterationMode: IterationMode) => Promise<void>;
+  onIterate: (prompt: string, iterationMode: IterationMode, run: boolean) => Promise<void>;
   onClose: () => void;
 }) {
   const [prompt, setPrompt] = useState("");
   const [iterationMode, setIterationMode] = useState<IterationMode>(IterationMode.MODIFY_CHANGE_SET);
 
-  const onIterateAsync = useAsyncCallback(async () => {
+  const onIterateAsync = useAsyncCallback(async (run: boolean) => {
     try {
-      await onIterate(prompt, iterationMode);
+      await onIterate(prompt, iterationMode, run);
     } catch (error) {
       console.error(error);
       toast.error(`Error applying iteration: ${formatError(error)}`);
@@ -223,9 +225,9 @@ function IterationPane({
 
   const iterationModeExplanations: Record<IterationMode, string> = {
     // [IterationMode.AUTO]: "Nova will automatically choose the best mode for the current task.",
-    [IterationMode.MODIFY_PLAN]: "Nova will add context to the plan generation to modify the generated plan.",
-    [IterationMode.MODIFY_CHANGE_SET]:
-      "Nova will add context to the change set generation to modify the generated change set.",
+    [IterationMode.MODIFY_PLAN]: "Nova will reset the last plan generation and add context.",
+    [IterationMode.MODIFY_CHANGE_SET]: "Nova will reset the last change set generation and add context.",
+    [IterationMode.NEW_PLAN]: "Nova will add a new plan, which will have context from previous iterations.",
   };
 
   useAddVoiceStatus(
@@ -254,22 +256,37 @@ ${prompt ? `The current iteration prompt is: ${prompt}.` : ""}
   return (
     <Stack css={{ bg: "background.secondary", p: 16, borderRadius: 8 }}>
       <label>Iteration Prompt</label>
-      <TextArea autoFocus rows={10} value={prompt} onChange={(e) => setPrompt(e.target.value)} resize="both" />
+      <TextArea
+        autoFocus
+        rows={10}
+        value={prompt}
+        className={css({ minWidth: 420 })}
+        onChange={(e) => setPrompt(e.target.value)}
+        onKeyDown={onSubmitEnter(() => onIterateAsync.execute(true))}
+        resize="both"
+      />
       <SegmentedControl.Root value={iterationMode} onValueChange={(value) => setIterationMode(value as IterationMode)}>
         {/* <SegmentedControl.Item value={IterationMode.AUTO} title="Automatically choose an iteration mode">
           Auto
         </SegmentedControl.Item> */}
-        <SegmentedControl.Item value={IterationMode.MODIFY_PLAN}>Modify Plan</SegmentedControl.Item>
-        <SegmentedControl.Item value={IterationMode.MODIFY_CHANGE_SET}>Modify Change Set</SegmentedControl.Item>
+        {/* <SegmentedControl.Item value={IterationMode.MODIFY_PLAN}>Modify Plan</SegmentedControl.Item> */}
+        <SegmentedControl.Item value={IterationMode.MODIFY_CHANGE_SET}>Revise</SegmentedControl.Item>
         {/* <SegmentedControl.Item value={IterationMode.MODIFY_FILE}>Modify File</SegmentedControl.Item> */}
-        {/* <SegmentedControl.Item value="newPlan">New Plan</SegmentedControl.Item> */}
+        <SegmentedControl.Item value={IterationMode.NEW_PLAN}>Add</SegmentedControl.Item>
       </SegmentedControl.Root>
-      <Flex css={{ justifyContent: "space-between" }}>
+      <styled.div css={{ fontSize: 12, color: "text.secondary" }}>
+        {iterationModeExplanations[iterationMode]}
+      </styled.div>
+      <Flex css={{ gap: 8 }}>
         <Button disabled={onIterateAsync.loading} color="red" onClick={onClose}>
           Cancel
         </Button>
-        <Button loading={onIterateAsync.loading} onClick={onIterateAsync.execute}>
+        <styled.div css={{ flex: 1 }} />
+        <Button loading={onIterateAsync.loading} onClick={() => onIterateAsync.execute(false)}>
           Iterate
+        </Button>
+        <Button color="green" loading={onIterateAsync.loading} onClick={() => onIterateAsync.execute(true)}>
+          Iterate & Run
         </Button>
       </Flex>
     </Stack>

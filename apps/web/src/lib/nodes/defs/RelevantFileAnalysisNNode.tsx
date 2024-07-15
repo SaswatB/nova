@@ -38,14 +38,21 @@ ${xmlFileSystemResearch(researchResult, { showResearch: true })}
 ${value.goal}
 </goal>
 
-Based on the research, please identify the relevant files for the goal.
-The relevant files are the ones that are most likely to be impacted by the goal and may need to be modified or extended to support the new functionality.
-Related files may also include files that would be useful to reference or provide context for the changes.
-Also include 1 level of important dependencies for each file, with the full path to the dependency.
-Finally, include a few files that can be used as inspiration for the changes.
-I'd also recommend including any relevant files that define dependencies, like a package.json or requirements.txt.
-Do not output code or code snippets, and do not attempt to create a plan to achieve the goal, an engineer will take the files you produce and create a plan with that additional context.
-Do not list a file more than once.
+Based on the research, please identify the most relevant files for the goal. Be highly selective and limit your response to a maximum of 5-7 files unless otherwise instructed. Focus on:
+
+1. Core files that will directly implement the new functionality (2-3 files max).
+2. Key files that provide essential context or will require minor modifications (1-2 files max).
+3. One example file that can serve as inspiration for the changes.
+4. One relevant configuration file (e.g., package.json, requirements.txt) if applicable.
+
+For each file, briefly explain its relevance to the goal in one sentence.
+
+Do not include:
+- Indirect dependencies
+- Files that are only tangentially related
+- Duplicate files
+
+Do not output code snippets or create a plan to achieve the goal. An engineer will use this focused list to develop a plan with the necessary context.
 `.trim(),
         },
       ]);
