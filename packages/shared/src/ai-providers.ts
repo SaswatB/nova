@@ -180,6 +180,7 @@ async function claudeChat({
     const message = response.content[0];
     if (message?.type === "text") {
       fullResponse += message.text;
+      fullResponse = fullResponse.trim(); // final assistant content cannot end with trailing whitespace
       if (!response.stop_reason || response.stop_reason !== "max_tokens" || attempt === maxAttempts - 1) {
         return fullResponse;
       } else {
