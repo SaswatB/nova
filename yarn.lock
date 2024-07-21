@@ -3090,7 +3090,6 @@ __metadata:
     groq-sdk: "npm:^0.4.0"
     jiti: "npm:^1.21.0"
     lodash: "npm:^4.17.21"
-    nodemon: "npm:^3.1.0"
     openai: "npm:^4.47.3"
     prettier: "npm:^3.2.4"
     prisma: "npm:^5.14.0"
@@ -3098,6 +3097,7 @@ __metadata:
     reflect-metadata: "npm:^0.2.2"
     rxjs: "npm:^7.8.1"
     socket.io: "npm:^4.7.5"
+    tsx: "npm:^4.16.2"
     tsyringe: "npm:^4.8.0"
     typescript: "npm:^5.5.2"
     ws: "npm:^8.17.0"
@@ -7118,7 +7118,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"esbuild@npm:~0.21.4":
+"esbuild@npm:~0.21.4, esbuild@npm:~0.21.5":
   version: 0.21.5
   resolution: "esbuild@npm:0.21.5"
   dependencies:
@@ -13516,6 +13516,22 @@ __metadata:
   bin:
     tsx: dist/cli.mjs
   checksum: 10c0/e05d72f50857224051675f81b64e1af47163d6b8a87cd5353ef94cdf8c7510e7c4707357ed461abddeac67cc2252866844e8c6c691ac1608fe1d8062f0a1c841
+  languageName: node
+  linkType: hard
+
+"tsx@npm:^4.16.2":
+  version: 4.16.2
+  resolution: "tsx@npm:4.16.2"
+  dependencies:
+    esbuild: "npm:~0.21.5"
+    fsevents: "npm:~2.3.3"
+    get-tsconfig: "npm:^4.7.5"
+  dependenciesMeta:
+    fsevents:
+      optional: true
+  bin:
+    tsx: dist/cli.mjs
+  checksum: 10c0/9df52264f88be00ca473e7d7eda43bb038cc09028514996b864db78645e9cd297c71485f0fdd4985464d6dc46424f8bef9f8c4bd56692c4fcf4d71621ae21763
   languageName: node
   linkType: hard
 
