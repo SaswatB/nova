@@ -16,7 +16,7 @@ export const ApplyFileChangesNNode = createNodeDef(
       if (existingFile.type === "directory") throw new Error("Cannot apply changes to a directory");
       const original = existingFile.type === "file" ? existingFile.content : "";
 
-      let output = await nrc.aiChat("geminiFlash", [
+      let output = await nrc.aiChat("gpt4o", [
         {
           role: "user",
           content: `
@@ -44,6 +44,12 @@ The file you are operating on is "${value.path}".
       }
       if (output.trim().endsWith("</file>")) {
         output = output.slice(0, output.lastIndexOf("</file>"));
+      }
+
+      if (original.endsWith("\n") && !output.endsWith("\n")) {
+        output += "\n";
+      } else if (!original.endsWith("\n") && output.endsWith("\n")) {
+        output = output.slice(0, -1);
       }
 
       await nrc.writeFile(value.path, output);
