@@ -1,4 +1,4 @@
-import { asyncToArray } from "@repo/shared";
+import { asyncToArray, dirname } from "@repo/shared";
 
 import { ReadFileResult } from "./files";
 
@@ -42,4 +42,23 @@ export async function readFileHandle(path: string, root: FileSystemDirectoryHand
   if (!handle) return { type: "not-found" };
   if (handle.kind === "file") return { type: "file", content: await (await handle.getFile()).text() };
   return { type: "directory", files: await asyncToArray(handle.keys()) };
+}
+
+export async function writeFileHandle(
+  path: string,
+  root: FileSystemDirectoryHandle,
+  content: string,
+  returnOriginal = false,
+) {
+  const dir = dirname(path);
+  const dirHandle = await getFileHandleForPath(dir, root, true);
+  if (dirHandle?.kind !== "directory") throw new Error(`Directory not found: ${dir}`);
+
+  const name = path.split("/").at(-1)!;
+  const fileHandle = await dirHandle.getFileHandle(name, { create: true });
+  const originalContent = returnOriginal ? await (await fileHandle.getFile()).text() : undefined;
+  const writable = await fileHandle.createWritable();
+  await writable.write(content);
+  await writable.close();
+  return originalContent;
 }

@@ -17,7 +17,7 @@ import { z } from "zod";
 
 import { dirname, IterationMode, ProjectSettings, VoiceStatusPriority } from "@repo/shared";
 
-import { getFileHandleForPath, readFileHandle } from "../lib/browser-fs";
+import { getFileHandleForPath, readFileHandle, writeFileHandle } from "../lib/browser-fs";
 import { formatError } from "../lib/err";
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
@@ -38,6 +38,8 @@ import { TraceElementList, traceElementSourceSymbol } from "./TraceElementView";
 import { useAddVoiceFunction, useAddVoiceStatus } from "./VoiceChat";
 import { createImagesField, createTextAreaField, ZodForm, ZodFormRef } from "./ZodForm";
 
+const opfsRootPromise = navigator.storage.getDirectory();
+
 const getProjectContext = (
   projectId: string,
   settings: ProjectSettings,
@@ -55,19 +57,7 @@ const getProjectContext = (
         throw new Error("Permission denied");
   },
   readFile: (path) => readFileHandle(path, folderHandle),
-  writeFile: async (path, content) => {
-    const dir = dirname(path);
-    const dirHandle = await getFileHandleForPath(dir, folderHandle, true);
-    if (dirHandle?.kind !== "directory") throw new Error(`Directory not found: ${dir}`);
-
-    const name = path.split("/").at(-1)!;
-    const fileHandle = await dirHandle.getFileHandle(name, { create: true });
-    const originalContent = await (await fileHandle.getFile()).text();
-    const writable = await fileHandle.createWritable();
-    await writable.write(content);
-    await writable.close();
-    return originalContent;
-  },
+  writeFile: async (path, content) => (await writeFileHandle(path, folderHandle, content, true)) || "",
   deleteFile: async (path) => {
     const fileHandle = await getFileHandleForPath(dirname(path), folderHandle);
     if (fileHandle?.kind !== "directory") throw new Error(`Directory not found: ${dirname(path)}`);
@@ -75,10 +65,24 @@ const getProjectContext = (
     await fileHandle.removeEntry(name);
   },
 
-  projectCacheGet: (key) => idb.get(idbKey.projectCache(projectId, key)),
-  projectCacheSet: (key, value) => idb.set(idbKey.projectCache(projectId, key), value),
-  globalCacheGet: (key) => idb.get(key),
-  globalCacheSet: (key, value) => idb.set(key, value),
+  projectCacheGet: async (key) => {
+    const opfsRoot = await opfsRootPromise;
+    const content = await readFileHandle(`${projectId}/${key}`, opfsRoot);
+    return content.type === "file" ? JSON.parse(content.content) : undefined;
+  },
+  projectCacheSet: async (key, value) => {
+    const opfsRoot = await opfsRootPromise;
+    await writeFileHandle(`${projectId}/${key}`, opfsRoot, JSON.stringify(value));
+  },
+  globalCacheGet: async (key) => {
+    const opfsRoot = await opfsRootPromise;
+    const content = await readFileHandle(`global/${key}`, opfsRoot);
+    return content.type === "file" ? JSON.parse(content.content) : undefined;
+  },
+  globalCacheSet: async (key, value) => {
+    const opfsRoot = await opfsRootPromise;
+    await writeFileHandle(`global/${key}`, opfsRoot, JSON.stringify(value));
+  },
   displayToast: toast,
   showRevertFilesDialog: (files) =>
     RevertFilesDialog({

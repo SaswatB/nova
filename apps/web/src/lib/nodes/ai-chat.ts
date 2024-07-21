@@ -23,7 +23,7 @@ export async function aiChat(
   signal: AbortSignal,
 ): Promise<string> {
   const system = SYSTEM_PROMPT;
-  const cacheKey = `aicache:${model}-${await generateCacheKey({ system, messages })}`;
+  const cacheKey = `aicache-${model}-${await generateCacheKey({ system, messages })}`;
   const cachedValue = await ctx.globalCacheGet<string>(cacheKey);
   if (cachedValue) return cachedValue;
 
@@ -53,7 +53,7 @@ export async function aiJson<T extends object>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const jsonSchema = (zerialize as any)(schema);
 
-  const cacheKey = `aicache:${model}-${await generateCacheKey({ jsonSchema, prompt, data })}`;
+  const cacheKey = `aicache-${model}-${await generateCacheKey({ jsonSchema, prompt, data })}`;
   const cachedValue = await ctx.globalCacheGet<T>(cacheKey);
   if (cachedValue) return cachedValue;
 
@@ -73,7 +73,7 @@ export async function aiJson<T extends object>(
 }
 
 export async function aiWebSearch(ctx: ProjectContext, query: string, signal: AbortSignal) {
-  const cacheKey = `aicache:websearch-${await generateCacheKey({ query })}`;
+  const cacheKey = `aicache-websearch-${await generateCacheKey({ query })}`;
   const cachedValue = await ctx.globalCacheGet<typeof response>(cacheKey); // todo expire
   if (cachedValue) return cachedValue;
 
@@ -92,7 +92,7 @@ export async function aiScrape<T extends object>(
 ): Promise<T> {
   const jsonSchema = zodToJsonSchema(schema, "S").definitions?.S as Record<string, unknown>;
 
-  const cacheKey = `aicache:scraper-${await generateCacheKey({ jsonSchema, url, prompt })}`;
+  const cacheKey = `aicache-scraper-${await generateCacheKey({ jsonSchema, url, prompt })}`;
   const cachedValue = await ctx.globalCacheGet<T>(cacheKey);
   if (cachedValue) return cachedValue;
 

@@ -52,3 +52,11 @@ export function getLocalStorage<T>({ key, schema }: { key: string; schema: z.Zod
     return initialValue;
   }
 }
+
+export function removeLocalStorage({ key }: { key: string }): void {
+  try {
+    localStorage.removeItem(key);
+  } catch (error) {
+    console.error("Error removing from local storage:", error);
+  }
+}

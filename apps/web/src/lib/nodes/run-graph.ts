@@ -336,6 +336,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       },
 
       aiChat: async (model, messages) => {
+        if (signal.aborted) throw new RunStoppedError();
         try {
           const traceId = newId.traceChat();
           this.addNodeTrace(node, { type: "ai-chat-request", chatId: traceId, model, messages });
@@ -350,6 +351,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         }
       },
       aiJson: async (schema, data, prompt) => {
+        if (signal.aborted) throw new RunStoppedError();
         try {
           const traceId = newId.traceChat();
           this.addNodeTrace(node, {
@@ -374,6 +376,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         }
       },
       aiWebSearch: async (query) => {
+        if (signal.aborted) throw new RunStoppedError();
         try {
           const traceId = newId.traceChat();
           this.addNodeTrace(node, { type: "ai-web-search-request", chatId: traceId, query });
@@ -388,6 +391,7 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         }
       },
       aiScrape: async (schema, url, prompt) => {
+        if (signal.aborted) throw new RunStoppedError();
         try {
           const traceId = newId.traceChat();
           this.addNodeTrace(node, {
