@@ -18,3 +18,5 @@ export const env = z
     // TOGETHERAI_API_KEY: z.string(),
   })
   .parse(process.env);
+
+export const aiApiKeys = { anthropic: env.CLAUDE_API_KEY, googleGenAI: env.GEMINI_API_KEY, openai: env.OPENAI_API_KEY };

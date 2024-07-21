@@ -3,7 +3,7 @@ import { singleton } from "tsyringe";
 
 import { aiJsonImpl } from "@repo/shared";
 
-import { env } from "../lib/env";
+import { aiApiKeys, env } from "../lib/env";
 import { extractWebNodes, getOpenGraphMetadata, superStripWebNodeWithImgMap } from "../lib/web-nodes";
 
 @singleton()
@@ -33,7 +33,7 @@ export class ScraperService {
       const json = await aiJsonImpl({
         model: "gpt4o",
         schema,
-        prompt: `
+        system: `
 Here is a JSON representation of a website with the product I'm interested in.
 Assume you cannot navigate the website, only look at the data provided.
 Please take careful note of the area percent, text sizes and hierarchy to determine what's most important on the page.
@@ -42,7 +42,7 @@ Area percent indicates the percent of all the area on the site an element takes 
 ${prompt}
         `.trim(),
         data: JSON.stringify(siteData),
-        apiKeys: { openai: env.OPENAI_API_KEY },
+        apiKeys: aiApiKeys,
       });
 
       return json;

@@ -5,13 +5,11 @@ import { aiChatImpl, AIChatOptionsSchema, aiJsonImpl, AIJsonOptionsSchema } from
 
 import { GoogleService } from "../external/google.service";
 import { ScraperService } from "../external/scraper.service";
-import { env } from "../lib/env";
+import { aiApiKeys } from "../lib/env";
 import { procedure, router } from "./meta/app-server";
 
 const scraperService = container.resolve(ScraperService);
 const googleService = container.resolve(GoogleService);
-
-const aiApiKeys = { anthropic: env.CLAUDE_API_KEY, googleGenAI: env.GEMINI_API_KEY, openai: env.OPENAI_API_KEY };
 
 export const aiRouter = router({
   chat: procedure

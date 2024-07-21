@@ -4,13 +4,15 @@
   "main": "src/index.ts",
   "type": "module",
   "dependencies": {
-    "zod": "^3.22.5"
+    "@ai-sdk/anthropic": "^0.0.30",
+    "@ai-sdk/google": "^0.0.27",
+    "@ai-sdk/openai": "^0.0.37",
+    "ai": "^3.2.32",
+    "ts-pattern": "^5.1.2",
+    "zod": "^3.22.5",
+    "zodex": "^0.15.0"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.22.0",
-    "@google/generative-ai": "^0.11.5",
-    "openai": "^4.47.3",
-    "ts-pattern": "^5.1.2",
     "typescript": "^5.5.2"
   }
 }

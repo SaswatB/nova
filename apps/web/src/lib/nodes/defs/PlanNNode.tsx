@@ -103,10 +103,7 @@ The implementation engineer will attempt to implement the file changes described
         {
           role: "user",
           content: value.images?.length
-            ? [
-                ...value.images.map((image) => ({ type: "image_url" as const, image_url: { url: image } })),
-                { type: "text", text: planPrompt },
-              ]
+            ? [...value.images.map((image) => ({ type: "image" as const, image })), { type: "text", text: planPrompt }]
             : planPrompt,
         },
       ]);

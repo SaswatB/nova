@@ -69,6 +69,7 @@ export function AISettingsEditor() {
               . <br />
               To bypass run{" "}
               <styled.code css={{ bg: "background.primary", p: 1, borderRadius: "4px" }}>
+                {/* lm_44f7499466 anthropic disabled cors so this workaround is needed */}
                 npx local-cors-proxy --proxyUrl https://api.anthropic.com
               </styled.code>
             </>

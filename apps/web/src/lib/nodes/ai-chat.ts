@@ -1,26 +1,25 @@
 import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
+import { zerialize } from "zodex";
 
-import { aiChatImpl, aiJsonImpl } from "@repo/shared";
+import { aiChatImpl, aiJsonImpl, Message, Model } from "@repo/shared";
 
 import { throwError } from "../err";
 import { generateCacheKey } from "../hash";
 import { getLocalStorage } from "../hooks/useLocalStorage";
 import { lsKey } from "../keys";
-import { RouterInput } from "../trpc-client";
 import { ProjectContext } from "./project-ctx";
 
 const SYSTEM_PROMPT = `
-You are an expert staff level software engineer.
-Working with other staff level engineers on a project.
+You are an expert staff level software engineer, working with other staff level engineers on a project.
 Do not bikeshed unless asked.
 Provide useful responses, make sure to consider when to stay high level and when to dive deep.
 `.trim();
 
 export async function aiChat(
   ctx: ProjectContext,
-  model: RouterInput["ai"]["chat"]["model"],
-  messages: RouterInput["ai"]["chat"]["messages"],
+  model: Model,
+  messages: Message[],
   signal: AbortSignal,
 ): Promise<string> {
   const system = SYSTEM_PROMPT;
@@ -44,13 +43,15 @@ export async function aiChat(
 
 export async function aiJson<T extends object>(
   ctx: ProjectContext,
-  model: "gpt4o",
+  model: Model,
   schema: z.ZodSchema<T>,
   data: string,
   prompt = SYSTEM_PROMPT,
   signal: AbortSignal,
 ): Promise<T> {
-  const jsonSchema = zodToJsonSchema(schema, "S").definitions?.S as Record<string, unknown>;
+  // this is breaking typescript, so use any to disable typechecking
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const jsonSchema = (zerialize as any)(schema);
 
   const cacheKey = `aicache:${model}-${await generateCacheKey({ jsonSchema, prompt, data })}`;
   const cachedValue = await ctx.globalCacheGet<T>(cacheKey);
@@ -60,12 +61,11 @@ export async function aiJson<T extends object>(
     ? await aiJsonImpl({
         model,
         schema: jsonSchema,
-        prompt,
-        data,
+        data: `${prompt}\n\n${data}`,
         signal,
         apiKeys: getLocalStorage(lsKey.localModeSettings, {}).apiKeys || throwError("No API keys set"),
       })
-    : await ctx.trpcClient.ai.json.mutate({ model, schema: jsonSchema, prompt, data }, { signal });
+    : await ctx.trpcClient.ai.json.mutate({ model, schema: jsonSchema, data: `${prompt}\n\n${data}` }, { signal });
   const parsedResponse = schema.parse(response);
 
   await ctx.globalCacheSet(cacheKey, parsedResponse);
