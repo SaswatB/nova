@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { GearIcon } from "@radix-ui/react-icons";
-import { Dialog, IconButton, Separator } from "@radix-ui/themes";
+import { AlertDialog, Button, Dialog, IconButton, Separator } from "@radix-ui/themes";
 import { css } from "styled-system/css";
 import { styled } from "styled-system/jsx";
 
@@ -17,9 +17,16 @@ interface ProjectSettingsEditorProps {
   allowEdit: true | string;
   settings: ProjectSettings;
   onChange: (settings: ProjectSettings) => void;
+  onDelete: () => void;
 }
 
-export function ProjectSettingsEditor({ projectId, allowEdit, settings, onChange }: ProjectSettingsEditorProps) {
+export function ProjectSettingsEditor({
+  projectId,
+  allowEdit,
+  settings,
+  onChange,
+  onDelete,
+}: ProjectSettingsEditorProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("file-access");
 
@@ -47,6 +54,7 @@ export function ProjectSettingsEditor({ projectId, allowEdit, settings, onChange
               { value: "file-access", label: "Project File Access" },
               { value: "rules", label: "Project Rules" },
               { value: "ai-settings", label: "AI Settings" },
+              { value: "danger-zone", label: "Danger Zone" },
             ]}
             activeValue={activeTab}
             onChange={setActiveTab}
@@ -60,6 +68,40 @@ export function ProjectSettingsEditor({ projectId, allowEdit, settings, onChange
               <RulesEditor rules={settings.rules} onChange={(newRules) => onChange({ ...settings, rules: newRules })} />
             )}
             {activeTab === "ai-settings" && <AISettingsEditor />}
+            {activeTab === "danger-zone" && (
+              <div>
+                <h3>Danger Zone</h3>
+                <AlertDialog.Root>
+                  <AlertDialog.Trigger>
+                    <Button color="red">Delete Project</Button>
+                  </AlertDialog.Trigger>
+                  <AlertDialog.Content>
+                    <AlertDialog.Title>Are you sure?</AlertDialog.Title>
+                    <AlertDialog.Description>
+                      This action cannot be undone. This will permanently delete the project and all its data.
+                    </AlertDialog.Description>
+                    <div style={{ display: "flex", gap: 16, justifyContent: "flex-end" }}>
+                      <AlertDialog.Cancel>
+                        <Button variant="soft" color="gray">
+                          Cancel
+                        </Button>
+                      </AlertDialog.Cancel>
+                      <AlertDialog.Action>
+                        <Button
+                          color="red"
+                          onClick={() => {
+                            onDelete();
+                            setOpen(false);
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      </AlertDialog.Action>
+                    </div>
+                  </AlertDialog.Content>
+                </AlertDialog.Root>
+              </div>
+            )}
           </styled.div>
         </styled.div>
       </Dialog.Content>

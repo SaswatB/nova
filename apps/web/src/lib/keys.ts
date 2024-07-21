@@ -28,6 +28,5 @@ export const lsKey = {
 
 export const idbKey = {
   projectRoot: (projectId: string) => `project:${projectId}:root`,
-  projectCache: (projectId: string, key: string) => `project-${projectId}:graph-cache:${key}`, // todo make this consistent?
   spacePages: (spaceId: string) => `space:${spaceId}:pages`,
 };

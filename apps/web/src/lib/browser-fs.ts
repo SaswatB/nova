@@ -2,6 +2,8 @@ import { asyncToArray, dirname } from "@repo/shared";
 
 import { ReadFileResult } from "./files";
 
+export const opfsRootPromise = navigator.storage.getDirectory();
+
 export async function getFileHandleForPath(path: string, root: FileSystemDirectoryHandle, createAsDirectory = false) {
   const parts = path.split("/");
   if (parts[0] === "") parts.shift(); // remove leading slash

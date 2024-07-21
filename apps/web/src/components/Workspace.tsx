@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
 import { UserButton } from "@clerk/clerk-react";
 import { DiscordLogoIcon, Link2Icon, PlusCircledIcon } from "@radix-ui/react-icons";
 import { Button, Dialog, IconButton, TextField, Tooltip } from "@radix-ui/themes";
@@ -21,6 +22,7 @@ import { getLocalStorage, useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useObservableCallback } from "../lib/hooks/useObservableCallback";
 import { useSubject } from "../lib/hooks/useSubject";
 import { idbKey, lsKey } from "../lib/keys";
+import { cleanupProject } from "../lib/project-utils";
 import { routes, RoutesPathParams } from "../lib/routes";
 import { trpc } from "../lib/trpc-client";
 import { newId } from "../lib/uid";
@@ -168,7 +170,7 @@ function SpaceSelector({
     <>
       <Button
         variant="surface"
-        className={css({ mb: 8 })}
+        className={css({ mt: 4, mb: 8 })}
         onClick={() => {
           const id = newId.space();
           setSpaces([...spaces, { id, name: `Space ${spaces.length + 1}`, timestamp: Date.now() }]);
@@ -269,6 +271,17 @@ export function Workspace() {
                 allowEdit={isRunning ? "Nova is currently running." : true}
                 settings={settings}
                 onChange={setSettings}
+                onDelete={() => {
+                  const newProjects = projects.filter((p) => p.id !== projectId);
+                  setProjects(newProjects);
+                  cleanupProject(projectId).catch(console.error);
+                  navigate(
+                    newProjects.length > 0
+                      ? routes.project.getPath({ projectId: newProjects[0]!.id })
+                      : routes.home.getPath(),
+                  );
+                  toast.success("Project deleted");
+                }}
               />
             )}
           </Flex>

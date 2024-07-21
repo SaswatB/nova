@@ -17,7 +17,7 @@ import { z } from "zod";
 
 import { dirname, IterationMode, ProjectSettings, VoiceStatusPriority } from "@repo/shared";
 
-import { getFileHandleForPath, readFileHandle, writeFileHandle } from "../lib/browser-fs";
+import { getFileHandleForPath, opfsRootPromise, readFileHandle, writeFileHandle } from "../lib/browser-fs";
 import { formatError } from "../lib/err";
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
@@ -37,8 +37,6 @@ import { RevertFilesDialog } from "./RevertFilesDialog";
 import { TraceElementList, traceElementSourceSymbol } from "./TraceElementView";
 import { useAddVoiceFunction, useAddVoiceStatus } from "./VoiceChat";
 import { createImagesField, createTextAreaField, ZodForm, ZodFormRef } from "./ZodForm";
-
-const opfsRootPromise = navigator.storage.getDirectory();
 
 const getProjectContext = (
   projectId: string,
@@ -65,23 +63,25 @@ const getProjectContext = (
     await fileHandle.removeEntry(name);
   },
 
+  // lm_a445fd9fd3 utilize a project folder within opfs for project-specific caching
   projectCacheGet: async (key) => {
     const opfsRoot = await opfsRootPromise;
-    const content = await readFileHandle(`${projectId}/${key}`, opfsRoot);
+    const content = await readFileHandle(`projects/${projectId}/${key}`, opfsRoot);
     return content.type === "file" ? JSON.parse(content.content) : undefined;
   },
   projectCacheSet: async (key, value) => {
     const opfsRoot = await opfsRootPromise;
-    await writeFileHandle(`${projectId}/${key}`, opfsRoot, JSON.stringify(value));
+    await writeFileHandle(`projects/${projectId}/${key}`, opfsRoot, JSON.stringify(value));
   },
+  // global cache is still associated with the project, to make cleanup easy
   globalCacheGet: async (key) => {
     const opfsRoot = await opfsRootPromise;
-    const content = await readFileHandle(`global/${key}`, opfsRoot);
+    const content = await readFileHandle(`projects/${projectId}/global/${key}`, opfsRoot);
     return content.type === "file" ? JSON.parse(content.content) : undefined;
   },
   globalCacheSet: async (key, value) => {
     const opfsRoot = await opfsRootPromise;
-    await writeFileHandle(`global/${key}`, opfsRoot, JSON.stringify(value));
+    await writeFileHandle(`projects/${projectId}/global/${key}`, opfsRoot, JSON.stringify(value));
   },
   displayToast: toast,
   showRevertFilesDialog: (files) =>
