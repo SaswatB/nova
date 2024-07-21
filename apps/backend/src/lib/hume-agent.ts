@@ -1,4 +1,4 @@
-import { sortBy } from "lodash";
+import sortBy from "lodash/sortBy";
 import OpenAI from "openai";
 import { ChatCompletionMessageParam } from "openai/resources/index.mjs";
 import { env } from "process";
