@@ -70,13 +70,21 @@ export const AIChatOptionsSchema = z.object({
 export type AIChatOptions = z.infer<typeof AIChatOptionsSchema> & { signal?: AbortSignal };
 
 export async function aiChatImpl(options: AIChatOptions) {
-  const result = await generateText({
-    model: getModel(models[options.model], options.apiKeys),
-    system: options.system,
-    messages: options.messages,
-    abortSignal: options.signal,
-  });
-  return result.text;
+  let fullText = "";
+  for (let i = 0; i < 5; i++) {
+    fullText = fullText.trimEnd(); // anthropic throws an error on trailing whitespace
+    const result = await generateText({
+      model: getModel(models[options.model], options.apiKeys),
+      system: options.system,
+      messages: [...options.messages, ...(fullText ? [{ role: "assistant" as const, content: fullText }] : [])],
+      abortSignal: options.signal,
+    });
+    fullText += result.text;
+
+    if (result.finishReason !== "length" || options.signal?.aborted) break;
+  }
+
+  return fullText;
 }
 
 export const AIJsonOptionsSchema = z.object({
