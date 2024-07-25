@@ -216,7 +216,7 @@ function IterationPane({
   onClose: () => void;
 }) {
   const [prompt, setPrompt] = useState("");
-  const [iterationMode, setIterationMode] = useState<IterationMode>(IterationMode.MODIFY_CHANGE_SET);
+  const [iterationMode, setIterationMode] = useState<IterationMode>(IterationMode.NEW_PLAN);
 
   const onIterateAsync = useAsyncCallback(async (run: boolean) => {
     try {
