@@ -4,6 +4,11 @@ import { ReadFileResult } from "./files";
 
 export const opfsRootPromise = navigator.storage.getDirectory();
 
+const handleCache = new WeakMap<
+  FileSystemDirectoryHandle,
+  Map<string, FileSystemDirectoryHandle | FileSystemFileHandle>
+>();
+
 export async function getFileHandleForPath(path: string, root: FileSystemDirectoryHandle, createAsDirectory = false) {
   const parts = path.split("/");
   if (parts[0] === "") parts.shift(); // remove leading slash
@@ -16,9 +21,23 @@ export async function getFileHandleForPath(path: string, root: FileSystemDirecto
   while (parts.length > 0) {
     const part = parts.shift()!;
     breadcrumbs.push(part);
+
+    if (!handleCache.has(folder)) handleCache.set(folder, new Map());
+    const folderCache = handleCache.get(folder)!;
+
+    if (folderCache.has(part)) {
+      const cachedHandle = folderCache.get(part)!;
+      if (parts.length === 0) return cachedHandle;
+      if (cachedHandle.kind !== "directory")
+        throw new Error(`Expected directory, found file: ${breadcrumbs.join("/")}`);
+      folder = cachedHandle;
+      continue;
+    }
+
     let found = false;
     for await (const [name, handle] of folder.entries()) {
       if (name !== part) continue;
+      folderCache.set(name, handle);
       if (parts.length === 0) return handle; // found target
       if (handle.kind !== "directory") throw new Error(`Expected directory, found file: ${breadcrumbs.join("/")}`);
       // found intermediate directory
@@ -29,6 +48,7 @@ export async function getFileHandleForPath(path: string, root: FileSystemDirecto
     if (!found) {
       if (createAsDirectory) {
         folder = await folder.getDirectoryHandle(part, { create: true });
+        folderCache.set(part, folder);
         if (parts.length === 0) return folder;
       } else {
         return null;
