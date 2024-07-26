@@ -29,7 +29,7 @@ export const RelevantFileAnalysisNNode = createNodeDef(
         };
       }
 
-      const rawRelevantFiles = await nrc.aiChat("geminiFlash", [
+      const rawRelevantFiles = await nrc.aiChat("gpt4oMini", [
         {
           role: "user",
           content: `
