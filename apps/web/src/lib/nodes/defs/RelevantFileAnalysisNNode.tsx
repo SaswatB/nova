@@ -38,21 +38,28 @@ ${xmlFileSystemResearch(researchResult, { showResearch: true })}
 ${value.goal}
 </goal>
 
-Based on the research, please identify the most relevant files for the goal. Be highly selective and limit your response to a maximum of 5-7 files unless otherwise instructed. Focus on:
+Based on the research, please identify the most relevant files for the goal. The number of files should be appropriate for the complexity of the task. Focus on:
 
-1. Core files that will directly implement the new functionality (2-3 files max).
-2. Key files that provide essential context or will require minor modifications (1-2 files max).
-3. One example file that can serve as inspiration for the changes.
-4. One relevant configuration file (e.g., package.json, requirements.txt) if applicable.
+1. Core files that will directly implement the new functionality.
+2. Key files that provide essential context or will require modifications.
+3. Example files that can serve as inspiration for the changes.
+4. Relevant configuration files (e.g., package.json, requirements.txt) if applicable.
 
 For each file, briefly explain its relevance to the goal in one sentence.
 
-Do not include:
-- Indirect dependencies
-- Files that are only tangentially related
-- Duplicate files
+Guidelines:
+- Prioritize files based on their importance to the goal.
+- Include a mix of file types (implementation, context, examples, configuration) as appropriate.
+- The number of files can vary based on the complexity of the task, typically ranging from 5 to 15.
+- For simple tasks, you may include fewer files (5-7) if that's sufficient.
+- For complex tasks, you may include more files (up to 20) if necessary for a comprehensive understanding.
 
-Do not output code snippets or create a plan to achieve the goal. An engineer will use this focused list to develop a plan with the necessary context.
+Do not include:
+- Indirect dependencies unless they are crucial for understanding the task.
+- Files that are only tangentially related.
+- Duplicate files.
+
+Do not output code snippets or create a plan to achieve the goal. An engineer will use this list to develop a plan with the necessary context.
 `.trim(),
         },
       ]);
