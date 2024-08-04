@@ -65,10 +65,12 @@ export interface ProjectContext {
   deleteFile: (path: string) => Promise<void>;
 
   displayToast: (message: string, options?: ToastOptions) => void;
-  showRevertFilesDialog: (files: { path: string; original: string }[]) => Promise<string[]>;
+  showRevertChangesDialog: (
+    instances: { id: string; render: () => { title: React.ReactNode; body?: React.ReactNode } }[],
+  ) => Promise<string[]>;
   projectCacheGet: <T>(key: string) => Promise<T | undefined>;
   projectCacheSet: (key: string, value: unknown) => Promise<void>;
   globalCacheGet: <T>(key: string) => Promise<T | undefined>;
   globalCacheSet: (key: string, value: unknown) => Promise<void>;
-  writeDebugFile: (name: string, content: string) => void;
+  writeDebugFile: (name: string, content: string) => Promise<void>;
 }

@@ -4,6 +4,9 @@ import { z } from "zod";
 
 import { renderJsonWell, Well } from "../../../components/base/Well";
 import { xmlProjectSettings } from "../ai-helpers";
+import { AIChatNEffect } from "../effects/AIChatNEffect";
+import { AIJsonNEffect } from "../effects/AIJsonNEffect";
+import { WriteDebugFileNEffect } from "../effects/WriteDebugFileNEffect";
 import { createNodeDef } from "../node-types";
 import { orRef } from "../ref-types";
 import { ApplyFileChangesNNode } from "./ApplyFileChangesNNode";
@@ -88,9 +91,9 @@ function foo() {
 Remember, your suggestions will be split up file by file and given to an engineer to apply.
 Ensure each suggestion contains all necessary information for implementation without access to other parts of your response.
       `.trim();
-      nrc.writeDebugFile("debug-execute-prompt.txt", executePrompt);
-      const rawChangeSet = await nrc.aiChat("sonnet", [{ role: "user", content: executePrompt }]);
-      nrc.writeDebugFile("debug-execute.txt", rawChangeSet);
+      await WriteDebugFileNEffect(nrc, "debug-execute-prompt.txt", executePrompt);
+      const rawChangeSet = await AIChatNEffect(nrc, "sonnet", [executePrompt]);
+      await WriteDebugFileNEffect(nrc, "debug-execute.txt", rawChangeSet);
 
       const ChangeSetSchema = z.object({
         generalNoteList: z
@@ -102,9 +105,9 @@ Ensure each suggestion contains all necessary information for implementation wit
           .optional(),
         filesToChange: z.array(z.object({ absolutePathIncludingFileName: z.string() })),
       });
-      const changeSet = await nrc.aiJson(
-        ChangeSetSchema,
-        `
+      const changeSet = await AIJsonNEffect(nrc, {
+        schema: ChangeSetSchema,
+        data: `
 I have a document detailing changes to a project. Please transform the information into a JSON format with the following structure:
 
 1.	General notes for the project, such as packages to install.
@@ -125,18 +128,16 @@ ${JSON.stringify(
 
 Here's the document content:
 ${rawChangeSet}`.trim(),
-      );
-      nrc.writeDebugFile("debug-execute-change-set.json", JSON.stringify(changeSet, null, 2));
+      });
+      await WriteDebugFileNEffect(nrc, "debug-execute-change-set.json", JSON.stringify(changeSet, null, 2));
 
       // Deduplicate files to change by their paths
       const limit = pLimit(5);
       const filesToChange = await Promise.all(
         uniq(changeSet.filesToChange.map((f) => f.absolutePathIncludingFileName)).map((path) =>
           limit(async () => {
-            const steps = await nrc.aiChat("geminiFlash", [
-              {
-                role: "user",
-                content: `
+            const steps = await AIChatNEffect(nrc, "geminiFlash", [
+              `
 <change_set>
 ${rawChangeSet}
 </change_set>
@@ -197,14 +198,13 @@ Add this CSS class:
 
 Now, process the following change set and extract only the parts relevant to "${path}":
                 `.trim(),
-              },
             ]);
 
             return { absolutePathIncludingFileName: path, steps };
           }),
         ),
       );
-      nrc.writeDebugFile("debug-execute-files-to-change.json", JSON.stringify(filesToChange, null, 2));
+      await WriteDebugFileNEffect(nrc, "debug-execute-files-to-change.json", JSON.stringify(filesToChange, null, 2));
 
       if (changeSet.generalNoteList?.length) {
         nrc.addDependantNode(OutputNNode, {

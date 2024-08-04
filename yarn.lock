@@ -3255,6 +3255,7 @@ __metadata:
     rxjs: "npm:^7.8.1"
     socket.io-client: "npm:^4.7.5"
     split-pane-react: "patch:split-pane-react@npm%3A0.1.3#~/.yarn/patches/split-pane-react-npm-0.1.3-1cc8da6424.patch"
+    ts-pattern: "npm:^5.1.2"
     typescript: "npm:^5.5.2"
     unplugin-fonts: "npm:^1.1.1"
     use-debounce: "npm:^10.0.1"

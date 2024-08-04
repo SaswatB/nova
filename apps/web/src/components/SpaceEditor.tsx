@@ -33,7 +33,7 @@ import { newId } from "../lib/uid";
 import { Loader } from "./base/Loader";
 import { GraphCanvas } from "./GraphCanvas";
 import { NodeViewer } from "./NodeViewer";
-import { RevertFilesDialog } from "./RevertFilesDialog";
+import { RevertChangesDialog } from "./RevertChangesDialog";
 import { TraceElementList, traceElementSourceSymbol } from "./TraceElementView";
 import { useAddVoiceFunction, useAddVoiceStatus } from "./VoiceChat";
 import { createImagesField, createTextAreaField, ZodForm, ZodFormRef } from "./ZodForm";
@@ -84,12 +84,8 @@ const getProjectContext = (
     await writeFileHandle(`projects/${projectId}/global/${key}`, opfsRoot, JSON.stringify(value));
   },
   displayToast: toast,
-  showRevertFilesDialog: (files) =>
-    RevertFilesDialog({
-      files,
-      getFileContent: (path) => readFileHandle(path, folderHandle).then((f) => (f.type === "file" ? f.content : "")),
-    }),
-  writeDebugFile: () => void 0, // noop
+  showRevertChangesDialog: (entries) => RevertChangesDialog({ entries }),
+  writeDebugFile: () => Promise.resolve(), // noop
 });
 
 function detectURL(text: string): boolean {

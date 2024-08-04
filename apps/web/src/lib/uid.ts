@@ -33,7 +33,7 @@ enum ID_TYPE {
   frontendSession = "fs",
   space = "s",
   spacePage = "sp",
-  traceChat = "tc",
+  traceEffect = "te",
 }
 
 /**

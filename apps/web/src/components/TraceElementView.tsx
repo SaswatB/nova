@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { useAsyncCallback } from "react-async-hook";
 import { toast } from "react-toastify";
 import { Button, Card, Tabs } from "@radix-ui/themes";
 import { reverse, sortBy, startCase } from "lodash";
@@ -11,7 +10,7 @@ import { match, P } from "ts-pattern";
 import { useObservableCallback } from "../lib/hooks/useObservableCallback";
 import { useSubject } from "../lib/hooks/useSubject";
 import { GraphRunner, GraphTraceEvent, NNode, NNodeTraceEvent } from "../lib/nodes/run-graph";
-import { renderJsonWell, Well } from "./base/Well";
+import { renderJsonWell } from "./base/Well";
 import { NNodeBadge } from "./NNodeBadge";
 
 export const traceElementSourceSymbol = Symbol("traceElementSource");
@@ -21,24 +20,17 @@ export function TraceElementView({
   graphRunner,
   scrollToElement$,
   isActive,
-  onChatIdNav,
+  onTraceIdNav,
   onNodeNav,
 }: {
   trace: TraceElement;
   graphRunner?: GraphRunner;
   scrollToElement$: Observable<boolean>;
   isActive: boolean;
-  onChatIdNav: (chatId: string, target: "request" | "response") => void;
+  onTraceIdNav: (traceId: string, target: "request" | "result") => void;
   onNodeNav: (node: NNode) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const writeFileAsync = useAsyncCallback(
-    async (path: string, content: string) => graphRunner?.writeFile(path, content),
-    {
-      onSuccess: () => toast.success("File saved"),
-      onError: (error) => toast.error("Failed to save file: " + error),
-    },
-  );
 
   const renderSummary = () => {
     if (traceElementSourceSymbol in trace) {
@@ -72,115 +64,35 @@ export function TraceElementView({
             {renderJsonWell("Node Result", t.result)}
           </>
         ))
-        .with({ type: "get-cache" }, (t) => renderJsonWell(`Cache Get ${t.key}`, t.result))
-        .with({ type: "set-cache" }, (t) => renderJsonWell(`Cache Set ${t.key}`, t.value))
-        .with({ type: "read-file" }, (t) => (
-          <Well
-            title={`Read ${t.result.type === "directory" ? "Directory" : "File"} ${t.path}`}
-            code={t.path.split(".").pop()}
-          >
-            {match(t.result)
-              .with({ type: "not-found" }, () => "File not found")
-              .with({ type: "file" }, (t) => t.content)
-              .with({ type: "directory" }, (t) => t.files.join("\n"))
-              .exhaustive()}
-          </Well>
-        ))
-        .with({ type: "write-file" }, (t) => (
-          <Well title={`Write File${t.dryRun ? " (Dry Run)" : ""} ${t.path}`} code={t.path.split(".").pop()}>
-            {t.content}
-          </Well>
-        ))
-        .with({ type: "ai-chat-request" }, (t) => (
-          <>
-            <Flex css={{ alignItems: "center", gap: 4 }}>
-              AI Chat Request to <b>{t.model}</b>{" "}
-              <ChatIdButton chatId={t.chatId} onClick={() => onChatIdNav(t.chatId, "response")} />
-            </Flex>
-
-            {t.messages.map((m, i) => (
-              <Well key={i} title={m.role} markdownPreferred>
-                {/* todo proper image support */}
-                {typeof m.content === "string"
-                  ? m.content
-                  : m.content.map((c) => (c.type === "text" ? c.text : "<image>")).join("\n")}
-              </Well>
-            ))}
-          </>
-        ))
-        .with({ type: "ai-chat-response" }, (t) => (
-          <>
-            <Flex css={{ alignItems: "center", gap: 4 }}>
-              AI Chat Response <ChatIdButton chatId={t.chatId} onClick={() => onChatIdNav(t.chatId, "request")} />
-            </Flex>
-            <Well title="Assistant" markdownPreferred>
-              {t.result}
-            </Well>
-          </>
-        ))
-        .with({ type: "ai-json-request" }, (t) => (
-          <>
-            <Flex css={{ alignItems: "center", gap: 4 }}>
-              AI JSON Request <ChatIdButton chatId={t.chatId} onClick={() => onChatIdNav(t.chatId, "response")} />
-            </Flex>
-            <Well title="Input" markdownPreferred>
-              {t.input}
-            </Well>
-          </>
-        ))
-        .with({ type: "ai-json-response" }, (t) => (
-          <>
-            <Flex css={{ alignItems: "center", gap: 4 }}>
-              AI JSON Response <ChatIdButton chatId={t.chatId} onClick={() => onChatIdNav(t.chatId, "request")} />
-            </Flex>
-            {renderJsonWell("Result", t.result)}
-          </>
-        ))
-        .with({ type: "ai-web-search-request" }, (t) => (
-          <>
-            <Flex css={{ alignItems: "center", gap: 4 }}>
-              AI Web Search Request
-              <ChatIdButton chatId={t.chatId} onClick={() => onChatIdNav(t.chatId, "response")} />
-            </Flex>
-            <Well title="Query" markdownPreferred>
-              {t.query}
-            </Well>
-          </>
-        ))
-        .with({ type: "ai-web-search-response" }, (t) => (
-          <>
-            <Flex css={{ alignItems: "center", gap: 4 }}>
-              AI Web Search Response
-              <ChatIdButton chatId={t.chatId} onClick={() => onChatIdNav(t.chatId, "request")} />
-            </Flex>
-            {/* todo make this prettier */}
-            {renderJsonWell("Result", t.result)}
-          </>
-        ))
-        .with({ type: "ai-scrape-request" }, (t) => (
-          <>
-            <Flex css={{ alignItems: "center", gap: 4 }}>
-              AI Scrape Request
-              <ChatIdButton chatId={t.chatId} onClick={() => onChatIdNav(t.chatId, "response")} />
-            </Flex>
-            <Well title="URL" code="url">
-              {t.url}
-            </Well>
-            <Well title="Prompt" markdownPreferred>
-              {t.prompt}
-            </Well>
-            {renderJsonWell("Schema", t.schema)}
-          </>
-        ))
-        .with({ type: "ai-scrape-response" }, (t) => (
-          <>
-            <Flex css={{ alignItems: "center", gap: 4 }}>
-              AI Scrape Response
-              <ChatIdButton chatId={t.chatId} onClick={() => onChatIdNav(t.chatId, "request")} />
-            </Flex>
-            {renderJsonWell("Result", t.result)}
-          </>
-        ))
+        .with({ type: "effect-request" }, (t) => {
+          const effect = graphRunner?.getEffect(t.effectId);
+          return (
+            <>
+              <Flex css={{ alignItems: "center", gap: 8 }}>
+                Request <TraceIdButton traceId={t.traceId} onClick={(traceId) => onTraceIdNav(traceId, "result")} />
+              </Flex>
+              {effect?.renderRequestTrace
+                ? effect.renderRequestTrace(t.request)
+                : renderJsonWell(`${startCase(t.effectId)} Request`, t.request || "N/A")}
+            </>
+          );
+        })
+        .with({ type: "effect-result" }, (t) => {
+          const effect = graphRunner?.getEffect(t.effectId);
+          const request = t[traceElementSourceSymbol]?.state?.trace?.find(
+            (t2) => t2.type === "effect-request" && t.traceId === t2.traceId,
+          ) as (NNodeTraceEvent & { type: "effect-request" }) | undefined;
+          return (
+            <>
+              <Flex css={{ alignItems: "center", gap: 7 }}>
+                Result <TraceIdButton traceId={t.traceId} onClick={(traceId) => onTraceIdNav(traceId, "request")} />
+              </Flex>
+              {effect?.renderResultTrace
+                ? effect.renderResultTrace(t.result, request?.request)
+                : renderJsonWell(`${startCase(t.effectId)} Result`, t.result || "N/A")}
+            </>
+          );
+        })
         .with({ type: "error" }, (t) => renderJsonWell(t.message || "Error", t.error))
         .with({ type: "result" }, (t) => renderJsonWell("Result", t.result))
         .exhaustive();
@@ -224,7 +136,9 @@ export function TraceElementView({
         {traceElementSourceSymbol in trace ? (
           <NNodeBadge node={trace[traceElementSourceSymbol]} onNodeNav={onNodeNav} />
         ) : null}
-        {startCase(trace.type)}
+        {trace.type === "effect-request" || trace.type === "effect-result"
+          ? `${startCase(trace.effectId)} ${trace.type === "effect-request" ? "Request" : "Result"}`
+          : startCase(trace.type)}
         <styled.div css={{ flex: 1, minW: 5 }} />
         <styled.div css={{ color: "text.secondary", fontSize: 12, textAlign: "right" }}>
           {new Date(trace.timestamp).toLocaleTimeString()} <br />
@@ -238,14 +152,6 @@ export function TraceElementView({
             <Tabs.Trigger value="json">JSON</Tabs.Trigger>
           </Tabs.List>
           <Tabs.Content value="summary">
-            {trace.type === "write-file" && (
-              <Button
-                loading={writeFileAsync.loading}
-                onClick={() => void writeFileAsync.execute(trace.path, trace.content)}
-              >
-                Re-save
-              </Button>
-            )}
             <Stack css={{ p: 8 }}>{renderSummary()}</Stack>
           </Tabs.Content>
           <Tabs.Content value="json">{renderJsonWell("JSON", trace)}</Tabs.Content>
@@ -255,10 +161,10 @@ export function TraceElementView({
   );
 }
 
-function ChatIdButton({ chatId, onClick }: { chatId: string; onClick: (chatId: string) => void }) {
+function TraceIdButton({ traceId, onClick }: { traceId: string; onClick: (traceId: string) => void }) {
   return (
-    <Button variant="ghost" onClick={() => onClick(chatId)}>
-      {chatId}
+    <Button variant="ghost" onClick={() => onClick(traceId)}>
+      {traceId}
     </Button>
   );
 }
@@ -276,26 +182,24 @@ export function TraceElementList({
 
   function isActive(t: TraceElement) {
     const active = match(t)
-      .with({ type: "start" }, (t) => !trace.some((t2) => t2.type === "end" && t.runId === t2.runId))
+      .with(
+        { type: "start", [traceElementSourceSymbol]: undefined },
+        (t) => !trace.some((t2) => t2.type === "end" && t.runId === t2.runId),
+      )
+      .with(
+        { type: "start", [traceElementSourceSymbol]: P.not(undefined) },
+        (t) =>
+          !trace.some(
+            (t2) => t2.type === "result" && t[traceElementSourceSymbol].id === t2[traceElementSourceSymbol].id,
+          ),
+      )
       .with(
         { type: "start-node" },
         (t) => !trace.some((t2) => t2.type === "end-node" && t.node.id === t2.node.id && t.runId === t2.runId),
       )
       .with(
-        { type: "ai-chat-request" },
-        (t) => !trace.some((t2) => t2.type === "ai-chat-response" && t.chatId === t2.chatId),
-      )
-      .with(
-        { type: "ai-json-request" },
-        (t) => !trace.some((t2) => t2.type === "ai-json-response" && t.chatId === t2.chatId),
-      )
-      .with(
-        { type: "ai-web-search-request" },
-        (t) => !trace.some((t2) => t2.type === "ai-web-search-response" && t.chatId === t2.chatId),
-      )
-      .with(
-        { type: "ai-scrape-request" },
-        (t) => !trace.some((t2) => t2.type === "ai-scrape-response" && t.chatId === t2.chatId),
+        { type: "effect-request" },
+        (t) => !trace.some((t2) => t2.type === "effect-result" && t.traceId === t2.traceId),
       )
       .otherwise(() => false);
 
@@ -309,10 +213,10 @@ export function TraceElementList({
       graphRunner={graphRunner}
       scrollToElement$={scrollToElement.pipe(filter(({ element }) => element === t)).pipe(map(() => true))}
       isActive={isActive(t)}
-      onChatIdNav={(chatId, target) => {
-        const element = trace.find((t) => "chatId" in t && t.type.includes(target) && t.chatId === chatId);
+      onTraceIdNav={(traceId, target) => {
+        const element = trace.find((t) => "traceId" in t && t.type.includes(target) && t.traceId === traceId);
         if (element) scrollToElement.next({ element });
-        else toast.error(`Chat ${target === "request" ? "request" : "response"} not found`);
+        else toast.error(`Trace ${target === "request" ? "request" : "result"} not found`);
       }}
       onNodeNav={onNodeNav}
     />

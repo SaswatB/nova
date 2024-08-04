@@ -5,6 +5,7 @@ import { isDefined } from "@repo/shared";
 
 import { Well } from "../../../components/base/Well";
 import { getRelevantFiles } from "../ai-helpers";
+import { AIChatNEffect } from "../effects/AIChatNEffect";
 import { createNodeDef } from "../node-types";
 import { orRef } from "../ref-types";
 import { ProjectAnalysisNNode, xmlFileSystemResearch } from "./ProjectAnalysisNNode";
@@ -29,39 +30,33 @@ export const RelevantFileAnalysisNNode = createNodeDef(
         };
       }
 
-      const rawRelevantFiles = await nrc.aiChat("gemini", [
-        {
-          role: "user",
-          content: `
+      const rawRelevantFiles = await AIChatNEffect(nrc, "gemini", [
+        `
 ${xmlFileSystemResearch(researchResult, { showResearch: true })}
 <goal>
 ${value.goal}
 </goal>
 
-Based on the research, please identify the most relevant files for the goal. The number of files should be appropriate for the complexity of the task. Focus on:
+Based on the provided file system research and the specified goal, identify and list the most relevant files for accomplishing this task. Your response should be structured as follows:
 
-1. Core files that will directly implement the new functionality.
-2. Key files that provide essential context or will require modifications.
-3. Example files that can serve as inspiration for the changes.
-4. Relevant configuration files (e.g., package.json, requirements.txt) if applicable.
+1. A brief summary (2-3 sentences) of how you interpret the goal and its implications for the codebase.
 
-For each file, briefly explain its relevance to the goal in one sentence.
+2. A comprehensive list of relevant files, each formatted as:
+   [file_path] - [one-sentence explanation of relevance]
 
-Guidelines:
-- Prioritize files based on their importance to the goal.
-- Include a mix of file types (implementation, context, examples, configuration) as appropriate.
-- The number of files can vary based on the complexity of the task, typically ranging from 5 to 15.
-- For simple tasks, you may include fewer files (5-7) if that's sufficient.
-- For complex tasks, you may include more files (up to 20) if necessary for a comprehensive understanding.
+Guidelines for file selection:
+- Choose ALL files that are directly related to implementing, modifying, or understanding the goal.
+- Include a diverse set of file types: implementation files, context-providing files, configuration files, and relevant examples.
+- Prioritize files based on their importance and relevance to the goal.
+- Avoid tangentially related or duplicate files.
 
-Do not include:
-- Indirect dependencies unless they are crucial for understanding the task.
-- Files that are only tangentially related.
-- Duplicate files.
+Important:
+- Do not include code snippets or implementation details.
+- Do not create a plan or suggest steps to achieve the goal.
+- Focus solely on identifying and explaining the relevance of each file.
 
-Do not output code snippets or create a plan to achieve the goal. An engineer will use this list to develop a plan with the necessary context.
+Your response will be used by an engineer to develop a comprehensive plan with the necessary context.
 `.trim(),
-        },
       ]);
 
       const directRelevantFiles = await getRelevantFiles(

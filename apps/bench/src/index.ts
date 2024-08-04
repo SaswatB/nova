@@ -5,8 +5,7 @@ import { dirname, join } from "path";
 import { simpleGit } from "simple-git";
 import { fileURLToPath } from "url";
 
-import { ProjectContext } from "@repo/web/src/lib/nodes/project-ctx";
-import { DEFAULT_EXTENSIONS, DEFAULT_RULES } from "@repo/web/src/lib/nodes/project-ctx";
+import { DEFAULT_EXTENSIONS, DEFAULT_RULES, ProjectContext } from "@repo/web/src/lib/nodes/project-ctx";
 import { GraphRunner } from "@repo/web/src/lib/nodes/run-graph";
 
 import { env } from "./lib/env";
@@ -61,12 +60,12 @@ async function runGoal(rootDirectory: string, goal: string) {
       if (existsSync(fullPath)) unlinkSync(fullPath);
     },
     displayToast: (message) => console.log(message),
-    showRevertFilesDialog: (files) => Promise.resolve(files.map((f) => f.path)),
+    showRevertChangesDialog: (effects) => Promise.resolve(effects.map((e) => e.id)),
     projectCacheGet: (key) => cacheGet(`${projectId}-${key}`),
     projectCacheSet: (key, value) => cacheSet(`${projectId}-${key}`, value),
     globalCacheGet: cacheGet,
     globalCacheSet: cacheSet,
-    writeDebugFile: (name, content) => writeFileSync(name, content),
+    writeDebugFile: async (name, content) => writeFileSync(name, content),
   };
   const runner = GraphRunner.fromGoal(projectContext, { goal, enableWebResearch: false, images: [] });
   await runner.run();

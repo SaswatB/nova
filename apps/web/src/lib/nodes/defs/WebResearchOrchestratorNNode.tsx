@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { Well } from "../../../components/base/Well";
 import { xmlProjectSettings } from "../ai-helpers";
+import { AIJsonNEffect } from "../effects/AIJsonNEffect";
 import { createNodeDef, NSDef } from "../node-types";
 import { ProjectAnalysisNNode, xmlFileSystemResearch } from "./ProjectAnalysisNNode";
 import { WebResearchHelperNNode } from "./WebResearchHelperNNode";
@@ -23,8 +24,8 @@ export const WebResearchOrchestratorNNode = createNodeDef(
       const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
 
       const generateResearchTopics = async () => {
-        return nrc.aiJson(
-          z.object({
+        return AIJsonNEffect(nrc, {
+          schema: z.object({
             webResearchRequests: z.array(
               z.object({
                 priority: z.union(
@@ -64,7 +65,7 @@ Include info such as language, libraries, frameworks, etc. as applicable.
               }),
             ),
           }),
-          `
+          data: `
 ${xmlProjectSettings(nrc.settings)}
 ${xmlFileSystemResearch(researchResult, { showResearch: true, filterFiles: () => false })}
 
@@ -77,7 +78,7 @@ Please provide relevant web research requests that can help them achieve the goa
 It's very important to consider that researching topics on the web takes time, so please provide as few requests as possible to cover the most relevant topics.
 If you aren't confident any research needs to be done, please respond with an empty array (especially if the goal is minor).
           `.trim(),
-        );
+        });
       };
 
       const topics = await generateResearchTopics();

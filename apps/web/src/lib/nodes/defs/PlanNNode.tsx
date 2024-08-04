@@ -6,6 +6,8 @@ import { z } from "zod";
 import { Flex, styled } from "../../../../styled-system/jsx/index.mjs";
 import { Well } from "../../../components/base/Well";
 import { getRelevantFiles, xmlProjectSettings } from "../ai-helpers";
+import { AIChatNEffect } from "../effects/AIChatNEffect";
+import { WriteDebugFileNEffect } from "../effects/WriteDebugFileNEffect";
 import { createNodeDef, NSDef } from "../node-types";
 import { orRef } from "../ref-types";
 import { ContextNNode, registerContextId } from "./ContextNNode";
@@ -97,9 +99,9 @@ Any images won't be shown to the implementation engineer, so please include rele
 The implementation engineer will attempt to implement the file changes described in the plan first, without running any commands (a later engineer will run any relevant commands if needed).
   - consider this when suggesting file changes, especially as this means creating new projects would be best done by describing all the files that need to be created instead of suggesting to run a command to download boilerplate.
                     `.trim();
-      nrc.writeDebugFile("debug-plan-prompt.json", JSON.stringify({ relevantFiles }, null, 2));
-      nrc.writeDebugFile("debug-plan-prompt.txt", planPrompt);
-      const plan = await nrc.aiChat("sonnet", [
+      await WriteDebugFileNEffect(nrc, "debug-plan-prompt.json", JSON.stringify({ relevantFiles }, null, 2));
+      await WriteDebugFileNEffect(nrc, "debug-plan-prompt.txt", planPrompt);
+      const plan = await AIChatNEffect(nrc, "sonnet", [
         {
           role: "user",
           content: value.images?.length
@@ -107,7 +109,7 @@ The implementation engineer will attempt to implement the file changes described
             : planPrompt,
         },
       ]);
-      nrc.writeDebugFile("debug-plan.txt", plan);
+      await WriteDebugFileNEffect(nrc, "debug-plan.txt", plan);
 
       const planRelevantFiles = await getRelevantFiles(
         nrc,
@@ -115,7 +117,8 @@ The implementation engineer will attempt to implement the file changes described
         plan,
       );
       const mergedRelevantFiles = uniq([...relevantFiles, ...planRelevantFiles]);
-      nrc.writeDebugFile(
+      await WriteDebugFileNEffect(
+        nrc,
         "debug-plan-relevant-files.json",
         JSON.stringify({ planRelevantFiles, mergedRelevantFiles }, null, 2),
       );

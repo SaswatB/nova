@@ -6,12 +6,11 @@ import isEqual from "lodash/isEqual";
 import isFunction from "lodash/isFunction";
 import uniq from "lodash/uniq";
 import { match } from "ts-pattern";
-import zodToJsonSchema from "zod-to-json-schema";
 
 import { IterationMode, OmitUnion } from "@repo/shared";
 
 import { formatError, throwError } from "../err";
-import { RouterInput, RouterOutput } from "../trpc-client";
+import { generateCacheKey } from "../hash";
 import { newId } from "../uid";
 import { ApplyFileChangesNNode } from "./defs/ApplyFileChangesNNode";
 import { ContextNNode } from "./defs/ContextNNode";
@@ -30,7 +29,17 @@ import { TypescriptDepAnalysisNNode } from "./defs/TypescriptDepAnalysisNNode";
 import { WebResearchHelperNNode } from "./defs/WebResearchHelperNNode";
 import { WebResearchOrchestratorNNode } from "./defs/WebResearchOrchestratorNNode";
 import { WebScraperNNode } from "./defs/WebScraperNNode";
-import { aiChat, aiJson, aiScrape, aiWebSearch } from "./ai-chat";
+import { AIChatNEffect } from "./effects/AIChatNEffect";
+import { AIJsonNEffect } from "./effects/AIJsonNEffect";
+import { AIScrapeNEffect } from "./effects/AIScrapeNEffect";
+import { AIWebSearchNEffect } from "./effects/AIWebSearchNEffect";
+import { DisplayToastNEffect } from "./effects/DisplayToastNEffect";
+import { GetCacheNEffect } from "./effects/GetCacheNEffect";
+import { ReadFileNEffect } from "./effects/ReadFileNEffect";
+import { SetCacheNEffect } from "./effects/SetCacheNEffect";
+import { WriteDebugFileNEffect } from "./effects/WriteDebugFileNEffect";
+import { WriteFileNEffect } from "./effects/WriteFileNEffect";
+import { NodeEffect, NodeEffectParam, RunNodeEffect } from "./effect-types";
 import { NNodeDef, NNodeResult, NNodeValue, NodeRunnerContext, NodeScopeDef, NodeScopeType, NSDef } from "./node-types";
 import { ProjectContext } from "./project-ctx";
 import {
@@ -67,80 +76,8 @@ export type NNodeTraceEvent =
     }
   | { type: "dependant"; node: NNode; timestamp: number; runId: string }
   | { type: "find-node"; node: NNode; result: NNodeResult<NNodeDef>; timestamp: number; runId: string }
-  | {
-      type: "get-cache";
-      key: string;
-      result: unknown;
-      timestamp: number;
-      runId: string;
-    }
-  | {
-      type: "set-cache";
-      key: string;
-      value: unknown;
-      timestamp: number;
-      runId: string;
-    }
-  | {
-      type: "read-file";
-      path: string;
-      result: Awaited<ReturnType<NodeRunnerContext["readFile"]>>;
-      timestamp: number;
-      runId: string;
-    }
-  | {
-      type: "write-file";
-      path: string;
-      content: string;
-      original?: string;
-      created?: boolean;
-      dryRun?: boolean;
-      timestamp: number;
-      runId: string;
-    }
-  | {
-      type: "ai-chat-request";
-      chatId: string;
-      model: string;
-      messages: RouterInput["ai"]["chat"]["messages"];
-      timestamp: number;
-      runId: string;
-    }
-  | {
-      type: "ai-chat-response";
-      chatId: string;
-      result: string;
-      timestamp: number;
-      runId: string;
-    }
-  | {
-      type: "ai-json-request";
-      chatId: string;
-      schema: unknown;
-      input: string;
-      prompt?: string;
-      timestamp: number;
-      runId: string;
-    }
-  | { type: "ai-json-response"; chatId: string; result: unknown; timestamp: number; runId: string }
-  | { type: "ai-web-search-request"; chatId: string; query: string; timestamp: number; runId: string }
-  | {
-      type: "ai-web-search-response";
-      chatId: string;
-      result: RouterOutput["ai"]["webSearch"];
-      timestamp: number;
-      runId: string;
-    }
-  | {
-      type: "ai-scrape-request";
-      chatId: string;
-      schema: unknown;
-      url: string;
-      prompt: string;
-      timestamp: number;
-      runId: string;
-    }
-  | { type: "ai-scrape-response"; chatId: string; result: unknown; timestamp: number; runId: string }
+  | { type: "effect-request"; traceId: string; effectId: string; request: unknown; timestamp: number; runId: string }
+  | { type: "effect-result"; traceId: string; effectId: string; result: unknown; timestamp: number; runId: string }
   | { type: "error"; message: string; error: unknown; timestamp: number; runId: string }
   | { type: "result"; result: NNodeResult<NNodeDef>; timestamp: number; runId: string };
 
@@ -208,6 +145,18 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     [WebResearchOrchestratorNNode.typeId]: WebResearchOrchestratorNNode,
     [WebScraperNNode.typeId]: WebScraperNNode,
   };
+  private effectDefs: Record<string, NodeEffect> = {
+    [AIChatNEffect.typeId]: AIChatNEffect,
+    [AIJsonNEffect.typeId]: AIJsonNEffect,
+    [AIScrapeNEffect.typeId]: AIScrapeNEffect,
+    [AIWebSearchNEffect.typeId]: AIWebSearchNEffect,
+    [DisplayToastNEffect.typeId]: DisplayToastNEffect,
+    [GetCacheNEffect.typeId]: GetCacheNEffect,
+    [ReadFileNEffect.typeId]: ReadFileNEffect,
+    [SetCacheNEffect.typeId]: SetCacheNEffect,
+    [WriteDebugFileNEffect.typeId]: WriteDebugFileNEffect,
+    [WriteFileNEffect.typeId]: WriteFileNEffect,
+  };
 
   private runId = "";
   private abortController: AbortController | null = null;
@@ -247,16 +196,59 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     console.log("[GraphRunner] Starting node", node.value);
     this.addTrace({ type: "start-node", node });
 
+    const runEffect: RunNodeEffect = async <T extends string, P, R>(
+      effect: NodeEffect<T, P, R>,
+      param: P,
+    ): Promise<R> => {
+      if (signal.aborted) throw new RunStoppedError();
+      const traceId = newId.traceEffect();
+      console.log("[GraphRunner] Running effect", effect.typeId, param);
+      this.addNodeTrace(node, { type: "effect-request", traceId, effectId: effect.typeId, request: param });
+
+      let result: R | undefined;
+      try {
+        effect = this.getEffect(effect.typeId) as NodeEffect<T, P, R>; // resolve to the effect's registered instance (should be the same)
+
+        // resolve cache key if effect is cacheable
+        let cacheKey: string | null = null;
+        if (effect.cacheable) {
+          if (effect.generateCacheKey) {
+            const effectCacheKey = effect.generateCacheKey(param);
+            if (effectCacheKey) {
+              cacheKey = typeof effectCacheKey === "string" ? effectCacheKey : await generateCacheKey(effectCacheKey);
+            }
+          } else {
+            cacheKey = `effect-${effect.typeId}-${await generateCacheKey({ param })}`;
+          }
+        }
+
+        // check cache for existing result
+        if (cacheKey) {
+          const cachedValue = await this.projectContext.globalCacheGet<R>(cacheKey);
+          if (cachedValue) {
+            console.log("[GraphRunner] Cached effect result", cachedValue);
+            return cachedValue;
+          }
+        }
+
+        // run effect
+        result = await effect.run(param, { projectContext: this.projectContext, signal });
+
+        console.log("[GraphRunner] Effect result", result);
+        if (cacheKey) await this.projectContext.globalCacheSet(cacheKey, result);
+        return result;
+      } catch (e) {
+        console.error("[GraphRunner] Effect failed", e);
+        console.error(JSON.stringify(e, null, 2));
+        throw e;
+      } finally {
+        this.addNodeTrace(node, { type: "effect-result", traceId, effectId: effect.typeId, result });
+      }
+    };
+
     const nodeRunnerContext: NodeRunnerContext = {
       settings: this.projectContext.settings,
 
-      addDependantNode: (newNodeDef, newNodeValue) => {
-        console.log("[GraphRunner] Adding dependant node", newNodeValue);
-        const newNode = this.addNode(newNodeDef, newNodeValue, node.scope, [node.id]);
-        ((node.state ||= {}).createdNodes ||= []).push(newNode.id);
-        queueNode(newNode);
-        this.addNodeTrace(node, { type: "dependant", node: newNode });
-      },
       getOrAddDependencyForResult: async (nodeDef, nodeValue) => {
         let depNode = findNode(node.scope, nodeDef, nodeValue, this.nodes);
         let subResult: NNodeResult<typeof nodeDef>;
@@ -280,7 +272,14 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         console.log("[GraphRunner] Dependency result", subResult);
         this.addNodeTrace(node, { type: "dependency-result", node: depNode, existing, result: subResult });
 
-        return { ...subResult, createNodeRef: createNodeRefFactory(depNode.id) };
+        return subResult;
+      },
+      addDependantNode: (newNodeDef, newNodeValue) => {
+        console.log("[GraphRunner] Adding dependant node", newNodeValue);
+        const newNode = this.addNode(newNodeDef, newNodeValue, node.scope, [node.id]);
+        ((node.state ||= {}).createdNodes ||= []).push(newNode.id);
+        queueNode(newNode);
+        this.addNodeTrace(node, { type: "dependant", node: newNode });
       },
       findNodeForResult: async (nodeDef, filter) => {
         const foundNode = findNode(
@@ -299,125 +298,8 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
       },
       createNodeRef: createNodeRefFactory(node.id),
 
-      readFile: async (path) => {
-        console.log("[GraphRunner] Read file", path);
-
-        if (this.projectContext.settings.files?.blockedPaths?.some((bp) => path.startsWith(bp))) {
-          console.log("[GraphRunner] Blocking read operation for:", path);
-          return { type: "not-found" };
-        }
-
-        const result = await this.projectContext.readFile(path);
-        this.addNodeTrace(node, { type: "read-file", path, result });
-        return result;
-      },
-      writeFile: async (path, content) => {
-        if (this.projectContext.dryRun) {
-          console.log(`[GraphRunner] (Dry Run) Skipping write operation for: ${path}`);
-          this.addNodeTrace(node, { type: "write-file", path, content, dryRun: true });
-          return;
-        }
-
-        const { original, created } = await this.writeFile(path, content);
-        this.addNodeTrace(node, { type: "write-file", path, content, original, created });
-      },
-
-      getCache: async (key, schema) => {
-        const res = schema.safeParse(await this.projectContext.projectCacheGet(key));
-        if (res.success) {
-          this.addNodeTrace(node, { type: "get-cache", key, result: res.data });
-          return res.data;
-        }
-        return undefined;
-      },
-      setCache: async (key, value) => {
-        this.addNodeTrace(node, { type: "set-cache", key, value });
-        return this.projectContext.projectCacheSet(key, value);
-      },
-
-      aiChat: async (model, messages) => {
-        if (signal.aborted) throw new RunStoppedError();
-        try {
-          const traceId = newId.traceChat();
-          this.addNodeTrace(node, { type: "ai-chat-request", chatId: traceId, model, messages });
-          const result = await aiChat(this.projectContext, model, messages, signal);
-          console.log("[GraphRunner] AI chat result", result);
-          this.addNodeTrace(node, { type: "ai-chat-response", chatId: traceId, result });
-          return result;
-        } catch (e) {
-          console.error(e);
-          console.error(JSON.stringify(e, null, 2));
-          throw e;
-        }
-      },
-      aiJson: async (schema, data, prompt) => {
-        if (signal.aborted) throw new RunStoppedError();
-        try {
-          const traceId = newId.traceChat();
-          this.addNodeTrace(node, {
-            type: "ai-json-request",
-            chatId: traceId,
-            schema: zodToJsonSchema(schema, "S").definitions?.S,
-            input: data,
-            prompt,
-          });
-          const result = await aiJson(this.projectContext, "gpt4o", schema, data, prompt, signal);
-          console.log("[GraphRunner] AI JSON result", result);
-          this.addNodeTrace(node, {
-            type: "ai-json-response",
-            chatId: traceId,
-            result,
-          });
-          return result;
-        } catch (e) {
-          console.error(e);
-          console.error(JSON.stringify(e, null, 2));
-          throw e;
-        }
-      },
-      aiWebSearch: async (query) => {
-        if (signal.aborted) throw new RunStoppedError();
-        try {
-          const traceId = newId.traceChat();
-          this.addNodeTrace(node, { type: "ai-web-search-request", chatId: traceId, query });
-          const result = await aiWebSearch(this.projectContext, query, signal);
-          console.log("[GraphRunner] AI Web Search result", result);
-          this.addNodeTrace(node, { type: "ai-web-search-response", chatId: traceId, result });
-          return result;
-        } catch (e) {
-          console.error(e);
-          console.error(JSON.stringify(e, null, 2));
-          throw e;
-        }
-      },
-      aiScrape: async (schema, url, prompt) => {
-        if (signal.aborted) throw new RunStoppedError();
-        try {
-          const traceId = newId.traceChat();
-          this.addNodeTrace(node, {
-            type: "ai-scrape-request",
-            chatId: traceId,
-            schema: zodToJsonSchema(schema, "S").definitions?.S,
-            url,
-            prompt,
-          });
-          const result = await aiScrape(this.projectContext, schema, url, prompt, signal);
-          console.log("[GraphRunner] AI Scrape result", result);
-          this.addNodeTrace(node, {
-            type: "ai-scrape-response",
-            chatId: traceId,
-            result,
-          });
-          return result;
-        } catch (e) {
-          console.error(e);
-          console.error(JSON.stringify(e, null, 2));
-          throw e;
-        }
-      },
-
-      displayToast: this.projectContext.displayToast,
-      writeDebugFile: this.projectContext.writeDebugFile,
+      e$: runEffect,
+      runEffect,
     };
 
     const accessedNodeIds = new Set<string>();
@@ -527,18 +409,6 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     return !node.state?.completedAt && !node.dependencies?.some((id) => !this.nodes[id]?.state?.completedAt);
   }
 
-  public async writeFile(path: string, content: string) {
-    console.log("[GraphRunner] Write file", path);
-    const fileExisted = (await this.projectContext.readFile(path)).type !== "not-found";
-    const result = await this.projectContext.writeFile(path, content);
-    return { original: result, created: !fileExisted };
-  }
-
-  public async deleteFile(path: string) {
-    console.log("[GraphRunner] Delete file", path);
-    await this.projectContext.deleteFile(path);
-  }
-
   public addNode<D extends NNodeDef>(
     nodeDef: D,
     nodeValue: NNodeValue<D>,
@@ -582,14 +452,15 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
   }
 
   public async resetNode(nodeId: string) {
-    const fileWrites: (NNodeTraceEvent & { type: "write-file" })[] = [];
+    const filterEffectTrace = (
+      t: NNodeTraceEvent,
+    ): t is NNodeTraceEvent & { type: "effect-request" | "effect-result" } =>
+      t.type === "effect-request" || t.type === "effect-result";
+    const effectTraces: (NNodeTraceEvent & { type: "effect-request" | "effect-result" })[] = [];
 
     const reset = (rNode: NNode) => {
-      // track file writes
-      fileWrites.push(
-        ...(rNode.state?.trace?.filter((t): t is NNodeTraceEvent & { type: "write-file" } => t.type === "write-file") ||
-          []),
-      );
+      // track effect results
+      effectTraces.push(...(rNode.state?.trace?.filter(filterEffectTrace) || []));
 
       // delete all nodes created as a side effect of this node
       const deletedNodes = new Set<string>();
@@ -601,12 +472,8 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
         if (!delNode) return;
         delNode.state?.createdNodes?.forEach((id) => deleteNode(id));
 
-        // track file writes
-        fileWrites.push(
-          ...(delNode.state?.trace?.filter(
-            (t): t is NNodeTraceEvent & { type: "write-file" } => t.type === "write-file" && !t.dryRun,
-          ) || []),
-        );
+        // track effect results
+        effectTraces.push(...(delNode.state?.trace?.filter(filterEffectTrace) || []));
         delete this.nodes[subNodeId];
       };
       rNode.state?.createdNodes?.forEach((id) => deleteNode(id));
@@ -628,25 +495,37 @@ export class GraphRunner extends EventEmitter<{ dataChanged: [] }> {
     reset(node);
     this.emit("dataChanged");
 
-    // prompt user if they wanna undo file writes
-    if (fileWrites.length) {
-      const selectedFiles = await this.projectContext.showRevertFilesDialog(
-        fileWrites.map((w) => ({ path: w.path, original: w.original || "" })),
-      );
-      if (selectedFiles.length) {
-        const fileWritesToUndo = fileWrites.filter((w) => selectedFiles.includes(w.path));
-        for (const write of fileWritesToUndo) {
-          if (write.created) {
-            await this.deleteFile(write.path);
-          } else {
-            await this.writeFile(write.path, write.original || "");
-          }
-        }
-        this.projectContext.displayToast(
-          `Reverted ${fileWritesToUndo.length} file${fileWritesToUndo.length > 1 ? "s" : ""}`,
-          { type: "success" },
-        );
+    const abortSignal = new AbortController().signal; // todo expose this?
+    const effectCtx = { projectContext: this.projectContext, signal: abortSignal };
+
+    // collect revertable effect instances
+    const revertableEffects = effectTraces
+      .map((req) => {
+        if (req.type !== "effect-request") return null;
+        const effect = this.effectDefs[req.effectId];
+        if (!effect) return null;
+        const resultTrace = effectTraces.find(
+          (res) => res.type === "effect-result" && req.effectId === res.effectId,
+        ) as (NNodeTraceEvent & { type: "effect-result" }) | undefined;
+        if (!resultTrace) return null;
+        if (!effect.canRevert?.(req.request, resultTrace.result, effectCtx)) return null;
+        const render = () =>
+          effect.renderRevertPreview?.(req.request, resultTrace.result, effectCtx) || { title: effect.typeId };
+        return { id: req.traceId, effect, request: req.request, result: resultTrace.result, render };
+      })
+      .filter((v) => !!v);
+
+    // prompt user if they wanna revert effect results
+    if (revertableEffects.length) {
+      const selectedTraces = await this.projectContext.showRevertChangesDialog(revertableEffects);
+      const effectsToRevert = revertableEffects.filter((w) => selectedTraces.includes(w.id));
+      for (const { effect, request, result } of effectsToRevert) {
+        await effect.revert?.(request, result, { projectContext: this.projectContext, signal: abortSignal });
       }
+      this.projectContext.displayToast(
+        `Reverted ${effectsToRevert.length} effect${effectsToRevert.length > 1 ? "s" : ""}`,
+        { type: "success" },
+      );
     }
   }
 
@@ -750,12 +629,14 @@ ${prompt}
 
   public getNodeDef<D extends NNodeDef>(node: NNode<D>) {
     const nodeDef = this.nodeDefs[node.typeId];
-    if (!nodeDef) throw new Error(`Node type not found: ${node.typeId}`);
+    if (!nodeDef) throw new Error(`Node type not found: ${node.typeId}, make sure it's registered`);
     return nodeDef as D;
   }
 
-  public hasRealFileWrites() {
-    return Object.values(this.nodes).some((node) => node.state?.trace?.some((t) => t.type === "write-file"));
+  public getEffect(typeId: string) {
+    const effectDef = this.effectDefs[typeId];
+    if (!effectDef) throw new Error(`Effect type not found: ${typeId}, make sure it's registered`);
+    return effectDef;
   }
 
   public getActiveRunId() {
@@ -773,20 +654,25 @@ ${prompt}
     this.emit("dataChanged"); // whenever there's a change, there should be a trace, so this effectively occurs on every change to the node data
   }
 
+  // todo is there a way to remove this hack
   public async reSaveAllWrites(): Promise<void> {
     const writeEvents = this.trace.flatMap((event) =>
       event.type === "end-node" && event.node.state?.trace
-        ? event.node.state.trace.filter((t) => t.type === "write-file")
+        ? event.node.state.trace.filter(
+            (t): t is NNodeTraceEvent & { type: "effect-request" } =>
+              t.type === "effect-request" && t.effectId === WriteFileNEffect.typeId,
+          )
         : [],
     );
 
     for (const writeEvent of writeEvents) {
+      const request = writeEvent.request as NodeEffectParam<typeof WriteFileNEffect>;
       try {
-        await this.writeFile(writeEvent.path, writeEvent.content);
-        console.log(`Re-saved file: ${writeEvent.path}`);
+        await this.projectContext.writeFile(request.path, request.content);
+        console.log(`Re-saved file: ${request.path}`);
       } catch (error) {
-        console.error(`Failed to re-save file ${writeEvent.path}:`, error);
-        throw new Error(`Failed to re-save file ${writeEvent.path}: ${formatError(error)}`);
+        console.error(`Failed to re-save file ${request.path}:`, error);
+        throw new Error(`Failed to re-save file ${request.path}: ${formatError(error)}`);
       }
     }
   }

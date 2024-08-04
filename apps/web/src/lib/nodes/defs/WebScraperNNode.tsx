@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { Well } from "../../../components/base/Well";
+import { AIScrapeNEffect } from "../effects/AIScrapeNEffect";
 import { createNodeDef } from "../node-types";
 
 export const WebScraperNNode = createNodeDef(
@@ -15,17 +16,17 @@ export const WebScraperNNode = createNodeDef(
   }),
   {
     run: async (value, nrc) => {
-      const result = await nrc.aiScrape(
-        z.object({
+      const result = await AIScrapeNEffect(nrc, {
+        schema: z.object({
           title: z.string().optional(),
           relevantInfo: z.string(),
           keyPoints: z.array(z.string()),
           codeSnippets: z.array(z.string({ description: "Code snippet blocks, with comments, in markdown" })),
           helpfulLinks: z.array(z.object({ url: z.string(), justification: z.string() })),
         }),
-        value.url,
-        `Extract the most relevant information, key points, code snippets, and helpful links related to the research query: "${value.query}"`,
-      );
+        url: value.url,
+        prompt: `Extract the most relevant information, key points, code snippets, and helpful links related to the research query: "${value.query}"`,
+      });
       return result;
     },
     renderInputs: (v) => (

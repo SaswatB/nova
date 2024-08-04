@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { renderJsonWell } from "../../../components/base/Well";
+import { DisplayToastNEffect } from "../effects/DisplayToastNEffect";
 import { createNodeDef } from "../node-types";
 import { orRef } from "../ref-types";
 
@@ -11,7 +12,7 @@ export const OutputNNode = createNodeDef(
   {
     run: async (value, nrc) => {
       console.log("[OutputNode] ", value.description, value.value);
-      nrc.displayToast(`[OutputNode] ${value.value}`, { type: "info", autoClose: false });
+      await DisplayToastNEffect(nrc, { message: `[OutputNode] ${value.value}`, type: "info", autoClose: false });
       return {};
     },
     renderInputs: (v) => renderJsonWell(v.description, v.value),

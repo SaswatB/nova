@@ -3,6 +3,9 @@ import { z } from "zod";
 
 import { Well } from "../../../components/base/Well";
 import { xmlProjectSettings } from "../ai-helpers";
+import { AIChatNEffect } from "../effects/AIChatNEffect";
+import { ReadFileNEffect } from "../effects/ReadFileNEffect";
+import { WriteFileNEffect } from "../effects/WriteFileNEffect";
 import { createNodeDef } from "../node-types";
 import { orRef } from "../ref-types";
 
@@ -12,14 +15,12 @@ export const ApplyFileChangesNNode = createNodeDef(
   z.object({ original: z.string(), result: z.string() }),
   {
     run: async (value, nrc) => {
-      const existingFile = await nrc.readFile(value.path);
+      const existingFile = await ReadFileNEffect(nrc, value.path);
       if (existingFile.type === "directory") throw new Error("Cannot apply changes to a directory");
       const original = existingFile.type === "file" ? existingFile.content : "";
 
-      let output = await nrc.aiChat("gpt4o", [
-        {
-          role: "user",
-          content: `
+      let output = await AIChatNEffect(nrc, "gpt4o", [
+        `
 ${xmlProjectSettings(nrc.settings)}
 
 <file path="${value.path}">
@@ -34,7 +35,6 @@ Do not output a diff, just the final file.
 Your response will directly overwrite the file, so you MUST not omit any of the file content.
 The file you are operating on is "${value.path}".
           `.trim(),
-        },
       ]);
 
       if (output.includes("```")) {
@@ -52,7 +52,7 @@ The file you are operating on is "${value.path}".
         output = output.slice(0, -1);
       }
 
-      await nrc.writeFile(value.path, output);
+      await WriteFileNEffect(nrc, value.path, output);
       return { original, result: output };
     },
     renderInputs: (v) => (

@@ -2,6 +2,9 @@ import { uniq } from "lodash";
 import { z } from "zod";
 
 import { Well } from "../../../components/base/Well";
+import { AIChatNEffect } from "../effects/AIChatNEffect";
+import { AIJsonNEffect } from "../effects/AIJsonNEffect";
+import { AIWebSearchNEffect } from "../effects/AIWebSearchNEffect";
 import { createNodeDef } from "../node-types";
 import { WebScraperNNode } from "./WebScraperNNode";
 
@@ -19,37 +22,39 @@ export const WebResearchHelperNNode = createNodeDef(
 
       const performSearch = async (query: string, context: string) => {
         // generate search terms
-        const { terms } = await nrc.aiJson(
-          z.object({ terms: z.array(z.string()).min(0) }),
-          `
+        const { terms } = await AIJsonNEffect(nrc, {
+          schema: z.object({ terms: z.array(z.string()).min(0) }),
+          data: `
 <query>
 ${query}
 </query>
 ${context ? `<context>\n${context}\n</context>` : ""}`.trim(),
-          `
+          prompt: `
 Based on the research query and any previous context, suggest 1-3 specific search terms, ordered in relevance to the research query, that would be effective for a web search.
 Focus on terms that will yield diverse and relevant results.
 If the provided context sufficiently answers the research query, you can return an empty array.
           `.trim(),
-        );
+        });
 
         // perform the search
-        const searchResults = (await Promise.all(terms.slice(0, 3).map((term) => nrc.aiWebSearch(term)))).flat();
+        const searchResults = (
+          await Promise.all(terms.slice(0, 3).map((term) => AIWebSearchNEffect(nrc, term)))
+        ).flat();
 
         // evaluate the search results
-        const relevantResults = await nrc.aiJson(
-          z.object({
+        const relevantResults = await AIJsonNEffect(nrc, {
+          schema: z.object({
             results: z.array(
               z.object({ url: z.string(), relevance: z.number().min(0).max(100), justification: z.string() }),
             ),
           }),
-          JSON.stringify(searchResults),
-          `
+          data: JSON.stringify(searchResults),
+          prompt: `
 Evaluate the relevance of each search result to the research query: "${query}". 
 Return an array of objects, each containing the 'url' and a 'relevance' score between 0 and 100. 
 Choose only the most relevant results, aiming for ~3 high-quality sources.
           `.trim(),
-        );
+        });
 
         // return the best results
         const selectedResults = relevantResults.results.sort((a, b) => b.relevance - a.relevance).slice(0, 5);
@@ -80,10 +85,8 @@ ${data.codeSnippets.map((snippet) => `<snippet>${snippet}</snippet>`).join("\n  
           )
           .join("\n");
 
-        return nrc.aiChat("gpt4o", [
-          {
-            role: "user",
-            content: `
+        return AIChatNEffect(nrc, "gpt4o", [
+          `
 <query>
 ${query}
 </query>
@@ -94,7 +97,6 @@ ${combinedInfo}
 Synthesize and summarize the given information related to the research query.
 Highlight any gaps in the current information or areas that might benefit from further research and include helpful links as applicable.
             `.trim(),
-          },
         ]);
       };
 
@@ -119,31 +121,29 @@ Highlight any gaps in the current information or areas that might benefit from f
 
         finalResult += (finalResult ? "\n\n" : "") + `Iteration ${i + 1}:\n${iterationSummary}`;
 
-        const continueResearch = await nrc.aiJson(
-          z.object({
+        const continueResearch = await AIJsonNEffect(nrc, {
+          schema: z.object({
             shouldContinue: z.boolean(),
             justification: z.string(),
             prioritizedUrls: z.array(z.string()).optional(),
           }),
-          finalResult,
-          `
+          data: finalResult,
+          prompt: `
 Based on the current research progress, should we continue with another iteration of search to gather more information for the research query: "${value.query}"?
 Consider if there are significant gaps or if the current information is sufficient.
 Respond with true to continue or false to conclude the research.
 If you continue, provide an array of the best URLs to search for in the next iteration, (only if any look promising).
 If you choose to continue, consider adding urls that would be good candidates for further research.
           `.trim(),
-        );
+        });
 
         if (!continueResearch.shouldContinue) break;
         linksToVisit = continueResearch.prioritizedUrls?.filter((url) => finalResult.includes(url)) || []; // only allow links that are explicitly mentioned in the final result (to avoid hallucinations)
       }
 
       const finalSummary = finalResult
-        ? await nrc.aiChat("gpt4o", [
-            {
-              role: "user",
-              content: `
+        ? await AIChatNEffect(nrc, "gpt4o", [
+            `
 <research>
 ${finalResult}
 </research>
@@ -154,14 +154,13 @@ ${value.query}
 Provide a comprehensive final summary of the research findings for the given query.
 Synthesize all the information gathered across iterations, highlight key insights, and address any remaining gaps or areas for future research.
           `.trim(),
-            },
           ])
         : "";
 
       return {
         result: finalSummary,
         sources: allSources.map((result) => ({
-          url: result.link!,
+          url: result.link,
           title: result.title || "",
           snippet: result.snippet || "",
         })),

@@ -1,10 +1,8 @@
-import { ToastOptions } from "react-toastify";
 import { UnknownKeysParam, z, ZodTypeAny } from "zod";
 
 import { ProjectSettings } from "@repo/shared";
 
-import { ReadFileResult } from "../files";
-import { RouterInput, RouterOutput } from "../trpc-client";
+import { RunNodeEffect } from "./effect-types";
 import { CreateNodeRef, ResolveRefs } from "./ref-types";
 
 export enum NodeScopeType {
@@ -64,31 +62,14 @@ export function createNodeDef<
 export interface NodeRunnerContext {
   settings: ProjectSettings;
 
-  addDependantNode: <V extends {}>(nodeDef: NNodeDef<string, V>, nodeValue: V) => void;
-  getOrAddDependencyForResult: <T extends NNodeDef>(
-    nodeDef: T,
-    nodeValue: NNodeValue<T>,
-  ) => Promise<NNodeResult<T> & { createNodeRef: CreateNodeRef /* create a reference to the dependency node */ }>;
+  getOrAddDependencyForResult: <T extends NNodeDef>(nodeDef: T, nodeValue: NNodeValue<T>) => Promise<NNodeResult<T>>;
   findNodeForResult: <T extends NNodeDef>(
     nodeDef: T,
     filter: (node: NNodeValue<T>, extra: { scopeDef: NodeScopeDef; isCurrentScope: boolean }) => boolean,
   ) => Promise<NNodeResult<T> | null>;
+  addDependantNode: <V extends {}>(nodeDef: NNodeDef<string, V>, nodeValue: V) => void;
   createNodeRef: CreateNodeRef; // create a reference to the current node
 
-  readFile: (path: string) => Promise<ReadFileResult>;
-  writeFile: (path: string, content: string) => Promise<void>;
-
-  getCache: <T extends z.ZodSchema>(key: string, schema: T) => Promise<z.infer<T> | undefined>;
-  setCache: (key: string, value: unknown) => Promise<void>;
-
-  aiChat: (
-    model: RouterInput["ai"]["chat"]["model"],
-    messages: RouterInput["ai"]["chat"]["messages"],
-  ) => Promise<string>;
-  aiJson: <T extends object>(schema: z.ZodSchema<T>, data: string, prompt?: string) => Promise<T>;
-  aiScrape: <T extends object>(schema: z.ZodSchema<T>, url: string, prompt: string) => Promise<T>;
-  aiWebSearch: (query: string) => Promise<RouterOutput["ai"]["webSearch"]>;
-
-  displayToast: (message: string, options?: ToastOptions) => void;
-  writeDebugFile: (name: string, content: string) => void;
+  e$: RunNodeEffect; // shorthand for runEffect
+  runEffect: RunNodeEffect;
 }
