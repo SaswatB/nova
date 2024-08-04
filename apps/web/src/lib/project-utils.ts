@@ -14,6 +14,11 @@ export async function cleanupProject(projectId: string) {
   // Remove project spaces from local storage
   removeLocalStorage(lsKey.projectSpaces(projectId));
 
+  // Clear project cache
+  await clearProjectCache(projectId);
+}
+
+export async function clearProjectCache(projectId: string) {
   // lm_a445fd9fd3 Remove project cache from OPFS
   const opfsRoot = await opfsRootPromise;
   opfsRoot.removeEntry(`projects/${projectId}`, { recursive: true });

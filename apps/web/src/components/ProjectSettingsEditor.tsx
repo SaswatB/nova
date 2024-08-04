@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 import { GearIcon } from "@radix-ui/react-icons";
 import { AlertDialog, Button, Dialog, IconButton, Separator } from "@radix-ui/themes";
 import { css } from "styled-system/css";
-import { styled } from "styled-system/jsx";
+import { Flex, Stack, styled } from "styled-system/jsx";
 
 import { ProjectSettings } from "@repo/shared";
 
@@ -18,6 +18,7 @@ interface ProjectSettingsEditorProps {
   settings: ProjectSettings;
   onChange: (settings: ProjectSettings) => void;
   onDelete: () => void;
+  onClearCache: () => Promise<void>;
 }
 
 export function ProjectSettingsEditor({
@@ -26,6 +27,7 @@ export function ProjectSettingsEditor({
   settings,
   onChange,
   onDelete,
+  onClearCache,
 }: ProjectSettingsEditorProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("file-access");
@@ -69,38 +71,63 @@ export function ProjectSettingsEditor({
             )}
             {activeTab === "ai-settings" && <AISettingsEditor />}
             {activeTab === "danger-zone" && (
-              <div>
+              <Stack>
                 <h3>Danger Zone</h3>
-                <AlertDialog.Root>
-                  <AlertDialog.Trigger>
-                    <Button color="red">Delete Project</Button>
-                  </AlertDialog.Trigger>
-                  <AlertDialog.Content>
-                    <AlertDialog.Title>Are you sure?</AlertDialog.Title>
-                    <AlertDialog.Description>
-                      This action cannot be undone. This will permanently delete the project and all its data.
-                    </AlertDialog.Description>
-                    <div style={{ display: "flex", gap: 16, justifyContent: "flex-end" }}>
-                      <AlertDialog.Cancel>
-                        <Button variant="soft" color="gray">
-                          Cancel
-                        </Button>
-                      </AlertDialog.Cancel>
-                      <AlertDialog.Action>
-                        <Button
-                          color="red"
-                          onClick={() => {
-                            onDelete();
-                            setOpen(false);
-                          }}
-                        >
-                          Delete
-                        </Button>
-                      </AlertDialog.Action>
-                    </div>
-                  </AlertDialog.Content>
-                </AlertDialog.Root>
-              </div>
+                <Flex gap={16}>
+                  <AlertDialog.Root>
+                    <AlertDialog.Trigger>
+                      <Button color="red">Delete Project</Button>
+                    </AlertDialog.Trigger>
+                    <AlertDialog.Content>
+                      <AlertDialog.Title>Are you sure?</AlertDialog.Title>
+                      <AlertDialog.Description>
+                        This action cannot be undone. This will permanently delete the project and all its data.
+                      </AlertDialog.Description>
+                      <div style={{ display: "flex", gap: 16, justifyContent: "flex-end" }}>
+                        <AlertDialog.Cancel>
+                          <Button variant="soft" color="gray">
+                            Cancel
+                          </Button>
+                        </AlertDialog.Cancel>
+                        <AlertDialog.Action>
+                          <Button
+                            color="red"
+                            onClick={() => {
+                              onDelete();
+                              setOpen(false);
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </AlertDialog.Action>
+                      </div>
+                    </AlertDialog.Content>
+                  </AlertDialog.Root>
+                  <AlertDialog.Root>
+                    <AlertDialog.Trigger>
+                      <Button color="red">Clear Project Cache</Button>
+                    </AlertDialog.Trigger>
+                    <AlertDialog.Content>
+                      <AlertDialog.Title>Clear Project Cache?</AlertDialog.Title>
+                      <AlertDialog.Description>
+                        This action will clear all cached data for this project. It may affect performance temporarily.
+                      </AlertDialog.Description>
+                      <div style={{ display: "flex", gap: 16, justifyContent: "flex-end" }}>
+                        <AlertDialog.Cancel>
+                          <Button variant="soft" color="gray">
+                            Cancel
+                          </Button>
+                        </AlertDialog.Cancel>
+                        <AlertDialog.Action>
+                          <Button color="red" onClick={() => onClearCache()}>
+                            Clear Cache
+                          </Button>
+                        </AlertDialog.Action>
+                      </div>
+                    </AlertDialog.Content>
+                  </AlertDialog.Root>
+                </Flex>
+              </Stack>
             )}
           </styled.div>
         </styled.div>

@@ -22,7 +22,7 @@ import { getLocalStorage, useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useObservableCallback } from "../lib/hooks/useObservableCallback";
 import { useSubject } from "../lib/hooks/useSubject";
 import { idbKey, lsKey } from "../lib/keys";
-import { cleanupProject } from "../lib/project-utils";
+import { cleanupProject, clearProjectCache } from "../lib/project-utils";
 import { routes, RoutesPathParams } from "../lib/routes";
 import { trpc } from "../lib/trpc-client";
 import { newId } from "../lib/uid";
@@ -281,6 +281,10 @@ export function Workspace() {
                       : routes.home.getPath(),
                   );
                   toast.success("Project deleted");
+                }}
+                onClearCache={async () => {
+                  await clearProjectCache(projectId);
+                  toast.success("Project cache cleared");
                 }}
               />
             )}

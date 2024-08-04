@@ -12,7 +12,6 @@ import SplitPane from "split-pane-react/esm/SplitPane";
 import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 import { stack } from "styled-system/patterns";
-import { VList } from "virtua";
 import { z } from "zod";
 
 import { dirname, IterationMode, ProjectSettings, VoiceStatusPriority } from "@repo/shared";
