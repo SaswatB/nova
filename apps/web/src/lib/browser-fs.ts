@@ -8,6 +8,10 @@ const handleCache = new WeakMap<
   FileSystemDirectoryHandle,
   Map<string, FileSystemDirectoryHandle | FileSystemFileHandle>
 >();
+function getHandleCache(handle: FileSystemDirectoryHandle) {
+  if (!handleCache.has(handle)) handleCache.set(handle, new Map());
+  return handleCache.get(handle)!;
+}
 
 export async function getFileHandleForPath(path: string, root: FileSystemDirectoryHandle, createAsDirectory = false) {
   const parts = path.split("/");
@@ -22,8 +26,7 @@ export async function getFileHandleForPath(path: string, root: FileSystemDirecto
     const part = parts.shift()!;
     breadcrumbs.push(part);
 
-    if (!handleCache.has(folder)) handleCache.set(folder, new Map());
-    const folderCache = handleCache.get(folder)!;
+    const folderCache = getHandleCache(folder);
 
     if (folderCache.has(part)) {
       const cachedHandle = folderCache.get(part)!;
@@ -63,7 +66,15 @@ export async function readFileHandle(path: string, root: FileSystemDirectoryHand
   const handle = await getFileHandleForPath(path, root);
   if (!handle) return { type: "not-found" };
   if (handle.kind === "file") return { type: "file", content: await (await handle.getFile()).text() };
-  return { type: "directory", files: await asyncToArray(handle.keys()) };
+
+  const entries = await asyncToArray(handle.entries());
+  const cache = getHandleCache(handle); // update cache since we have the data
+  for (const [name, handle] of entries) cache.set(name, handle);
+
+  return {
+    type: "directory",
+    files: entries.map(([name, handle]) => ({ type: handle.kind === "file" ? "file" : "directory", name })),
+  };
 }
 
 export async function writeFileHandle(

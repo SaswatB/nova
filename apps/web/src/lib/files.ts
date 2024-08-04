@@ -4,7 +4,7 @@ import pLimit from "p-limit";
 export type ReadFileResult =
   | { type: "not-found" }
   | { type: "file"; content: string }
-  | { type: "directory"; files: string[] };
+  | { type: "directory"; files: { type: "file" | "directory"; name: string }[] };
 
 function checkIgnores(ignores: { dir: string; ignore: Ignore }[], path: string) {
   for (const { dir, ignore } of ignores) {
@@ -49,16 +49,16 @@ export async function readFilesRecursively(
   // Collect all file reading promises, but limit concurrency
   const filePromises = file.files.map((f) =>
     limit(async () => {
-      if (f === ".git") return;
+      if (f.name === ".git") return;
 
-      const p = `${path}${f}`;
+      const p = `${path}${f.name}`;
       if (checkIgnores(newIgnores, p)) return;
-
-      const file = await readFile(p);
-      if (file.type === "not-found") return;
-      if (file.type === "file") {
-        if (extensions.some((ext) => p.endsWith(ext)) && file.content.length < 1e6) {
-          result.push({ type: "file", path: p, content: file.content });
+      if (f.type === "file") {
+        if (extensions.some((ext) => p.endsWith(ext))) {
+          const file = await readFile(p);
+          if (file.type === "file" && file.content.length < 1e6) {
+            result.push({ type: "file", path: p, content: file.content });
+          }
         }
       } else {
         result.push(...(await readFilesRecursively(readFile, `${p}/`, extensions, newIgnores, maxDepth - 1)));

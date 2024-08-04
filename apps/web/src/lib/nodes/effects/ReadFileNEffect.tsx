@@ -26,7 +26,7 @@ export const ReadFileNEffect = createNodeEffect("read-file", {
         {match(result)
           .with({ type: "not-found" }, () => "File not found")
           .with({ type: "file" }, (t) => t.content)
-          .with({ type: "directory" }, (t) => t.files.join("\n"))
+          .with({ type: "directory" }, (t) => t.files.map((f) => f.name).join("\n"))
           .exhaustive()}
       </Well>
     );

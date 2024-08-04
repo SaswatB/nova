@@ -46,7 +46,13 @@ async function runGoal(rootDirectory: string, goal: string) {
       if (!existsSync(fullPath)) return { type: "not-found" };
       const stats = statSync(fullPath);
       if (stats.isFile()) return { type: "file", content: readFileSync(fullPath, "utf8") };
-      return { type: "directory", files: readdirSync(fullPath) };
+      return {
+        type: "directory",
+        files: readdirSync(fullPath, { withFileTypes: true }).map((f) => ({
+          type: f.isDirectory() ? ("directory" as const) : ("file" as const),
+          name: f.name,
+        })),
+      };
     },
     writeFile: async (path, content) => {
       const fullPath = join(rootDirectory, path);
