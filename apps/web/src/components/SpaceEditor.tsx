@@ -595,25 +595,23 @@ Currently working on the project "${projectName}".
           </Stack>
         ) : (
           <Stack css={{ flex: 1 }}>
-            <VList>
-              <styled.h2 css={{ fontSize: 16, fontWeight: "bold", mt: 8, ml: 16, py: 8 }}>Graph Trace</styled.h2>
-              <TraceElementList
-                trace={[
-                  ...selectedPage.graphData.trace,
-                  ...uniqBy(
-                    selectedPage.graphData.trace.filter((t) => t.type === "start-node"),
-                    "node.id",
-                  ).flatMap((t) =>
-                    (selectedPage.graphData?.nodes[t.node.id]?.state?.trace || []).map((tr) => ({
-                      ...tr,
-                      [traceElementSourceSymbol]: selectedPage.graphData!.nodes[t.node.id]!,
-                    })),
-                  ),
-                ]}
-                graphRunner={graphRunner}
-                onNodeNav={(node) => setSelectedNodeId(node.id)}
-              />
-            </VList>
+            <styled.h2 css={{ fontSize: 16, fontWeight: "bold", mt: 8, ml: 16, py: 8 }}>Graph Trace</styled.h2>
+            <TraceElementList
+              trace={[
+                ...selectedPage.graphData.trace,
+                ...uniqBy(
+                  selectedPage.graphData.trace.filter((t) => t.type === "start-node"),
+                  "node.id",
+                ).flatMap((t) =>
+                  (selectedPage.graphData?.nodes[t.node.id]?.state?.trace || []).map((tr) => ({
+                    ...tr,
+                    [traceElementSourceSymbol]: selectedPage.graphData!.nodes[t.node.id]!,
+                  })),
+                ),
+              ]}
+              graphRunner={graphRunner}
+              onNodeNav={(node) => setSelectedNodeId(node.id)}
+            />
           </Stack>
         )}
       </Pane>

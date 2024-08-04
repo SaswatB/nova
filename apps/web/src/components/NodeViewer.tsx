@@ -89,7 +89,7 @@ export function NodeViewer({
   }, [nodeInputs]);
 
   return (
-    <Stack css={{ p: 24, gap: 0, overflowY: "auto" }}>
+    <Stack css={{ p: 24, pb: 0, gap: 0, minH: "100%", overflowY: "auto" }}>
       <Flex css={{ gap: 8 }}>
         {startCase(node.typeId)}
         <styled.div css={{ flex: 1 }} />
@@ -105,7 +105,7 @@ export function NodeViewer({
           Reset
         </Button>
       </Flex>
-      <Tabs.Root defaultValue="details">
+      <Tabs.Root defaultValue="details" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
         <Tabs.List className={css({ mb: 8 })}>
           <Tabs.Trigger value="details">Details</Tabs.Trigger>
           <Tabs.Trigger value="trace">Trace</Tabs.Trigger>
@@ -180,7 +180,7 @@ export function NodeViewer({
             </>
           ) : null}
         </Tabs.Content>
-        <Tabs.Content value="trace">
+        <Tabs.Content value="trace" style={{ flex: 1 }}>
           <TraceElementList
             trace={(node.state?.trace || []).map((t) => ({ ...t, [traceElementSourceSymbol]: node }))}
             graphRunner={graphRunner}

@@ -81,6 +81,11 @@ export async function aiChatImpl(options: AIChatOptions) {
     });
     fullText += result.text;
 
+    if (!fullText) {
+      console.error("No text generated", result);
+      throw new Error("No text generated");
+    }
+
     if (result.finishReason !== "length" || options.signal?.aborted) break;
   }
 

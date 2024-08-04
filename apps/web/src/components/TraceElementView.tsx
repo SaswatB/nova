@@ -2,13 +2,11 @@ import { useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { Button, Card, Tabs } from "@radix-ui/themes";
 import { reverse, sortBy, startCase } from "lodash";
-import { filter, map, Observable } from "rxjs";
 import { css, cx } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 import { match, P } from "ts-pattern";
+import { VList, VListHandle } from "virtua";
 
-import { useObservableCallback } from "../lib/hooks/useObservableCallback";
-import { useSubject } from "../lib/hooks/useSubject";
 import { GraphRunner, GraphTraceEvent, NNode, NNodeTraceEvent } from "../lib/nodes/run-graph";
 import { renderJsonWell } from "./base/Well";
 import { NNodeBadge } from "./NNodeBadge";
@@ -18,20 +16,20 @@ export type TraceElement = GraphTraceEvent | (NNodeTraceEvent & { [traceElementS
 export function TraceElementView({
   trace,
   graphRunner,
-  scrollToElement$,
   isActive,
+  isExpanded,
+  setIsExpanded,
   onTraceIdNav,
   onNodeNav,
 }: {
   trace: TraceElement;
   graphRunner?: GraphRunner;
-  scrollToElement$: Observable<boolean>;
   isActive: boolean;
+  isExpanded: boolean;
+  setIsExpanded: (isExpanded: boolean) => void;
   onTraceIdNav: (traceId: string, target: "request" | "result") => void;
   onNodeNav: (node: NNode) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-
   const renderSummary = () => {
     if (traceElementSourceSymbol in trace) {
       // NNodeTraceEvent
@@ -109,15 +107,8 @@ export function TraceElementView({
       .exhaustive();
   };
 
-  const cardRef = useRef<HTMLDivElement>(null);
-  useObservableCallback(scrollToElement$, () => {
-    cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    setExpanded(true);
-  });
-
   return (
     <Card
-      ref={cardRef}
       className={cx(
         css({ flex: "none", mx: 16, my: 8, border: isActive ? "1px solid rgb(0, 123, 255)" : "none" }),
         isActive && "pulse",
@@ -131,7 +122,7 @@ export function TraceElementView({
           cursor: "pointer",
           "&:hover": { backgroundColor: "background.secondary" },
         }}
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => setIsExpanded(!isExpanded)}
       >
         {traceElementSourceSymbol in trace ? (
           <NNodeBadge node={trace[traceElementSourceSymbol]} onNodeNav={onNodeNav} />
@@ -145,7 +136,7 @@ export function TraceElementView({
           {new Date(trace.timestamp).toLocaleDateString()}
         </styled.div>
       </Flex>
-      {expanded && (
+      {isExpanded && (
         <Tabs.Root defaultValue="summary">
           <Tabs.List className={css({ mb: 8 })}>
             <Tabs.Trigger value="summary">Summary</Tabs.Trigger>
@@ -178,7 +169,8 @@ export function TraceElementList({
   graphRunner?: GraphRunner;
   onNodeNav: (node: NNode) => void;
 }) {
-  const scrollToElement = useSubject<{ element: TraceElement }>();
+  const scrollRef = useRef<VListHandle>(null);
+  const [expandedTraceKeys, setExpandedTraceKeys] = useState<number[]>([]);
 
   function isActive(t: TraceElement) {
     const active = match(t)
@@ -205,20 +197,36 @@ export function TraceElementList({
 
     return active && graphRunner?.getActiveRunId() === t.runId;
   }
+  const sortedTrace = reverse(sortBy(trace, "timestamp"));
 
-  return reverse(sortBy(trace, "timestamp")).map((t, i) => (
-    <TraceElementView
-      key={trace.length - i}
-      trace={t}
-      graphRunner={graphRunner}
-      scrollToElement$={scrollToElement.pipe(filter(({ element }) => element === t)).pipe(map(() => true))}
-      isActive={isActive(t)}
-      onTraceIdNav={(traceId, target) => {
-        const element = trace.find((t) => "traceId" in t && t.type.includes(target) && t.traceId === traceId);
-        if (element) scrollToElement.next({ element });
-        else toast.error(`Trace ${target === "request" ? "request" : "result"} not found`);
-      }}
-      onNodeNav={onNodeNav}
-    />
-  ));
+  return (
+    <VList ref={scrollRef}>
+      {sortedTrace.map((t, i) => {
+        const key = trace.length - i;
+        return (
+          <TraceElementView
+            key={key}
+            trace={t}
+            graphRunner={graphRunner}
+            isActive={isActive(t)}
+            isExpanded={expandedTraceKeys.includes(key)}
+            setIsExpanded={(isExpanded) => {
+              if (isExpanded) setExpandedTraceKeys([...expandedTraceKeys, key]);
+              else setExpandedTraceKeys(expandedTraceKeys.filter((k) => k !== key));
+            }}
+            onTraceIdNav={(traceId, target) => {
+              const index = sortedTrace.findIndex(
+                (t) => "traceId" in t && t.type.includes(target) && t.traceId === traceId,
+              );
+              if (index !== -1) {
+                setExpandedTraceKeys([...expandedTraceKeys, trace.length - index]);
+                scrollRef.current?.scrollToIndex(index);
+              } else toast.error(`Trace ${target === "request" ? "request" : "result"} not found`);
+            }}
+            onNodeNav={onNodeNav}
+          />
+        );
+      })}
+    </VList>
+  );
 }

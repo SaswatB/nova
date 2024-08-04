@@ -29,7 +29,7 @@ export function Well({
 
   const markdownContent = useMemo(() => {
     if (!markdown) return children;
-    const lines = children.split("\n");
+    const lines = (children || "").split("\n");
     const finalLines = [];
 
     // prompts use a lot of xml tags, so this tries to wrap them in code blocks to make them easier to read
