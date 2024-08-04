@@ -59,6 +59,11 @@ async function runGoal(rootDirectory: string, goal: string) {
       const fullPath = join(rootDirectory, path);
       if (existsSync(fullPath)) unlinkSync(fullPath);
     },
+    saveJsonWithPicker: async (filename, json) => {
+      const fullPath = join(rootDirectory, filename);
+      mkdirSync(dirname(fullPath), { recursive: true });
+      writeFileSync(fullPath, JSON.stringify(json, null, 2));
+    },
     displayToast: (message) => console.log(message),
     showRevertChangesDialog: (effects) => Promise.resolve(effects.map((e) => e.id)),
     projectCacheGet: (key) => cacheGet(`${projectId}-${key}`),

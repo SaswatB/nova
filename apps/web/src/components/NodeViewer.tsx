@@ -88,11 +88,28 @@ export function NodeViewer({
     }
   }, [nodeInputs]);
 
+  const handleExport = async () => {
+    if (!graphRunner) {
+      toast.error("No graph runner");
+      return;
+    }
+    try {
+      await graphRunner.exportNode(node.id);
+      toast.success("Node exported successfully");
+    } catch (error) {
+      console.error("Error exporting node:", error);
+      toast.error("Failed to export node");
+    }
+  };
+
   return (
     <Stack css={{ p: 24, pb: 0, gap: 0, minH: "100%", overflowY: "auto" }}>
       <Flex css={{ gap: 8 }}>
         {startCase(node.typeId)}
         <styled.div css={{ flex: 1 }} />
+        <Button color="blue" variant="soft" onClick={handleExport}>
+          Export
+        </Button>
         <Button color="red" variant="soft" disabled={isGraphRunning} onClick={() => graphRunner?.deleteNode(node.id)}>
           Delete
         </Button>

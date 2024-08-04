@@ -63,6 +63,7 @@ export interface ProjectContext {
   readFile: (path: string) => Promise<ReadFileResult>;
   writeFile: (path: string, content: string) => Promise<string>;
   deleteFile: (path: string) => Promise<void>;
+  saveJsonWithPicker: (filename: string, json: object) => Promise<void>;
 
   displayToast: (message: string, options?: ToastOptions) => void;
   showRevertChangesDialog: (

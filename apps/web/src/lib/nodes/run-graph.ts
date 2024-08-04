@@ -106,6 +106,15 @@ export interface NNode<D extends NNodeDef = NNodeDef> {
   };
 }
 
+export interface ExportedNode {
+  id: string;
+  typeId: string;
+  value: Record<string, unknown>;
+  scope: NNodeScope;
+  dependencies: string[] | undefined;
+  state: NNode["state"];
+}
+
 /**
  * Resolves nodes, respecting scope
  */
@@ -675,6 +684,24 @@ ${prompt}
         throw new Error(`Failed to re-save file ${request.path}: ${formatError(error)}`);
       }
     }
+  }
+
+  public async exportNode(nodeId: string): Promise<void> {
+    const node = this.nodes[nodeId];
+    if (!node) throw new Error(`Node not found: ${nodeId}`);
+
+    const nodeDef = this.getNodeDef(node);
+    const nodeData: ExportedNode = {
+      id: node.id,
+      typeId: node.typeId,
+      value: node.value,
+      scope: node.scope,
+      dependencies: node.dependencies,
+      state: node.state,
+    };
+    const filename = `node_${node.id}_${nodeDef.typeId}.json`;
+
+    await this.projectContext.saveJsonWithPicker(filename, nodeData);
   }
 }
 export type GraphRunnerData = ReturnType<GraphRunner["toData"]>;

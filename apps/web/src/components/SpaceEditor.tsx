@@ -18,6 +18,7 @@ import { dirname, IterationMode, ProjectSettings, VoiceStatusPriority } from "@r
 
 import { getFileHandleForPath, opfsRootPromise, readFileHandle, writeFileHandle } from "../lib/browser-fs";
 import { formatError } from "../lib/err";
+import { saveJsonToFile } from "../lib/files";
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
 import { onSubmitEnter } from "../lib/key-press";
@@ -61,6 +62,7 @@ const getProjectContext = (
     const name = path.split("/").at(-1)!;
     await fileHandle.removeEntry(name);
   },
+  saveJsonWithPicker: saveJsonToFile,
 
   // lm_a445fd9fd3 utilize a project folder within opfs for project-specific caching
   projectCacheGet: async (key) => {

@@ -69,3 +69,18 @@ export async function readFilesRecursively(
 
   return result;
 }
+
+export async function saveJsonToFile(filename: string, json: object): Promise<void> {
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: filename,
+      types: [{ description: "JSON File", accept: { "application/json": [".json"] } }],
+    });
+    const writable = await handle.createWritable();
+    await writable.write(JSON.stringify(json, null, 2));
+    await writable.close();
+  } catch (error) {
+    console.error("Error saving file:", error);
+    throw new Error("Failed to save file");
+  }
+}
