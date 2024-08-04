@@ -40,6 +40,7 @@ const convertChatNodesToFlowElements = (graphNodes: GraphRunnerData["nodes"]): {
       data: { label: startCase(node.typeId), node },
       position: { x: 0, y: 0 },
       selectable: true,
+      hidden: false,
     }),
   );
   nodes.forEach((node) => g.setNode(node.id, { width: 150, height: 90 }));
@@ -74,6 +75,7 @@ const convertChatNodesToFlowElements = (graphNodes: GraphRunnerData["nodes"]): {
           target: node.id,
           animated: true,
           selectable: false,
+          hidden: false,
         }),
       ),
   );
@@ -158,6 +160,7 @@ export function GraphCanvas({
             );
             if (selected.length) setSelectedNodeId(selected.find((s) => s.selected)?.id || null);
           }}
+          onlyRenderVisibleElements={false}
         >
           <Panel position="top-left" className={css({ zIndex: 6 })}>
             {topLeftActions}
