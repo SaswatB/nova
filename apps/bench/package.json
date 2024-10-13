@@ -17,10 +17,10 @@
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@types/node": "^18.19.9",
+    "@types/node": "^18.19.33",
     "eslint": "^8.56.0",
-    "prettier": "^3.2.4",
-    "tsx": "^4.15.5",
+    "prettier": "^3.2.5",
+    "tsx": "^4.16.2",
     "typescript": "^5.5.2"
   }
 }
