@@ -4,7 +4,10 @@
   "compilerOptions": {
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
-    "paths": { "styled-system/*": ["./styled-system/*"] }
+    "paths": {
+      "styled-system/*": ["./styled-system/*"],
+      "streamweave-core": ["../../packages/streamweave-core/src"]
+    }
   },
   "references": [{ "path": "./tsconfig.node.json" }]
 }

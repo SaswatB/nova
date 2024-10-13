@@ -1,0 +1,39 @@
+{
+  "name": "streamweave-core",
+  "version": "0.1.0",
+  "description": "A declarative framework for complex tasks",
+  "author": "Saswat Bhattacharya",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "prepack": "yarn build"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.0"
+  },
+  "tsup": {
+    "entry": [
+      "src/index.ts"
+    ],
+    "format": [
+      "cjs",
+      "esm"
+    ],
+    "dts": true
+  }
+}
