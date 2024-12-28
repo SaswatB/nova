@@ -1,58 +1,55 @@
-import { Badge } from "@radix-ui/themes";
 import uniq from "lodash/uniq";
+import { createSwTaskScope, orRef } from "streamweave-core";
 import { z } from "zod";
 
-// @ts-expect-error needed to get bench working
-import { Flex, styled } from "../../../../styled-system/jsx/index.mjs";
-import { Well } from "../../../components/base/Well";
 import { getRelevantFiles, xmlProjectSettings } from "../ai-helpers";
-import { AIChatNEffect } from "../effects/AIChatNEffect";
-import { WriteDebugFileNEffect } from "../effects/WriteDebugFileNEffect";
-import { createNodeDef, NSDef } from "../node-types";
-import { orRef } from "../ref-types";
+import { swNode } from "../swNode";
 import { ContextNNode, registerContextId } from "./ContextNNode";
 import { ExecuteNNode } from "./ExecuteNNode";
 import { ProjectAnalysisNNode, xmlFileSystemResearch } from "./ProjectAnalysisNNode";
 import { RelevantFileAnalysisNNode } from "./RelevantFileAnalysisNNode";
 import { WebResearchOrchestratorNNode } from "./WebResearchOrchestratorNNode";
 
-export const PlanNNode = createNodeDef(
-  { typeId: "plan", scopeDef: NSDef.codeChange },
-  z.object({
-    goal: orRef(z.string()),
-    enableWebResearch: z.boolean().default(false),
-    images: z.array(z.string()).optional(), // base64 encoded images
-  }),
-  z.object({ result: z.string(), relevantFiles: z.array(z.string()) }),
-  {
-    run: async (value, nrc) => {
-      const extraContext = await nrc.findNodeForResult(ContextNNode, (n) => n.contextId === PlanNNode_ContextId);
-      const prevIterationGoalContext = await nrc.findNodeForResult(
-        ContextNNode,
-        (n) => n.contextId === PlanNNode_PrevIterationGoalContextId,
-      );
-      const prevIterationChangeSetContext = await nrc.findNodeForResult(
-        ContextNNode,
-        (n) => n.contextId === PlanNNode_PrevIterationChangeSetContextId,
-      );
+const codeChangeScope = createSwTaskScope("code-change");
 
-      // analyze the project
-      const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
+export const PlanNNode = swNode
+  .scope(() => codeChangeScope)
+  .input(
+    z.object({
+      goal: orRef(z.string()),
+      enableWebResearch: z.boolean().default(false),
+      images: z.array(z.string()).optional(), // base64 encoded images
+    }),
+  )
+  .output(z.object({ result: z.string(), relevantFiles: z.array(z.string()) }))
+  .runnable(async (value, nrc) => {
+    const extraContext = await nrc.findSwNodeForResult(ContextNNode, (n) => n.contextId === PlanNNode_ContextId);
+    const prevIterationGoalContext = await nrc.findSwNodeForResult(
+      ContextNNode,
+      (n) => n.contextId === PlanNNode_PrevIterationGoalContextId,
+    );
+    const prevIterationChangeSetContext = await nrc.findSwNodeForResult(
+      ContextNNode,
+      (n) => n.contextId === PlanNNode_PrevIterationChangeSetContextId,
+    );
 
-      // find relevant files for the goal
-      const relevantFilesPromise = nrc.getOrAddDependencyForResult(RelevantFileAnalysisNNode, { goal: value.goal });
+    // analyze the project
+    const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
 
-      // do web research if needed
-      let webResearchResults: { query: string; result: string }[] = [];
-      if (value.enableWebResearch) {
-        const { results } = await nrc.getOrAddDependencyForResult(WebResearchOrchestratorNNode, { goal: value.goal });
-        webResearchResults = results;
-      }
+    // find relevant files for the goal
+    const relevantFilesPromise = nrc.getOrAddDependencyForResult(RelevantFileAnalysisNNode, { goal: value.goal });
 
-      const { files: relevantFiles } = await relevantFilesPromise;
+    // do web research if needed
+    let webResearchResults: { query: string; result: string }[] = [];
+    if (value.enableWebResearch) {
+      const { results } = await nrc.getOrAddDependencyForResult(WebResearchOrchestratorNNode, { goal: value.goal });
+      webResearchResults = results;
+    }
 
-      const planPrompt = `
-${xmlProjectSettings(nrc.settings)}
+    const { files: relevantFiles } = await relevantFilesPromise;
+
+    const planPrompt = `
+${xmlProjectSettings(nrc.nodeContext)}
 <knownFiles>
 ${researchResult.files.map((f) => f.path).join("\n")}
 </knownFiles>
@@ -99,93 +96,89 @@ Any images won't be shown to the implementation engineer, so please include rele
 The implementation engineer will attempt to implement the file changes described in the plan first, without running any commands (a later engineer will run any relevant commands if needed).
   - consider this when suggesting file changes, especially as this means creating new projects would be best done by describing all the files that need to be created instead of suggesting to run a command to download boilerplate.
                     `.trim();
-      await WriteDebugFileNEffect(nrc, "debug-plan-prompt.json", JSON.stringify({ relevantFiles }, null, 2));
-      await WriteDebugFileNEffect(nrc, "debug-plan-prompt.txt", planPrompt);
-      const plan = await AIChatNEffect(nrc, "sonnet", [
-        {
-          role: "user",
-          content: value.images?.length
-            ? [...value.images.map((image) => ({ type: "image" as const, image })), { type: "text", text: planPrompt }]
-            : planPrompt,
-        },
-      ]);
-      await WriteDebugFileNEffect(nrc, "debug-plan.txt", plan);
+    await nrc.effects.writeDebugFile("debug-plan-prompt.json", JSON.stringify({ relevantFiles }, null, 2));
+    await nrc.effects.writeDebugFile("debug-plan-prompt.txt", planPrompt);
+    const plan = await nrc.effects.aiChat("sonnet", [
+      {
+        role: "user",
+        content: value.images?.length
+          ? [...value.images.map((image) => ({ type: "image" as const, image })), { type: "text", text: planPrompt }]
+          : planPrompt,
+      },
+    ]);
+    await nrc.effects.writeDebugFile("debug-plan.txt", plan);
 
-      const planRelevantFiles = await getRelevantFiles(
-        nrc,
-        researchResult.files.map((f) => f.path),
-        plan,
-      );
-      const mergedRelevantFiles = uniq([...relevantFiles, ...planRelevantFiles]);
-      await WriteDebugFileNEffect(
-        nrc,
-        "debug-plan-relevant-files.json",
-        JSON.stringify({ planRelevantFiles, mergedRelevantFiles }, null, 2),
-      );
+    const planRelevantFiles = await getRelevantFiles(
+      nrc,
+      researchResult.files.map((f) => f.path),
+      plan,
+    );
+    const mergedRelevantFiles = uniq([...relevantFiles, ...planRelevantFiles]);
+    await nrc.effects.writeDebugFile(
+      "debug-plan-relevant-files.json",
+      JSON.stringify({ planRelevantFiles, mergedRelevantFiles }, null, 2),
+    );
 
-      nrc.addDependantNode(ExecuteNNode, {
-        instructions: nrc.createNodeRef({ type: "result", path: "result", schema: "string" }),
-        relevantFiles: nrc.createNodeRef({ type: "result", path: "relevantFiles", schema: "string[]" }),
-      });
-      return { result: plan, relevantFiles: mergedRelevantFiles };
-    },
-    renderInputs: (v) => (
-      <>
-        <Well title="Goal" markdownPreferred>
-          {v.goal}
-        </Well>
-        {!!v.images?.length && (
-          <styled.div>
-            <Badge>{v.images.length} images</Badge>
-            <Flex css={{ flexWrap: "wrap", gap: "10px" }}>
-              {v.images.map((image, index) => (
-                <styled.img
-                  key={index}
-                  src={image}
-                  alt={`Uploaded image ${index + 1}`}
-                  css={{ width: "100px", height: "100px", objectFit: "contain", bg: "black" }}
-                  onClick={() => {
-                    const win = window.open();
-                    if (!win) return;
-                    win.document.write(
-                      "<img src=" +
-                        image +
-                        " style='width: 100vw; height: 100vh; object-fit: contain; background-color: black;' />",
-                    );
-                    win.document.body.style.margin = "0";
-                    win.document.body.style.padding = "0";
-                    win.document.body.style.overflow = "hidden";
-                  }}
-                />
-              ))}
-            </Flex>
-          </styled.div>
-        )}
-        {v.enableWebResearch ? (
-          <Badge color="green">Web Research Enabled</Badge>
-        ) : (
-          <Badge color="red">Web Research Disabled</Badge>
-        )}
-      </>
-    ),
-    renderResult: (res) => (
-      <Well title="Result" markdownPreferred>
-        {res.result}
-      </Well>
-    ),
-  },
-);
+    nrc.addDependantSwNode(ExecuteNNode, {
+      instructions: nrc.createSwNodeRef({ type: "result", path: "result", schema: "string" }),
+      relevantFiles: nrc.createSwNodeRef({ type: "result", path: "relevantFiles", schema: "string[]" }),
+    });
+    return { result: plan, relevantFiles: mergedRelevantFiles };
+  });
 
-export type PlanNNodeValue = z.infer<typeof PlanNNode.valueSchema>;
-export const PlanNNode_ContextId = registerContextId(PlanNNode, "plan-context", "Extra context for plan creation");
+export type PlanNNodeValue = z.infer<typeof PlanNNode.inputSchema>;
+export const PlanNNode_ContextId = registerContextId("plan-context", "Extra context for plan creation");
 
 export const PlanNNode_PrevIterationGoalContextId = registerContextId(
-  PlanNNode,
   "plan-prev-iteration-goal-context",
   "The goal for the previous iteration of development",
 );
 export const PlanNNode_PrevIterationChangeSetContextId = registerContextId(
-  PlanNNode,
   "plan-prev-iteration-change-set-context",
   "The change set for the previous iteration of development",
 );
+
+// renderInputs: (v) => (
+//   <>
+//     <Well title="Goal" markdownPreferred>
+//       {v.goal}
+//     </Well>
+//     {!!v.images?.length && (
+//       <styled.div>
+//         <Badge>{v.images.length} images</Badge>
+//         <Flex css={{ flexWrap: "wrap", gap: "10px" }}>
+//           {v.images.map((image, index) => (
+//             <styled.img
+//               key={index}
+//               src={image}
+//               alt={`Uploaded image ${index + 1}`}
+//               css={{ width: "100px", height: "100px", objectFit: "contain", bg: "black" }}
+//               onClick={() => {
+//                 const win = window.open();
+//                 if (!win) return;
+//                 win.document.write(
+//                   "<img src=" +
+//                     image +
+//                     " style='width: 100vw; height: 100vh; object-fit: contain; background-color: black;' />",
+//                 );
+//                 win.document.body.style.margin = "0";
+//                 win.document.body.style.padding = "0";
+//                 win.document.body.style.overflow = "hidden";
+//               }}
+//             />
+//           ))}
+//         </Flex>
+//       </styled.div>
+//     )}
+//     {v.enableWebResearch ? (
+//       <Badge color="green">Web Research Enabled</Badge>
+//     ) : (
+//       <Badge color="red">Web Research Disabled</Badge>
+//     )}
+//   </>
+// ),
+// renderResult: (res) => (
+//   <Well title="Result" markdownPreferred>
+//     {res.result}
+//   </Well>
+// ),

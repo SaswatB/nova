@@ -1,21 +1,15 @@
+import { orRef } from "streamweave-core";
 import { z } from "zod";
 
-import { renderJsonWell } from "../../../components/base/Well";
-import { DisplayToastNEffect } from "../effects/DisplayToastNEffect";
-import { createNodeDef } from "../node-types";
-import { orRef } from "../ref-types";
+import { swNode } from "../swNode";
 
-export const OutputNNode = createNodeDef(
-  "output",
-  z.object({ description: z.string(), value: orRef(z.unknown()) }),
-  z.object({}),
-  {
-    run: async (value, nrc) => {
-      console.log("[OutputNode] ", value.description, value.value);
-      await DisplayToastNEffect(nrc, { message: `[OutputNode] ${value.value}`, type: "info", autoClose: false });
-      return {};
-    },
-    renderInputs: (v) => renderJsonWell(v.description, v.value),
-    renderResult: () => null,
-  },
-);
+export const OutputNNode = swNode
+  .input(z.object({ description: z.string(), value: orRef(z.unknown()) }))
+  .runnable(async (value, nrc) => {
+    console.log("[OutputNode] ", value.description, value.value);
+    await nrc.effects.displayToast({ message: `[OutputNode] ${value.value}`, type: "info", autoClose: false });
+    return {};
+  });
+
+// renderInputs: (v) => renderJsonWell(v.description, v.value),
+// renderResult: () => null,

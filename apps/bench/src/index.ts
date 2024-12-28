@@ -5,8 +5,9 @@ import { dirname, join } from "path";
 import { simpleGit } from "simple-git";
 import { fileURLToPath } from "url";
 
+import { PlanNNode } from "@repo/web/src/lib/nodes/defs/PlanNNode";
 import { DEFAULT_EXTENSIONS, DEFAULT_RULES, ProjectContext } from "@repo/web/src/lib/nodes/project-ctx";
-import { GraphRunner } from "@repo/web/src/lib/nodes/run-graph";
+import { swRunner } from "@repo/web/src/lib/nodes/swRunner";
 
 import { env } from "./lib/env";
 
@@ -78,8 +79,10 @@ async function runGoal(rootDirectory: string, goal: string) {
     globalCacheSet: cacheSet,
     writeDebugFile: async (name, content) => writeFileSync(name, content),
   };
-  const runner = GraphRunner.fromGoal(projectContext, { goal, enableWebResearch: false, images: [] });
-  await runner.run();
+
+  const runner = swRunner.create();
+  runner.addNode(PlanNNode, { goal, enableWebResearch: false, images: [] });
+  await runner.run({ effectContext: projectContext, nodeContext: {} });
 }
 
 async function main() {

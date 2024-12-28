@@ -1,21 +1,18 @@
 import uniq from "lodash/uniq";
+import { orRef } from "streamweave-core";
 import { z } from "zod";
 
 import { isDefined } from "@repo/shared";
 
-import { Well } from "../../../components/base/Well";
 import { getRelevantFiles } from "../ai-helpers";
-import { AIChatNEffect } from "../effects/AIChatNEffect";
-import { createNodeDef } from "../node-types";
-import { orRef } from "../ref-types";
+import { swNode } from "../swNode";
 import { ProjectAnalysisNNode, xmlFileSystemResearch } from "./ProjectAnalysisNNode";
 
-export const RelevantFileAnalysisNNode = createNodeDef(
-  "relevant-file-analysis",
-  z.object({ goal: orRef(z.string()) }),
-  z.object({ result: z.string(), files: z.array(z.string()) }),
-  {
-    run: async (value, nrc) => {
+export const RelevantFileAnalysisNNode = swNode
+  .input(z.object({ goal: orRef(z.string()) }))
+  .output(z.object({ result: z.string(), files: z.array(z.string()) }))
+  .runnable(
+    async (value, nrc) => {
       // todo lm_ec44d16eee restore ts deps
       // const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
       //   type: NNodeType.TypescriptDepAnalysis,
@@ -30,7 +27,7 @@ export const RelevantFileAnalysisNNode = createNodeDef(
         };
       }
 
-      const rawRelevantFiles = await AIChatNEffect(nrc, "gemini", [
+      const rawRelevantFiles = await nrc.effects.aiChat("gemini", [
         `
 ${xmlFileSystemResearch(researchResult, { showResearch: true })}
 <goal>
@@ -73,18 +70,17 @@ Your response will be used by an engineer to develop a comprehensive plan with t
 
       return { result: rawRelevantFiles, files: relevantFiles };
     },
-    renderInputs: (v) => (
-      <Well title="Goal" markdownPreferred>
-        {v.goal}
-      </Well>
-    ),
-    renderResult: (res) => (
-      <>
-        <Well title="Result" markdownPreferred>
-          {res.result}
-        </Well>
-        <Well title="Files">{res.files.length === 0 ? "No relevant files (empty project)" : res.files.join("\n")}</Well>
-      </>
-    ),
-  },
-);
+    // renderInputs: (v) => (
+    //   <Well title="Goal" markdownPreferred>
+    //     {v.goal}
+    //   </Well>
+    // ),
+    // renderResult: (res) => (
+    //   <>
+    //     <Well title="Result" markdownPreferred>
+    //       {res.result}
+    //     </Well>
+    //     <Well title="Files">{res.files.length === 0 ? "No relevant files (empty project)" : res.files.join("\n")}</Well>
+    //   </>
+    // ),
+  );

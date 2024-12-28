@@ -2,16 +2,11 @@ import llamaTokenizer from "llama-tokenizer-js";
 import pLimit from "p-limit";
 import { z } from "zod";
 
-import { Well } from "../../../components/base/Well";
 import { readFilesRecursively } from "../../files";
 import { generateCacheKey } from "../../hash";
-import { AIChatNEffect } from "../effects/AIChatNEffect";
-import { GetCacheNEffect } from "../effects/GetCacheNEffect";
-import { ReadFileNEffect } from "../effects/ReadFileNEffect";
-import { SetCacheNEffect } from "../effects/SetCacheNEffect";
-import { WriteDebugFileNEffect } from "../effects/WriteDebugFileNEffect";
-import { createNodeDef, NodeRunnerContext, NSDef } from "../node-types";
+import { getCacheParsed } from "../effects/GetCacheNEffect";
 import { getEffectiveExtensions } from "../project-ctx";
+import { swNode, SwNodeRunnerContext } from "../swNode";
 
 const ResearchedFile = z.object({
   path: z.string(),
@@ -58,7 +53,7 @@ ${showResearch ? `<research>\n${research}\n</research>\n` : ""}
         `.trim();
 }
 
-async function projectAnalysis(nrc: NodeRunnerContext): Promise<ResearchedFileSystem> {
+async function projectAnalysis(nrc: SwNodeRunnerContext): Promise<ResearchedFileSystem> {
   // todo lm_ec44d16eee restore ts deps
   // const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
   //   type: NNodeType.TypescriptDepAnalysis,
@@ -66,11 +61,11 @@ async function projectAnalysis(nrc: NodeRunnerContext): Promise<ResearchedFileSy
   // const pendingFiles = [...Object.keys(typescriptResult)];
   // const dependencies = typescriptResult;
 
-  const readFile = (path: string) => ReadFileNEffect(nrc, path);
-  const rawFiles = (await readFilesRecursively(readFile, "/", getEffectiveExtensions(nrc.settings))).filter(
+  const readFile = (path: string) => nrc.effects.readFile(path);
+  const rawFiles = (await readFilesRecursively(readFile, "/", getEffectiveExtensions(nrc.nodeContext))).filter(
     (f) => f.type === "file",
   );
-  await WriteDebugFileNEffect(nrc, "debug.json", JSON.stringify({ count: rawFiles.length, rawFiles }, null, 2));
+  await nrc.effects.writeDebugFile("debug.json", JSON.stringify({ count: rawFiles.length, rawFiles }, null, 2));
 
   if (rawFiles.length === 0) {
     return { files: [], research: "This is an empty project. No files or directories were found for analysis." };
@@ -80,7 +75,7 @@ async function projectAnalysis(nrc: NodeRunnerContext): Promise<ResearchedFileSy
   const researchPromises = rawFiles.map((f) =>
     limit(async (): Promise<ResearchedFile> => {
       console.log("filesystemResearch file", f.path);
-      const research = await AIChatNEffect(nrc, "geminiFlash", [
+      const research = await nrc.effects.aiChat("geminiFlash", [
         `
 Could you please provide the following information:
 1. A description of the given file's purpose and contents.
@@ -112,7 +107,7 @@ ${f.content}
     fileHashes: z.array(z.object({ path: z.string(), hash: z.string() })),
     timestamp: z.number(),
   });
-  const cachedProjectAnalysis = await GetCacheNEffect(nrc, "project-analysis", cachedProjectAnalysisSchema);
+  const cachedProjectAnalysis = await getCacheParsed(nrc, "project-analysis", cachedProjectAnalysisSchema);
   if (cachedProjectAnalysis) {
     const { fileHashes: cachedFileHashes } = cachedProjectAnalysis;
     const changedFileCount = fileHashes.filter(
@@ -149,16 +144,15 @@ ${batch.map((f) => xmlFilePrompt(f, { showFileContent: true })).join("\n\n")}
 
   let research;
   const totalBatchPrompt = constructBatchPrompt(files);
-  await WriteDebugFileNEffect(nrc, "debug-batch.txt", totalBatchPrompt);
-  await WriteDebugFileNEffect(
-    nrc,
+  await nrc.effects.writeDebugFile("debug-batch.txt", totalBatchPrompt);
+  await nrc.effects.writeDebugFile(
     "debug-batch-files.json",
     JSON.stringify({ tokens: llamaTokenizer.encode(totalBatchPrompt).length, count: files.length, files }, null, 2),
   );
   const modelLimit = { groq: 8192, geminiFlash: 1e6 };
   const model = "geminiFlash" as const;
   if (llamaTokenizer.encode(totalBatchPrompt).length < modelLimit[model] * 0.6) {
-    research = await AIChatNEffect(nrc, model, [constructBatchPrompt(files)]);
+    research = await nrc.effects.aiChat(model, [constructBatchPrompt(files)]);
   } else {
     console.log("Batching research");
     const seen = new Set<string>();
@@ -188,9 +182,8 @@ ${batch.map((f) => xmlFilePrompt(f, { showFileContent: true })).join("\n\n")}
       batchPromptLength = batchPrompt.length;
       console.log("batchPromptTokens", batchPromptTokens);
       if (stack.length === 0 || batchPromptTokens > batchTokenThreshold) {
-        await WriteDebugFileNEffect(nrc, `debug-batch-prompt-${stack.length}.txt`, batchPrompt);
-        await WriteDebugFileNEffect(
-          nrc,
+        await nrc.effects.writeDebugFile(`debug-batch-prompt-${stack.length}.txt`, batchPrompt);
+        await nrc.effects.writeDebugFile(
           `debug-batch-files-${stack.length}.json`,
           JSON.stringify({ batchPromptTokens, files: batch }, null, 2),
         );
@@ -202,9 +195,9 @@ ${batch.map((f) => xmlFilePrompt(f, { showFileContent: true })).join("\n\n")}
         );
         docs.push({
           files: batch.map((f) => f.path),
-          research: await AIChatNEffect(nrc, model, [batchPrompt]),
+          research: await nrc.effects.aiChat(model, [batchPrompt]),
         });
-        await WriteDebugFileNEffect(nrc, "debug-batch-docs.json", JSON.stringify({ docs }, null, 2));
+        await nrc.effects.writeDebugFile("debug-batch-docs.json", JSON.stringify({ docs }, null, 2));
         batch = [];
         batchPromptLength = 0;
         batchPromptTokens = 0;
@@ -221,36 +214,34 @@ Keep as much research information as possible (not including the file list), but
 
 ${docs.map((doc) => `<docs>\n<files>\n${doc.files.join("\n")}\n</files>\n<research>\n${doc.research}\n</research>\n</docs>`).join("\n")}
 `.trim();
-    await WriteDebugFileNEffect(nrc, "debug-research-prompt.txt", researchPrompt);
-    research = await AIChatNEffect(nrc, model, [researchPrompt]);
+    await nrc.effects.writeDebugFile("debug-research-prompt.txt", researchPrompt);
+    research = await nrc.effects.aiChat(model, [researchPrompt]);
 
-    await WriteDebugFileNEffect(nrc, "debug-research.txt", research);
+    await nrc.effects.writeDebugFile("debug-research.txt", research);
   }
 
-  await SetCacheNEffect(nrc, "project-analysis", { research, fileHashes, timestamp: Date.now() } satisfies z.infer<
+  await nrc.effects.setCache("project-analysis", { research, fileHashes, timestamp: Date.now() } satisfies z.infer<
     typeof cachedProjectAnalysisSchema
   >);
   return { files, research };
 }
 
-export const ProjectAnalysisNNode = createNodeDef(
-  { typeId: "project-analysis", scopeDef: NSDef.space },
-  z.object({}),
-  z.object({ result: ResearchedFileSystem }),
-  {
-    run: async (value, nrc) => ({ result: await projectAnalysis(nrc) }),
-    renderInputs: () => null,
-    renderResult: (res) => (
-      <>
-        <Well title="Research" markdownPreferred>
-          {res.result.research}
-        </Well>
-        <Well title="Files" markdownPreferred>
-          {res.result.files.length === 0
-            ? "No files found (empty project)"
-            : `${res.result.files.length} source files processed`}
-        </Well>
-      </>
-    ),
-  },
-);
+export const ProjectAnalysisNNode = swNode
+  // { typeId: "project-analysis", scopeDef: NSDef.space },
+  .input(z.object({}))
+  .output(z.object({ result: ResearchedFileSystem }))
+  .runnable(async (value, nrc) => ({ result: await projectAnalysis(nrc) }));
+
+// renderInputs: () => null,
+// renderResult: (res) => (
+//   <>
+//     <Well title="Research" markdownPreferred>
+//       {res.result.research}
+//     </Well>
+//     <Well title="Files" markdownPreferred>
+//       {res.result.files.length === 0
+//         ? "No files found (empty project)"
+//         : `${res.result.files.length} source files processed`}
+//     </Well>
+//   </>
+// ),

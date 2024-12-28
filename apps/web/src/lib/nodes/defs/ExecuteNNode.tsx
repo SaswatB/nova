@@ -1,14 +1,11 @@
 import uniq from "lodash/uniq";
 import pLimit from "p-limit";
+import { orRef } from "streamweave-core";
 import { z } from "zod";
 
-import { renderJsonWell, Well } from "../../../components/base/Well";
 import { xmlProjectSettings } from "../ai-helpers";
-import { AIChatNEffect } from "../effects/AIChatNEffect";
-import { AIJsonNEffect } from "../effects/AIJsonNEffect";
-import { WriteDebugFileNEffect } from "../effects/WriteDebugFileNEffect";
-import { createNodeDef } from "../node-types";
-import { orRef } from "../ref-types";
+import { getAiJsonParsed } from "../effects/AIJsonNEffect";
+import { swNode } from "../swNode";
 import { ApplyFileChangesNNode } from "./ApplyFileChangesNNode";
 import { ContextNNode, registerContextId } from "./ContextNNode";
 import { OutputNNode } from "./OutputNNode";
@@ -27,17 +24,15 @@ const ExecuteResult = z.object({
 });
 type ExecuteResult = z.infer<typeof ExecuteResult>;
 
-export const ExecuteNNode = createNodeDef(
-  "execute",
-  z.object({ instructions: orRef(z.string()), relevantFiles: orRef(z.array(z.string())) }),
-  z.object({ result: ExecuteResult }),
-  {
-    run: async (value, nrc) => {
-      const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
-      const extraContext = await nrc.findNodeForResult(ContextNNode, (n) => n.contextId === ExecuteNNode_ContextId);
+export const ExecuteNNode = swNode
+  .input(z.object({ instructions: orRef(z.string()), relevantFiles: orRef(z.array(z.string())) }))
+  .output(z.object({ result: ExecuteResult }))
+  .runnable(async (value, nrc) => {
+    const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
+    const extraContext = await nrc.findSwNodeForResult(ContextNNode, (n) => n.contextId === ExecuteNNode_ContextId);
 
-      const executePrompt = `
-${xmlProjectSettings(nrc.settings)}
+    const executePrompt = `
+${xmlProjectSettings(nrc.nodeContext)}
 <knownFiles>
 ${researchResult.files.map((f) => f.path).join("\n")}
 </knownFiles>
@@ -91,23 +86,23 @@ function foo() {
 Remember, your suggestions will be split up file by file and given to an engineer to apply.
 Ensure each suggestion contains all necessary information for implementation without access to other parts of your response.
       `.trim();
-      await WriteDebugFileNEffect(nrc, "debug-execute-prompt.txt", executePrompt);
-      const rawChangeSet = await AIChatNEffect(nrc, "sonnet", [executePrompt]);
-      await WriteDebugFileNEffect(nrc, "debug-execute.txt", rawChangeSet);
+    await nrc.effects.writeDebugFile("debug-execute-prompt.txt", executePrompt);
+    const rawChangeSet = await nrc.effects.aiChat("sonnet", [executePrompt]);
+    await nrc.effects.writeDebugFile("debug-execute.txt", rawChangeSet);
 
-      const ChangeSetSchema = z.object({
-        generalNoteList: z
-          .string({
-            description:
-              "General notes for the project, such as packages to install. This should not be used for file changes.",
-          })
-          .array()
-          .optional(),
-        filesToChange: z.array(z.object({ absolutePathIncludingFileName: z.string() })),
-      });
-      const changeSet = await AIJsonNEffect(nrc, {
-        schema: ChangeSetSchema,
-        data: `
+    const ChangeSetSchema = z.object({
+      generalNoteList: z
+        .string({
+          description:
+            "General notes for the project, such as packages to install. This should not be used for file changes.",
+        })
+        .array()
+        .optional(),
+      filesToChange: z.array(z.object({ absolutePathIncludingFileName: z.string() })),
+    });
+    const changeSet = await getAiJsonParsed(nrc, {
+      schema: ChangeSetSchema,
+      data: `
 I have a document detailing changes to a project. Please transform the information into a JSON format with the following structure:
 
 1.	General notes for the project, such as packages to install.
@@ -128,16 +123,16 @@ ${JSON.stringify(
 
 Here's the document content:
 ${rawChangeSet}`.trim(),
-      });
-      await WriteDebugFileNEffect(nrc, "debug-execute-change-set.json", JSON.stringify(changeSet, null, 2));
+    });
+    await nrc.effects.writeDebugFile("debug-execute-change-set.json", JSON.stringify(changeSet, null, 2));
 
-      // Deduplicate files to change by their paths
-      const limit = pLimit(5);
-      const filesToChange = await Promise.all(
-        uniq(changeSet.filesToChange.map((f) => f.absolutePathIncludingFileName)).map((path) =>
-          limit(async () => {
-            const steps = await AIChatNEffect(nrc, "geminiFlash", [
-              `
+    // Deduplicate files to change by their paths
+    const limit = pLimit(5);
+    const filesToChange = await Promise.all(
+      uniq(changeSet?.filesToChange.map((f) => f.absolutePathIncludingFileName) || []).map((path) =>
+        limit(async () => {
+          const steps = await nrc.effects.aiChat("geminiFlash", [
+            `
 <change_set>
 ${rawChangeSet}
 </change_set>
@@ -198,54 +193,49 @@ Add this CSS class:
 
 Now, process the following change set and extract only the parts relevant to "${path}":
                 `.trim(),
-            ]);
+          ]);
 
-            return { absolutePathIncludingFileName: path, steps };
-          }),
-        ),
-      );
-      await WriteDebugFileNEffect(nrc, "debug-execute-files-to-change.json", JSON.stringify(filesToChange, null, 2));
+          return { absolutePathIncludingFileName: path, steps };
+        }),
+      ),
+    );
+    await nrc.effects.writeDebugFile("debug-execute-files-to-change.json", JSON.stringify(filesToChange, null, 2));
 
-      if (changeSet.generalNoteList?.length) {
-        nrc.addDependantNode(OutputNNode, {
-          description: "General notes for the project",
-          value: nrc.createNodeRef({ type: "result", path: "result.generalNoteList", schema: "string[]" }),
-        });
-      }
-      for (let i = 0; i < changeSet.filesToChange.length; i++) {
-        nrc.addDependantNode(ApplyFileChangesNNode, {
-          path: nrc.createNodeRef({
-            type: "result",
-            path: `result.filesToChange[${i}].absolutePathIncludingFileName`,
-            schema: "string",
-          }),
-          changes: nrc.createNodeRef({ type: "result", path: `result.filesToChange[${i}].steps`, schema: "string" }),
-        });
-      }
-      return { result: { generalNoteList: changeSet.generalNoteList, rawChangeSet, filesToChange: filesToChange } };
-    },
-    renderInputs: (v) => (
-      <>
-        <Well title="Instructions" markdownPreferred>
-          {v.instructions}
-        </Well>
-        <Well title="Relevant Files">{v.relevantFiles.map((file) => file).join("\n") || ""}</Well>
-      </>
-    ),
-    renderResult: ({ result: { rawChangeSet, ...rest } }) => (
-      <>
-        <Well title="Raw Result" markdownPreferred>
-          {rawChangeSet}
-        </Well>
-        {/* todo maybe do this better */}
-        {renderJsonWell("Result", rest)}
-      </>
-    ),
-  },
-);
+    if (changeSet?.generalNoteList?.length) {
+      nrc.addDependantSwNode(OutputNNode, {
+        description: "General notes for the project",
+        value: nrc.createSwNodeRef({ type: "result", path: "result.generalNoteList", schema: "string[]" }),
+      });
+    }
+    for (let i = 0; i < (changeSet?.filesToChange || []).length; i++) {
+      nrc.addDependantSwNode(ApplyFileChangesNNode, {
+        path: nrc.createSwNodeRef({
+          type: "result",
+          path: `result.filesToChange[${i}].absolutePathIncludingFileName`,
+          schema: "string",
+        }),
+        changes: nrc.createSwNodeRef({ type: "result", path: `result.filesToChange[${i}].steps`, schema: "string" }),
+      });
+    }
+    return { result: { generalNoteList: changeSet?.generalNoteList, rawChangeSet, filesToChange: filesToChange } };
+  });
 
-export const ExecuteNNode_ContextId = registerContextId(
-  ExecuteNNode,
-  "execute-context",
-  "Extra context for change set creation",
-);
+export const ExecuteNNode_ContextId = registerContextId("execute-context", "Extra context for change set creation");
+
+// renderInputs: (v) => (
+//   <>
+//     <Well title="Instructions" markdownPreferred>
+//       {v.instructions}
+//     </Well>
+//     <Well title="Relevant Files">{v.relevantFiles.map((file) => file).join("\n") || ""}</Well>
+//   </>
+// ),
+// renderResult: ({ result: { rawChangeSet, ...rest } }) => (
+//   <>
+//     <Well title="Raw Result" markdownPreferred>
+//       {rawChangeSet}
+//     </Well>
+//     {/* todo maybe do this better */}
+//     {renderJsonWell("Result", rest)}
+//   </>
+// ),
