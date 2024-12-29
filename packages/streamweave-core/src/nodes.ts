@@ -1,7 +1,7 @@
 import { isEqual } from "lodash";
 import { UnknownKeysParam, z, ZodTypeAny } from "zod";
 
-import { SwEffectMap, SwEffectResult } from "./effects";
+import { SwEffect, SwEffectMap, SwEffectResult } from "./effects";
 import { CreateSwNodeRef, ResolveSwNodeRefs } from "./refs";
 import { SwScope, SwScopeType } from "./scopes";
 
@@ -50,6 +50,23 @@ export type SwNodeExtraContext<T extends SwNode> =
     : never;
 
 export type SwNodeMap = Record<string, SwNode>;
+
+export type GetEffectContext<NodeMap extends SwNodeMap> =
+  NodeMap[keyof NodeMap] extends SwNode<any, any, infer EffectMap, any>
+    ? EffectMap[keyof EffectMap] extends SwEffect<
+        any,
+        any,
+        infer ExtraEffectContext,
+        any
+      >
+      ? ExtraEffectContext
+      : never
+    : never;
+
+export type GetNodeContext<NodeMap extends SwNodeMap> =
+  NodeMap[keyof NodeMap] extends SwNode<any, any, any, infer ExtraNodeContext>
+    ? ExtraNodeContext
+    : never;
 
 type MapSwEffectMapToRun<T extends SwEffectMap> = {
   [K in keyof T]: (

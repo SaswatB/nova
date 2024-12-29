@@ -24,12 +24,13 @@ import {
   ReactFlowInstance,
 } from "@xyflow/react";
 import { startCase } from "lodash";
+import { GraphRunnerData, SwNodeInstance } from "streamweave-core";
 import { css } from "styled-system/css";
 import { Flex, Stack } from "styled-system/jsx";
 
-import { GraphRunnerData, NNode } from "../lib/nodes/run-graph";
-
-const convertChatNodesToFlowElements = (graphNodes: GraphRunnerData["nodes"]): { nodes: Node[]; edges: Edge[] } => {
+const convertChatNodesToFlowElements = (
+  graphNodes: GraphRunnerData["nodeInstances"],
+): { nodes: Node[]; edges: Edge[] } => {
   const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
   g.setGraph({ rankdir: "LR" });
 
@@ -49,7 +50,7 @@ const convertChatNodesToFlowElements = (graphNodes: GraphRunnerData["nodes"]): {
    * Checks if the target node is reachable from the current node through any of its dependencies.
    * This is used to avoid creating edges between nodes that are already connected.
    */
-  function isNotRedundant(node: NNode, targetNodeId: string) {
+  function isNotRedundant(node: SwNodeInstance, targetNodeId: string) {
     let current = [...(node.dependencies || []).filter((id) => id !== targetNodeId)];
     let next = [];
     while (current.length) {
@@ -87,7 +88,7 @@ const convertChatNodesToFlowElements = (graphNodes: GraphRunnerData["nodes"]): {
 
 const NodeContext = createContext({ isGraphRunning: false });
 
-const CustomNodeView = memo(({ data }: NodeProps<Node<{ label: string; node: NNode }>>) => {
+const CustomNodeView = memo(({ data }: NodeProps<Node<{ label: string; node: SwNodeInstance }>>) => {
   const { isGraphRunning } = useContext(NodeContext);
 
   const isStarted = !!data.node.state?.startedAt;
@@ -128,13 +129,13 @@ export function GraphCanvas({
   selectedNodeId: string | null;
   setSelectedNodeId: Dispatch<SetStateAction<string | null>>;
 }) {
-  const graphView = convertChatNodesToFlowElements(graphData.nodes);
+  const graphView = convertChatNodesToFlowElements(graphData.nodeInstances);
   const nodes = graphView.nodes.map((node) => ({ ...node, selected: node.id === selectedNodeId }));
 
-  const graphRef = useRef<ReactFlowInstance<any>>();
+  const graphRef = useRef<ReactFlowInstance<(typeof nodes)[number]>>();
   useEffect(() => {
     setTimeout(() => {
-      graphRef.current?.fitView();
+      void graphRef.current?.fitView();
     }, 100);
   }, [graphData]);
 

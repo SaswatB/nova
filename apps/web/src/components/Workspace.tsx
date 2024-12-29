@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAsync } from "react-async-hook";
 import { UseFormReturn } from "react-hook-form";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -86,8 +87,8 @@ function AddProject({ onAdd }: { onAdd: (project: { name: string; handle: FileSy
           onSubmit={onSubmit}
         />
         <styled.div css={{ fontSize: "10px", color: "text.secondary", textAlign: "center", mt: 8 }}>
-          By default Nova uploads all your source files to our backend to process them with AI. We don't store any of
-          your files. Use local mode to run Nova with your own API keys.
+          By default Nova uploads all your source files to our backend to process them with AI. We {"don't"} store any
+          of your files. Use local mode to run Nova with your own API keys.
         </styled.div>
       </Dialog.Content>
     </Dialog.Root>
@@ -230,6 +231,11 @@ export function Workspace() {
     if (!projectId && newProjectId) navigate(routes.project.getPath({ projectId: newProjectId }), { replace: true });
   }, [projectId, lastProjectId, navigate, projects]);
 
+  const projectHandleAsync = useAsync(
+    () => (projectId ? idb.get<FileSystemDirectoryHandle>(idbKey.projectRoot(projectId)) : Promise.resolve(null)),
+    [projectId],
+  );
+
   return (
     <SplitPane split="vertical" sizes={sizes} onChange={setSizes}>
       <Pane minSize="200px">
@@ -292,12 +298,13 @@ export function Workspace() {
         </Stack>
       </Pane>
       <Pane minSize={20} className={stack()}>
-        {projectId && spaceId ? (
+        {projectId && spaceId && projectHandleAsync.result ? (
           <SpaceEditor
             key={spaceId}
             projectId={projectId}
             projectName={projects.find((project) => project.id === projectId)?.name || ""}
             projectSettings={settings}
+            projectHandle={projectHandleAsync.result}
             spaceId={spaceId}
             pageId={pageId}
             onIsRunningChange={setIsRunning}

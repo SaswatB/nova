@@ -2,17 +2,18 @@ import { useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { Button, Card, Tabs } from "@radix-ui/themes";
 import { reverse, sortBy, startCase } from "lodash";
+import { GraphTraceEvent, SwNodeInstance, SwNodeTraceEvent } from "streamweave-core";
 import { css, cx } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 import { match, P } from "ts-pattern";
 import { VList, VListHandle } from "virtua";
 
-import { GraphRunner, GraphTraceEvent, NNode, NNodeTraceEvent } from "../lib/nodes/run-graph";
+import { GraphRunner } from "../lib/nodes/swRunner";
 import { renderJsonWell } from "./base/Well";
 import { NNodeBadge } from "./NNodeBadge";
 
 export const traceElementSourceSymbol = Symbol("traceElementSource");
-export type TraceElement = GraphTraceEvent | (NNodeTraceEvent & { [traceElementSourceSymbol]: NNode });
+export type TraceElement = GraphTraceEvent | (SwNodeTraceEvent & { [traceElementSourceSymbol]: SwNodeInstance });
 export function TraceElementView({
   trace,
   graphRunner,
@@ -28,7 +29,7 @@ export function TraceElementView({
   isExpanded: boolean;
   setIsExpanded: (isExpanded: boolean) => void;
   onTraceIdNav: (traceId: string, target: "request" | "result") => void;
-  onNodeNav: (node: NNode) => void;
+  onNodeNav: (node: SwNodeInstance) => void;
 }) {
   const renderSummary = () => {
     if (traceElementSourceSymbol in trace) {
@@ -37,27 +38,26 @@ export function TraceElementView({
         .with({ type: "start" }, (t) => renderJsonWell("Start Node", t.resolvedValue))
         .with({ type: "dependency" }, (t) => (
           <Flex css={{ alignItems: "center", gap: 4 }}>
-            Create dependency <NNodeBadge node={t.node} onNodeNav={onNodeNav} />
+            Create dependency <NNodeBadge node={t.ni} onNodeNav={onNodeNav} />
           </Flex>
         ))
         .with({ type: "dependency-result" }, (t) => (
           <>
             <Flex css={{ alignItems: "center", gap: 4 }}>
-              Result from {t.existing ? "found" : "created"} dependency{" "}
-              <NNodeBadge node={t.node} onNodeNav={onNodeNav} />
+              Result from {t.existing ? "found" : "created"} dependency <NNodeBadge node={t.ni} onNodeNav={onNodeNav} />
             </Flex>
             {renderJsonWell("Node Result", t.result)}
           </>
         ))
         .with({ type: "dependant" }, (t) => (
           <Flex css={{ alignItems: "center", gap: 4 }}>
-            Create dependant <NNodeBadge node={t.node} onNodeNav={onNodeNav} />
+            Create dependant <NNodeBadge node={t.ni} onNodeNav={onNodeNav} />
           </Flex>
         ))
         .with({ type: "find-node" }, (t) => (
           <>
             <Flex css={{ alignItems: "center", gap: 4 }}>
-              Find node <NNodeBadge node={t.node} onNodeNav={onNodeNav} />
+              Find node <NNodeBadge node={t.ni} onNodeNav={onNodeNav} />
             </Flex>
             {renderJsonWell("Node Result", t.result)}
           </>
@@ -69,9 +69,10 @@ export function TraceElementView({
               <Flex css={{ alignItems: "center", gap: 8 }}>
                 Request <TraceIdButton traceId={t.traceId} onClick={(traceId) => onTraceIdNav(traceId, "result")} />
               </Flex>
-              {effect?.renderRequestTrace
+              {/* {effect?.renderRequestTrace
                 ? effect.renderRequestTrace(t.request)
-                : renderJsonWell(`${startCase(t.effectId)} Request`, t.request || "N/A")}
+                : */}
+              {renderJsonWell(`${startCase(t.effectId)} Request`, t.request || "N/A")}
             </>
           );
         })
@@ -79,15 +80,16 @@ export function TraceElementView({
           const effect = graphRunner?.getEffect(t.effectId);
           const request = t[traceElementSourceSymbol]?.state?.trace?.find(
             (t2) => t2.type === "effect-request" && t.traceId === t2.traceId,
-          ) as (NNodeTraceEvent & { type: "effect-request" }) | undefined;
+          ) as (SwNodeTraceEvent & { type: "effect-request" }) | undefined;
           return (
             <>
               <Flex css={{ alignItems: "center", gap: 7 }}>
                 Result <TraceIdButton traceId={t.traceId} onClick={(traceId) => onTraceIdNav(traceId, "request")} />
               </Flex>
-              {effect?.renderResultTrace
+              {/* {effect?.renderResultTrace
                 ? effect.renderResultTrace(t.result, request?.request)
-                : renderJsonWell(`${startCase(t.effectId)} Result`, t.result || "N/A")}
+                : */}
+              {renderJsonWell(`${startCase(t.effectId)} Result`, t.result || "N/A")}
             </>
           );
         })
@@ -101,7 +103,7 @@ export function TraceElementView({
       .with({ type: P.union("start", "end") }, (t) => `Graph ${t.type} event`)
       .with({ type: P.union("start-node", "end-node") }, (t) => (
         <Flex css={{ alignItems: "center", gap: 4 }}>
-          {t.type === "start-node" ? "Start" : "End"} node <NNodeBadge node={t.node} onNodeNav={onNodeNav} />
+          {t.type === "start-node" ? "Start" : "End"} node <NNodeBadge node={t.ni} onNodeNav={onNodeNav} />
         </Flex>
       ))
       .exhaustive();
@@ -167,7 +169,7 @@ export function TraceElementList({
 }: {
   trace: TraceElement[];
   graphRunner?: GraphRunner;
-  onNodeNav: (node: NNode) => void;
+  onNodeNav: (node: SwNodeInstance) => void;
 }) {
   const scrollRef = useRef<VListHandle>(null);
   const [expandedTraceKeys, setExpandedTraceKeys] = useState<number[]>([]);
@@ -187,7 +189,7 @@ export function TraceElementList({
       )
       .with(
         { type: "start-node" },
-        (t) => !trace.some((t2) => t2.type === "end-node" && t.node.id === t2.node.id && t.runId === t2.runId),
+        (t) => !trace.some((t2) => t2.type === "end-node" && t.ni.id === t2.ni.id && t.runId === t2.runId),
       )
       .with(
         { type: "effect-request" },

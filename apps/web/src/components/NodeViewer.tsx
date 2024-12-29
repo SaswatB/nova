@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { Button, Tabs } from "@radix-ui/themes";
 import { startCase } from "lodash";
+import { GraphRunnerData, resolveNodeValueRefs, SwNodeInstance } from "streamweave-core";
 import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 
 import { formatError } from "../lib/err";
-import { GraphRunner, GraphRunnerData, NNode, resolveNodeValueRefs } from "../lib/nodes/run-graph";
+import { saveJsonToFile } from "../lib/files";
+import { GraphRunner } from "../lib/nodes/swRunner";
 import { TraceElementList, traceElementSourceSymbol } from "./TraceElementView";
 import { createImagesField, createTextAreaRefArrayField, createTextAreaRefField, ZodForm } from "./ZodForm";
 
@@ -58,9 +60,9 @@ export function NodeViewer({
   graphData: GraphRunnerData;
   graphRunner?: GraphRunner;
   isGraphRunning: boolean;
-  node: NNode;
-  onChangeNode: (apply: (draft: NNode) => void) => Promise<void> | void;
-  onNodeNav: (node: NNode) => void;
+  node: SwNodeInstance;
+  onChangeNode: (apply: (draft: SwNodeInstance) => void) => Promise<void> | void;
+  onNodeNav: (node: SwNodeInstance) => void;
 }) {
   const [editInput, setEditInput] = useState(false);
   const [hideInput, setHideInput] = useState(true);
@@ -71,10 +73,12 @@ export function NodeViewer({
 
   const [nodeInputs, nodeOutputs] = useMemo(() => {
     try {
-      const value = resolveNodeValueRefs(node.value, graphData.nodes);
+      const value = resolveNodeValueRefs(node.value, graphData.nodeInstances);
       return [
-        nodeDef?.renderInputs(value) ?? null,
-        node.state?.result ? nodeDef?.renderResult(node.state.result, value) : "No state yet",
+        null,
+        null,
+        // nodeDef?.renderInputs(value) ?? null,
+        // node.state?.result ? nodeDef?.renderResult(node.state.result, value) : "No state yet",
       ];
     } catch (e) {
       const error = formatError(e);
@@ -94,7 +98,9 @@ export function NodeViewer({
       return;
     }
     try {
-      await graphRunner.exportNode(node.id);
+      const nodeData = graphRunner.exportNode(node.id);
+      const filename = `node_${node.id}_${node.typeId}.json`;
+      await saveJsonToFile(filename, nodeData);
       toast.success("Node exported successfully");
     } catch (error) {
       console.error("Error exporting node:", error);
@@ -152,7 +158,7 @@ export function NodeViewer({
               </Flex>
               {!nodeDef ? null : editInput ? (
                 <ZodForm
-                  schema={nodeDef.valueSchema}
+                  schema={nodeDef.inputSchema}
                   defaultValues={node.value}
                   overrideFieldMap={{
                     type: () => null,

@@ -9,6 +9,7 @@ import { produce } from "immer";
 import { uniqBy } from "lodash";
 import { Pane } from "split-pane-react";
 import SplitPane from "split-pane-react/esm/SplitPane";
+import { GraphRunnerData, SwNodeInstance } from "streamweave-core";
 import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 import { stack } from "styled-system/patterns";
@@ -18,7 +19,6 @@ import { dirname, IterationMode, ProjectSettings, VoiceStatusPriority } from "@r
 
 import { getFileHandleForPath, opfsRootPromise, readFileHandle, writeFileHandle } from "../lib/browser-fs";
 import { formatError } from "../lib/err";
-import { saveJsonToFile } from "../lib/files";
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
 import { onSubmitEnter } from "../lib/key-press";
@@ -26,7 +26,7 @@ import { idbKey, lsKey } from "../lib/keys";
 import { ExecuteNNode } from "../lib/nodes/defs/ExecuteNNode";
 import { PlanNNode, PlanNNodeValue } from "../lib/nodes/defs/PlanNNode";
 import { ProjectContext } from "../lib/nodes/project-ctx";
-import { GraphRunner, GraphRunnerData, NNode } from "../lib/nodes/run-graph";
+import { GraphRunner, swRunner } from "../lib/nodes/swRunner";
 import { routes } from "../lib/routes";
 import { AppTRPCClient, trpc } from "../lib/trpc-client";
 import { newId } from "../lib/uid";
@@ -62,7 +62,6 @@ const getProjectContext = (
     const name = path.split("/").at(-1)!;
     await fileHandle.removeEntry(name);
   },
-  saveJsonWithPicker: saveJsonToFile,
 
   // lm_a445fd9fd3 utilize a project folder within opfs for project-specific caching
   projectCacheGet: async (key) => {
@@ -156,7 +155,7 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
         <Dialog.Title>New Change</Dialog.Title>
         <ZodForm
           formRef={setForm}
-          schema={PlanNNode.valueSchema}
+          schema={PlanNNode.inputSchema}
           defaultValues={{ enableWebResearch: false }}
           overrideFieldMap={{
             goal: createTextAreaField("Example: Change the color of the navigation bar to purple."),
@@ -181,12 +180,16 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
   );
 }
 
-function xmlGraphDataPrompt(graphData: GraphRunnerData) {
-  const planNode = Object.values(graphData.nodes).find(
-    (n): n is NNode<typeof PlanNNode> => n.typeId === PlanNNode.typeId,
+function xmlGraphDataPrompt(graphRunner: GraphRunner | undefined, graphData: GraphRunnerData) {
+  if (!graphRunner) return "";
+
+  const planNodeTypeId = graphRunner.getNodeTypeId(PlanNNode);
+  const executeNodeTypeId = graphRunner.getNodeTypeId(ExecuteNNode);
+  const planNode = Object.values(graphData.nodeInstances).find(
+    (n): n is SwNodeInstance<typeof PlanNNode> => n.typeId === planNodeTypeId,
   );
-  const executeNode = Object.values(graphData.nodes).find(
-    (n): n is NNode<typeof ExecuteNNode> => n.typeId === ExecuteNNode.typeId,
+  const executeNode = Object.values(graphData.nodeInstances).find(
+    (n): n is SwNodeInstance<typeof ExecuteNNode> => n.typeId === executeNodeTypeId,
   );
   return `
 <graph_data>
@@ -204,10 +207,12 @@ ${executeNode?.state?.result?.result.rawChangeSet || "No change set generated ye
 }
 
 function IterationPane({
+  graphRunner,
   graphData,
   onIterate,
   onClose,
 }: {
+  graphRunner: GraphRunner | undefined;
   graphData: GraphRunnerData;
   onIterate: (prompt: string, iterationMode: IterationMode, run: boolean) => Promise<void>;
   onClose: () => void;
@@ -233,7 +238,7 @@ function IterationPane({
 
   useAddVoiceStatus(
     `
-${xmlGraphDataPrompt(graphData)}
+${xmlGraphDataPrompt(graphRunner, graphData)}
 
 The user is currently has the iteration pane open.
 The iteration pane is a form that allows the user to enter a prompt which they can use to modify the graph and add feedback as well as additional context based on how a previous Nova run went.
@@ -304,6 +309,7 @@ export function SpaceEditor({
   projectName,
   projectId,
   projectSettings,
+  projectHandle,
   spaceId,
   pageId,
   onIsRunningChange,
@@ -312,6 +318,7 @@ export function SpaceEditor({
   projectName: string;
   projectId: string;
   projectSettings: ProjectSettings;
+  projectHandle: FileSystemDirectoryHandle;
   spaceId: string;
   pageId?: string;
   onIsRunningChange: (isRunning: boolean) => void;
@@ -322,7 +329,6 @@ export function SpaceEditor({
   const trpcUtils = trpc.useUtils();
   const [dryRun, setDryRun] = useLocalStorage(lsKey.dryRun, false);
   const [sizes, setSizes] = useLocalStorage(lsKey.spaceSizes, [60, 40]);
-  const handle = useAsync(() => idb.get<FileSystemDirectoryHandle>(idbKey.projectRoot(projectId)), [projectId]);
 
   const pagesAsync = useAsync((spaceId: string) => idb.get<Page[]>(idbKey.spacePages(spaceId)), [spaceId]);
   const pagesRef = useUpdatingRef(pagesAsync.result);
@@ -352,17 +358,23 @@ export function SpaceEditor({
   const [iterationActive, setIterationActive] = useState(false);
 
   const projectContext = useMemo(
-    () => handle.result && getProjectContext(projectId, projectSettings, handle.result, trpcUtils.client, dryRun),
-    [projectId, handle.result, trpcUtils, dryRun, projectSettings],
+    () => getProjectContext(projectId, projectSettings, projectHandle, trpcUtils.client, dryRun),
+    [projectId, projectHandle, trpcUtils, dryRun, projectSettings],
   );
+  const swRunnerWithContext = useMemo(
+    () => swRunner.effectContext(projectContext).nodeContext(projectSettings),
+    [projectContext, projectSettings],
+  );
+
   const graphRunner = useMemo(
     () => {
-      if (!projectContext || !selectedPage?.graphData) return;
-      return GraphRunner.fromData(projectContext, selectedPage.graphData);
+      if (!selectedPage?.graphData) return;
+      return swRunnerWithContext.createFromData(selectedPage.graphData);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [!!selectedPage?.graphData, projectContext],
+    [!!selectedPage?.graphData],
   );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any).graphRunner = graphRunner; // for debugging
   useEffect(() => {
     if (!graphRunner) return;
@@ -415,8 +427,8 @@ export function SpaceEditor({
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const selectedNode = useMemo(
-    () => selectedNodeId && selectedPage?.graphData?.nodes[selectedNodeId],
-    [selectedPage?.graphData?.nodes, selectedNodeId],
+    () => selectedNodeId && selectedPage?.graphData?.nodeInstances[selectedNodeId],
+    [selectedPage?.graphData?.nodeInstances, selectedNodeId],
   );
 
   const handleReSaveAllWrites = async () => {
@@ -425,18 +437,19 @@ export function SpaceEditor({
       return;
     }
 
-    try {
-      await graphRunner.reSaveAllWrites();
-      toast.success("All writes re-saved successfully");
-    } catch (error) {
-      console.error("Error re-saving writes:", error);
-      toast.error(`Failed to re-save writes: ${formatError(error)}`);
-    }
+    // try {
+    //   await graphRunner.reSaveAllWrites();
+    //   toast.success("All writes re-saved successfully");
+    // } catch (error) {
+    const error = new Error("Not implemented");
+    console.error("Error re-saving writes:", error);
+    toast.error(`Failed to re-save writes: ${formatError(error)}`);
+    // }
   };
 
   useAddVoiceStatus(
     `
-${selectedPage?.graphData ? xmlGraphDataPrompt(selectedPage.graphData) : ""}
+${selectedPage?.graphData ? xmlGraphDataPrompt(graphRunner, selectedPage.graphData) : ""}
 
 Currently working on the project "${projectName}".
   `.trim(),
@@ -480,11 +493,11 @@ Currently working on the project "${projectName}".
     };
   }, [runGraph.loading]);
 
-  if (!handle.result || pagesAsync.loading) return <Loader fill />;
+  if (pagesAsync.loading) return <Loader fill />;
   return (
     <SplitPane split="vertical" sizes={sizes} onChange={setSizes}>
       <Pane minSize={15} className={stack({ bg: "background.primary" })}>
-        {selectedPage?.graphData && Object.keys(selectedPage?.graphData?.nodes || {}).length ? (
+        {selectedPage?.graphData && Object.keys(selectedPage?.graphData?.nodeInstances || {}).length ? (
           <GraphCanvas
             graphData={selectedPage.graphData}
             isGraphRunning={runGraph.loading}
@@ -493,10 +506,12 @@ Currently working on the project "${projectName}".
             topLeftActions={
               iterationActive ? (
                 <IterationPane
+                  graphRunner={graphRunner}
                   graphData={selectedPage.graphData}
                   onClose={() => setIterationActive(false)}
                   onIterate={async (prompt, iterationMode) => {
-                    await graphRunner?.iterate(prompt, iterationMode);
+                    // await graphRunner?.iterate(prompt, iterationMode);
+                    toast.error("Not implemented");
                     setIterationActive(false);
                   }}
                 />
@@ -551,7 +566,9 @@ Currently working on the project "${projectName}".
           <Stack css={{ alignItems: "center", justifyContent: "center", height: "100%" }}>
             <NewPlan
               onNewGoal={(v, run) => {
-                const graphData = GraphRunner.fromGoal(projectContext, v).toData();
+                const runner = swRunnerWithContext.create();
+                runner.addNode(PlanNNode, v);
+                const graphData = runner.toData();
                 if (selectedPage) {
                   setPages(
                     produce((draft) => {
@@ -604,9 +621,9 @@ Currently working on the project "${projectName}".
                   selectedPage.graphData.trace.filter((t) => t.type === "start-node"),
                   "node.id",
                 ).flatMap((t) =>
-                  (selectedPage.graphData?.nodes[t.node.id]?.state?.trace || []).map((tr) => ({
+                  (selectedPage.graphData?.nodeInstances[t.ni.id]?.state?.trace || []).map((tr) => ({
                     ...tr,
-                    [traceElementSourceSymbol]: selectedPage.graphData!.nodes[t.node.id]!,
+                    [traceElementSourceSymbol]: selectedPage.graphData!.nodeInstances[t.ni.id]!,
                   })),
                 ),
               ]}

@@ -1,5 +1,4 @@
-import { forwardRef, Fragment, ReactNode, useImperativeHandle } from "react";
-import { useState } from "react";
+import { forwardRef, Fragment, ReactNode, useImperativeHandle, useState } from "react";
 import {
   Control,
   DefaultValues,
@@ -11,18 +10,16 @@ import {
   UseFormReturn,
 } from "react-hook-form";
 import TextareaAutosize from "react-textarea-autosize";
-import { Link1Icon, TrashIcon } from "@radix-ui/react-icons";
-import { EyeNoneIcon, EyeOpenIcon } from "@radix-ui/react-icons";
+import { EyeNoneIcon, EyeOpenIcon, Link1Icon, TrashIcon } from "@radix-ui/react-icons";
 import { Button, Checkbox, IconButton, TextArea, TextField, Tooltip } from "@radix-ui/themes";
 import { startCase } from "lodash";
+import { GraphRunnerData, isSwNodeRef, resolveNodeRef } from "streamweave-core";
 import { css } from "styled-system/css";
 import { Flex, Stack } from "styled-system/jsx";
 import { UnknownKeysParam, z, ZodTypeAny } from "zod";
 
 import { useZodForm } from "../lib/hooks/useZodForm";
 import { onSubmitEnter } from "../lib/key-press";
-import { isNodeRef } from "../lib/nodes/ref-types";
-import { GraphRunnerData, resolveNodeRef } from "../lib/nodes/run-graph";
 import { FormHelper } from "./base/FormHelper";
 import { NewImageDropInput } from "./NewImageDropInput";
 
@@ -201,9 +198,9 @@ function TextAreaRefField({
     control,
     rules: { required: true },
   });
-  const isRef = isNodeRef(field.value);
-  const refNode = isRef ? graphData.nodes[field.value.nodeId] : undefined;
-  const refValue = refNode ? resolveNodeRef(field.value, graphData.nodes) : undefined;
+  const isRef = isSwNodeRef(field.value);
+  const refNode = isRef ? graphData.nodeInstances[field.value.nodeId] : undefined;
+  const refValue = refNode ? resolveNodeRef(field.value, graphData.nodeInstances) : undefined;
 
   return (
     <Flex css={{ width: "100%" }}>
@@ -248,9 +245,9 @@ function TextAreaRefArrayField({
     control,
     rules: { required: true },
   });
-  const isRef = isNodeRef(field.value);
-  const refNode = isRef ? graphData.nodes[field.value.nodeId] : undefined;
-  const refValue = refNode ? resolveNodeRef(field.value, graphData.nodes) : undefined; // todo print if ref is broken?
+  const isRef = isSwNodeRef(field.value);
+  const refNode = isRef ? graphData.nodeInstances[field.value.nodeId] : undefined;
+  const refValue = refNode ? resolveNodeRef(field.value, graphData.nodeInstances) : undefined; // todo print if ref is broken?
 
   if (isRef) {
     return (

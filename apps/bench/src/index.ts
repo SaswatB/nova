@@ -66,11 +66,6 @@ async function runGoal(rootDirectory: string, goal: string) {
       const fullPath = join(rootDirectory, path);
       if (existsSync(fullPath)) unlinkSync(fullPath);
     },
-    saveJsonWithPicker: async (filename, json) => {
-      const fullPath = join(rootDirectory, filename);
-      mkdirSync(dirname(fullPath), { recursive: true });
-      writeFileSync(fullPath, JSON.stringify(json, null, 2));
-    },
     displayToast: (message) => console.log(message),
     showRevertChangesDialog: (effects) => Promise.resolve(effects.map((e) => e.id)),
     projectCacheGet: (key) => cacheGet(`${projectId}-${key}`),
@@ -80,9 +75,9 @@ async function runGoal(rootDirectory: string, goal: string) {
     writeDebugFile: async (name, content) => writeFileSync(name, content),
   };
 
-  const runner = swRunner.create();
+  const runner = swRunner.effectContext(projectContext).nodeContext({}).create();
   runner.addNode(PlanNNode, { goal, enableWebResearch: false, images: [] });
-  await runner.run({ effectContext: projectContext, nodeContext: {} });
+  await runner.run();
 }
 
 async function main() {
