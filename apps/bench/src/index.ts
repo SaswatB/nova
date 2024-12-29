@@ -41,7 +41,6 @@ async function runGoal(rootDirectory: string, goal: string) {
       ],
     }),
     dryRun: false,
-    ensureFS: () => Promise.resolve(), // noop
     readFile: async (path) => {
       const fullPath = join(rootDirectory, path);
       if (!existsSync(fullPath)) return { type: "not-found" };
@@ -67,11 +66,11 @@ async function runGoal(rootDirectory: string, goal: string) {
       if (existsSync(fullPath)) unlinkSync(fullPath);
     },
     displayToast: (message) => console.log(message),
-    showRevertChangesDialog: (effects) => Promise.resolve(effects.map((e) => e.id)),
+    // showRevertChangesDialog: (effects) => Promise.resolve(effects.map((e) => e.id)),
     projectCacheGet: (key) => cacheGet(`${projectId}-${key}`),
     projectCacheSet: (key, value) => cacheSet(`${projectId}-${key}`, value),
-    globalCacheGet: cacheGet,
-    globalCacheSet: cacheSet,
+    // globalCacheGet: cacheGet,
+    // globalCacheSet: cacheSet,
     writeDebugFile: async (name, content) => writeFileSync(name, content),
   };
 

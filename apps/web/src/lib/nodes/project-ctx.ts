@@ -59,18 +59,12 @@ export interface ProjectContext {
   trpcClient: AppTRPCClient;
   dryRun: boolean;
 
-  ensureFS: () => Promise<void>;
   readFile: (path: string) => Promise<ReadFileResult>;
   writeFile: (path: string, content: string) => Promise<string>;
   deleteFile: (path: string) => Promise<void>;
 
   displayToast: (message: string, options?: ToastOptions) => void;
-  showRevertChangesDialog: (
-    instances: { id: string; render: () => { title: React.ReactNode; body?: React.ReactNode } }[],
-  ) => Promise<string[]>;
   projectCacheGet: <T>(key: string) => Promise<T | undefined>;
   projectCacheSet: (key: string, value: unknown) => Promise<void>;
-  globalCacheGet: <T>(key: string) => Promise<T | undefined>;
-  globalCacheSet: (key: string, value: unknown) => Promise<void>;
   writeDebugFile: (name: string, content: string) => Promise<void>;
 }

@@ -9,10 +9,11 @@ import { produce } from "immer";
 import { uniqBy } from "lodash";
 import { Pane } from "split-pane-react";
 import SplitPane from "split-pane-react/esm/SplitPane";
-import { GraphRunnerData, SwNodeInstance } from "streamweave-core";
+import { createSwNodeRef, GraphRunnerData, SwNodeInstance } from "streamweave-core";
 import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 import { stack } from "styled-system/patterns";
+import { match } from "ts-pattern";
 import { z } from "zod";
 
 import { dirname, IterationMode, ProjectSettings, VoiceStatusPriority } from "@repo/shared";
@@ -23,8 +24,15 @@ import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
 import { onSubmitEnter } from "../lib/key-press";
 import { idbKey, lsKey } from "../lib/keys";
-import { ExecuteNNode } from "../lib/nodes/defs/ExecuteNNode";
-import { PlanNNode, PlanNNodeValue } from "../lib/nodes/defs/PlanNNode";
+import { ContextNNode } from "../lib/nodes/defs/ContextNNode";
+import { ExecuteNNode, ExecuteNNode_ContextId } from "../lib/nodes/defs/ExecuteNNode";
+import {
+  PlanNNode,
+  PlanNNode_ContextId,
+  PlanNNode_PrevIterationChangeSetContextId,
+  PlanNNode_PrevIterationGoalContextId,
+  PlanNNodeValue,
+} from "../lib/nodes/defs/PlanNNode";
 import { ProjectContext } from "../lib/nodes/project-ctx";
 import { GraphRunner, swRunner } from "../lib/nodes/swRunner";
 import { routes } from "../lib/routes";
@@ -49,11 +57,6 @@ const getProjectContext = (
   trpcClient,
   dryRun,
 
-  ensureFS: async () => {
-    if ((await folderHandle.queryPermission({ mode: "readwrite" })) !== "granted")
-      if ((await folderHandle.requestPermission({ mode: "readwrite" })) !== "granted")
-        throw new Error("Permission denied");
-  },
   readFile: (path) => readFileHandle(path, folderHandle),
   writeFile: async (path, content) => (await writeFileHandle(path, folderHandle, content, true)) || "",
   deleteFile: async (path) => {
@@ -73,18 +76,7 @@ const getProjectContext = (
     const opfsRoot = await opfsRootPromise;
     await writeFileHandle(`projects/${projectId}/${key}`, opfsRoot, JSON.stringify(value));
   },
-  // global cache is still associated with the project, to make cleanup easy
-  globalCacheGet: async (key) => {
-    const opfsRoot = await opfsRootPromise;
-    const content = await readFileHandle(`projects/${projectId}/global/${key}`, opfsRoot);
-    return content.type === "file" ? JSON.parse(content.content) : undefined;
-  },
-  globalCacheSet: async (key, value) => {
-    const opfsRoot = await opfsRootPromise;
-    await writeFileHandle(`projects/${projectId}/global/${key}`, opfsRoot, JSON.stringify(value));
-  },
   displayToast: toast,
-  showRevertChangesDialog: (entries) => RevertChangesDialog({ entries }),
   writeDebugFile: () => Promise.resolve(), // noop
 });
 
@@ -180,17 +172,11 @@ ${goal ? `The currently entered goal is: ${goal}` : ""}
   );
 }
 
-function xmlGraphDataPrompt(graphRunner: GraphRunner | undefined, graphData: GraphRunnerData) {
+function xmlGraphDataPrompt(graphRunner: GraphRunner | undefined) {
   if (!graphRunner) return "";
 
-  const planNodeTypeId = graphRunner.getNodeTypeId(PlanNNode);
-  const executeNodeTypeId = graphRunner.getNodeTypeId(ExecuteNNode);
-  const planNode = Object.values(graphData.nodeInstances).find(
-    (n): n is SwNodeInstance<typeof PlanNNode> => n.typeId === planNodeTypeId,
-  );
-  const executeNode = Object.values(graphData.nodeInstances).find(
-    (n): n is SwNodeInstance<typeof ExecuteNNode> => n.typeId === executeNodeTypeId,
-  );
+  const planNode = graphRunner.findNodeInstance(undefined, PlanNNode, () => true);
+  const executeNode = graphRunner.findNodeInstance(undefined, ExecuteNNode, () => true);
   return `
 <graph_data>
 <user_provided_goal>
@@ -208,12 +194,10 @@ ${executeNode?.state?.result?.result.rawChangeSet || "No change set generated ye
 
 function IterationPane({
   graphRunner,
-  graphData,
   onIterate,
   onClose,
 }: {
   graphRunner: GraphRunner | undefined;
-  graphData: GraphRunnerData;
   onIterate: (prompt: string, iterationMode: IterationMode, run: boolean) => Promise<void>;
   onClose: () => void;
 }) {
@@ -238,7 +222,7 @@ function IterationPane({
 
   useAddVoiceStatus(
     `
-${xmlGraphDataPrompt(graphRunner, graphData)}
+${xmlGraphDataPrompt(graphRunner)}
 
 The user is currently has the iteration pane open.
 The iteration pane is a form that allows the user to enter a prompt which they can use to modify the graph and add feedback as well as additional context based on how a previous Nova run went.
@@ -299,6 +283,83 @@ ${prompt ? `The current iteration prompt is: ${prompt}.` : ""}
   );
 }
 
+async function iterate(prompt: string, iterationMode: IterationMode, graphRunner: GraphRunner) {
+  if (iterationMode === IterationMode.NEW_PLAN) {
+    // todo this should target specific nodes, not just the first one it finds
+    const planNode = graphRunner.findNodeInstance(undefined, PlanNNode, () => true);
+    if (!planNode) throw new Error("Plan node not found");
+    const executeNode = graphRunner.findNodeInstance(undefined, ExecuteNNode, () => true);
+    if (!executeNode) throw new Error("Execute node not found");
+
+    const newPlan = graphRunner.addNode(PlanNNode, { goal: prompt });
+    graphRunner.addNode(
+      ContextNNode,
+      {
+        contextId: PlanNNode_PrevIterationGoalContextId,
+        context: createSwNodeRef(planNode.id, { path: "goal", type: "value", schema: "string" }),
+      },
+      newPlan.scope,
+    );
+    graphRunner.addNode(
+      ContextNNode,
+      {
+        contextId: PlanNNode_PrevIterationChangeSetContextId,
+        context: createSwNodeRef(executeNode.id, { path: "result.rawChangeSet", type: "result", schema: "string" }),
+      },
+      newPlan.scope,
+    );
+
+    return;
+  }
+
+  // todo this should target specific nodes, not just the first one it finds
+  const { node, oldGeneration, contextId } = match(iterationMode)
+    .with(IterationMode.MODIFY_PLAN, () => {
+      const planNode = graphRunner.findNodeInstance(undefined, PlanNNode, () => true);
+      if (!planNode) throw new Error("Plan node not found");
+      return {
+        node: planNode,
+        oldGeneration: planNode.state?.result?.result || "No plan generated",
+        contextId: PlanNNode_ContextId,
+      };
+    })
+    .with(IterationMode.MODIFY_CHANGE_SET, () => {
+      const executeNode = graphRunner.findNodeInstance(undefined, ExecuteNNode, () => true);
+      if (!executeNode) throw new Error("Execute node not found");
+      return {
+        node: executeNode,
+        oldGeneration: executeNode?.state?.result?.result.rawChangeSet || "No change set generated",
+        contextId: ExecuteNNode_ContextId,
+      };
+    })
+    .exhaustive();
+
+  const newContext = `
+---------${new Date().toISOString()}---------
+You previously generated the following:\n
+<old_generation>
+${oldGeneration}
+</old_generation>
+The user provided this feedback, please take it into account and try again:
+<user_feedback>
+${prompt}
+</user_feedback>
+  `.trim();
+
+  let contextNode = graphRunner.findNodeInstance(node.scope, ContextNNode, (n) => n.value.contextId === contextId);
+  if (contextNode) {
+    await graphRunner.editNode(contextNode.id, (n) => {
+      n.value.context += `\n\n${newContext}`;
+    });
+  } else {
+    contextNode = graphRunner.addNode(ContextNNode, { contextId: contextId, context: newContext }, node?.scope);
+    if (node) {
+      (node.dependencies ||= []).push(contextNode.id);
+      await graphRunner.resetNode(contextNode.id); // prepare for the next run
+    }
+  }
+}
+
 interface Page {
   id: string;
   name: string;
@@ -357,13 +418,43 @@ export function SpaceEditor({
 
   const [iterationActive, setIterationActive] = useState(false);
 
+  useEffect(() => {
+    async function ensureFS() {
+      // ensure that the project folder is writable
+      if ((await projectHandle.queryPermission({ mode: "readwrite" })) !== "granted")
+        if ((await projectHandle.requestPermission({ mode: "readwrite" })) !== "granted")
+          throw new Error("Permission denied");
+    }
+    void ensureFS().catch(console.error);
+  }, [projectHandle]);
+
   const projectContext = useMemo(
     () => getProjectContext(projectId, projectSettings, projectHandle, trpcUtils.client, dryRun),
     [projectId, projectHandle, trpcUtils, dryRun, projectSettings],
   );
   const swRunnerWithContext = useMemo(
-    () => swRunner.effectContext(projectContext).nodeContext(projectSettings),
-    [projectContext, projectSettings],
+    () =>
+      swRunner
+        .cacheProvider({
+          // lm_a445fd9fd3 utilize a project folder within opfs for project-specific caching
+          get: async (key) => {
+            const opfsRoot = await opfsRootPromise;
+            const content = await readFileHandle(`projects/${projectId}/global/${key}`, opfsRoot);
+            return content.type === "file" ? JSON.parse(content.content) : undefined;
+          },
+          set: async (key, value) => {
+            const opfsRoot = await opfsRootPromise;
+            await writeFileHandle(`projects/${projectId}/global/${key}`, opfsRoot, JSON.stringify(value));
+          },
+        })
+        .revertProvider({
+          // filterEffects: async (entries) => RevertChangesDialog({ entries }),
+          onEffectsReverted: (entries) =>
+            toast(`Reverted ${entries.length} effect${entries.length > 1 ? "s" : ""}`, { type: "success" }),
+        })
+        .effectContext(projectContext)
+        .nodeContext(projectSettings),
+    [projectContext, projectId, projectSettings],
   );
 
   const graphRunner = useMemo(
@@ -449,7 +540,7 @@ export function SpaceEditor({
 
   useAddVoiceStatus(
     `
-${selectedPage?.graphData ? xmlGraphDataPrompt(graphRunner, selectedPage.graphData) : ""}
+${selectedPage?.graphData ? xmlGraphDataPrompt(graphRunner) : ""}
 
 Currently working on the project "${projectName}".
   `.trim(),
@@ -507,11 +598,9 @@ Currently working on the project "${projectName}".
               iterationActive ? (
                 <IterationPane
                   graphRunner={graphRunner}
-                  graphData={selectedPage.graphData}
                   onClose={() => setIterationActive(false)}
                   onIterate={async (prompt, iterationMode) => {
-                    // await graphRunner?.iterate(prompt, iterationMode);
-                    toast.error("Not implemented");
+                    await iterate(prompt, iterationMode, graphRunner!);
                     setIterationActive(false);
                   }}
                 />

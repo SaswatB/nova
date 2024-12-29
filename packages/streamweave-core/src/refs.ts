@@ -1,12 +1,8 @@
 import { match, P } from "ts-pattern";
 import { z } from "zod";
 
-export const swNodeRefSymbol = "swNodeRef" as unknown as symbol; // can't use Symbol() because it's not serializable
-export type SwNodeRefAccessorSchema =
-  | "string"
-  | "string[]"
-  | "number"
-  | "unknown";
+const swNodeRefSymbol = "swNodeRef" as unknown as symbol; // can't use Symbol() because it's not serializable
+export type SwNodeRefAccessorSchema = "string" | "string[]" | "number" | "unknown";
 export type SwNodeRefAccessorSchemaMap = {
   string: string;
   "string[]": string[];
@@ -30,13 +26,9 @@ function ref<T extends SwNodeRefAccessorSchema>(schema: T) {
     }),
   });
 }
-export type SwNodeRef<T extends SwNodeRefAccessorSchema> = z.infer<
-  ReturnType<typeof ref<T>>
->;
-export function orRef<
-  T extends z.ZodString | z.ZodArray<z.ZodString> | z.ZodNumber | z.ZodUnknown,
->(
-  schema: T
+export type SwNodeRef<T extends SwNodeRefAccessorSchema> = z.infer<ReturnType<typeof ref<T>>>;
+export function orRef<T extends z.ZodString | z.ZodArray<z.ZodString> | z.ZodNumber | z.ZodUnknown>(
+  schema: T,
 ): z.ZodUnion<
   [
     T,
@@ -55,33 +47,29 @@ export function orRef<
     ref(
       match(schema)
         .with(P.instanceOf(z.ZodString), () => "string" as const)
-        .with(
-          P.instanceOf(z.ZodArray).and({ element: P.instanceOf(z.ZodString) }),
-          () => "string[]" as const
-        )
+        .with(P.instanceOf(z.ZodArray).and({ element: P.instanceOf(z.ZodString) }), () => "string[]" as const)
         .with(P.instanceOf(z.ZodNumber), () => "number" as const)
         .with(P.instanceOf(z.ZodUnknown), () => "unknown" as const)
         .otherwise(() => {
           throw new Error("unexpected schema");
-        })
+        }),
     ) as any,
   ]);
 }
 export function isSwNodeRef<T extends SwNodeRefAccessorSchema>(
-  value: SwNodeRef<T> | SwNodeRefAccessorSchemaMap[T]
+  value: SwNodeRef<T> | SwNodeRefAccessorSchemaMap[T],
 ): value is SwNodeRef<T> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "sym" in value &&
-    value.sym === swNodeRefSymbol
-  );
+  return typeof value === "object" && value !== null && "sym" in value && value.sym === swNodeRefSymbol;
 }
 
-export type ResolveSwNodeRef<T> =
-  T extends SwNodeRef<infer U> ? SwNodeRefAccessorSchemaMap[U] : T;
+export type ResolveSwNodeRef<T> = T extends SwNodeRef<infer U> ? SwNodeRefAccessorSchemaMap[U] : T;
 export type ResolveSwNodeRefs<T> = { [K in keyof T]: ResolveSwNodeRef<T[K]> };
 
-export type CreateSwNodeRef = <T extends SwNodeRefAccessorSchema>(
-  accessor: SwNodeRef<T>["accessor"]
-) => SwNodeRef<T>;
+export type CreateSwNodeRef = <T extends SwNodeRefAccessorSchema>(accessor: SwNodeRef<T>["accessor"]) => SwNodeRef<T>;
+
+export function createSwNodeRef<T extends SwNodeRefAccessorSchema>(
+  nodeId: string,
+  accessor: SwNodeRef<T>["accessor"],
+): SwNodeRef<T> {
+  return { sym: swNodeRefSymbol, nodeId, accessor };
+}
