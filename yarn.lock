@@ -13598,11 +13598,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "streamweave-core@workspace:packages/streamweave-core"
   dependencies:
+    "@types/events": "npm:^3"
     "@types/lodash": "npm:^4.17.4"
     events: "npm:^3.3.0"
     immer: "npm:^10.0.4"
     lodash: "npm:^4.17.21"
-    ts-pattern: "npm:^5.1.2"
     tsup: "npm:^8.3.0"
     zod: "npm:^3.22.5"
   languageName: unknown

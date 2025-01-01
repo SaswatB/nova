@@ -1,4 +1,3 @@
-import { match, P } from "ts-pattern";
 import { z } from "zod";
 
 const swNodeRefSymbol = "swNodeRef" as unknown as symbol; // can't use Symbol() because it's not serializable
@@ -42,19 +41,20 @@ export function orRef<T extends z.ZodString | z.ZodArray<z.ZodString> | z.ZodNum
     >,
   ]
 > {
-  return z.union([
-    schema,
-    ref(
-      match(schema)
-        .with(P.instanceOf(z.ZodString), () => "string" as const)
-        .with(P.instanceOf(z.ZodArray).and({ element: P.instanceOf(z.ZodString) }), () => "string[]" as const)
-        .with(P.instanceOf(z.ZodNumber), () => "number" as const)
-        .with(P.instanceOf(z.ZodUnknown), () => "unknown" as const)
-        .otherwise(() => {
-          throw new Error("unexpected schema");
-        }),
-    ) as any,
-  ]);
+  let refType: SwNodeRefAccessorSchema;
+  if (schema instanceof z.ZodString) {
+    refType = "string";
+  } else if (schema instanceof z.ZodArray && schema.element instanceof z.ZodString) {
+    refType = "string[]";
+  } else if (schema instanceof z.ZodNumber) {
+    refType = "number";
+  } else if (schema instanceof z.ZodUnknown) {
+    refType = "unknown";
+  } else {
+    throw new Error("unexpected schema");
+  }
+
+  return z.union([schema, ref(refType) as any]);
 }
 export function isSwNodeRef<T extends SwNodeRefAccessorSchema>(
   value: SwNodeRef<T> | SwNodeRefAccessorSchemaMap[T],

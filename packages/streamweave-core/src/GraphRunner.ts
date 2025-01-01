@@ -5,9 +5,6 @@ import get from "lodash/get";
 import isEqual from "lodash/isEqual";
 import isFunction from "lodash/isFunction";
 import uniq from "lodash/uniq";
-import { match } from "ts-pattern";
-
-import { IterationMode, OmitUnion } from "@repo/shared";
 
 import { formatError, throwError } from "../../../apps/web/src/lib/err";
 import { generateCacheKey } from "../../../apps/web/src/lib/hash";
@@ -36,12 +33,14 @@ import {
 import { SwEffect, SwEffectExtraContext, SwEffectParam, SwEffectResult } from "./effects";
 import { SwScope, SwScopeType, SwSpaceScope } from "./scopes";
 
+type OmitUnion<T, K extends keyof any> = T extends any ? Omit<T, K> : never;
+
 export interface SwCacheProvider {
   get<T>(key: string): Promise<T | undefined>;
   set(key: string, value: unknown): Promise<void>;
 }
 
-interface SwEffectTraceRevertEntry<Effect extends SwEffect = SwEffect> {
+export interface SwEffectTraceRevertEntry<Effect extends SwEffect = SwEffect> {
   id: string;
   effect: Effect;
   request: SwEffectParam<Effect>;
@@ -659,13 +658,19 @@ export function resolveNodeRef<T extends SwNodeRefAccessorSchema>(
   if (accessedNodeIds) accessedNodeIds.add(ni.id);
 
   const accessor = ref.accessor as SwNodeRef<SwNodeRefAccessorSchema>["accessor"];
-  const val = get(
-    match(accessor.type)
-      .with("value", () => ni.value)
-      .with("result", () => ni.state?.result)
-      .exhaustive(),
-    accessor.path,
-  );
+  let source: unknown;
+  switch (accessor.type) {
+    case "value":
+      source = ni.value;
+      break;
+    case "result":
+      source = ni.state?.result;
+      break;
+    default:
+      const _exhaustiveCheck: never = accessor.type;
+      throw new Error(`Unexpected accessor type: ${_exhaustiveCheck}`);
+  }
+  const val = get(source, accessor.path);
 
   if (val === undefined) return undefined;
   return SwNodeRefAccessorSchemaMap[accessor.schema]!.parse(val) as SwNodeRefAccessorSchemaMap[T];
