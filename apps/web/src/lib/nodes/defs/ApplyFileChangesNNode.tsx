@@ -48,13 +48,3 @@ The file you are operating on is "${value.path}".
     await nrc.effects.writeFile(value.path, output);
     return { original, result: output };
   });
-
-// renderInputs: (v) => (
-//   <Well title={`Changes ${v.path}`} markdownPreferred>
-//     {v.changes || ""}
-//   </Well>
-// ),
-// // todo syntax highlighting
-// renderResult: (res) => (
-//   <ReactDiffViewer oldValue={res.original} newValue={res.result} splitView={false} useDarkTheme />
-// ),

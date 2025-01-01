@@ -13,6 +13,3 @@ export const TypescriptDepAnalysisNNode = swNode
     // console.log("[TypescriptDepAnalysis] ", result);
     return { result: {} };
   });
-
-// renderInputs: () => null,
-// renderResult: () => null, // todo lm_ec44d16eee restore ts deps

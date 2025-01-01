@@ -101,14 +101,3 @@ If you aren't confident any research needs to be done, please respond with an em
 
     return { results };
   });
-// renderInputs: (v) => (
-//   <Well title="Research Goal" markdownPreferred>
-//     {v.goal}
-//   </Well>
-// ),
-// renderResult: (res) =>
-//   res.results.map((r, i) => (
-//     <Well key={i} title={r.query} markdownPreferred>
-//       {r.result + "\n\nSources:\n" + r.sources?.map((u) => `- [${u.title || u.url}](${u.url})`).join("\n")}
-//     </Well>
-//   )),

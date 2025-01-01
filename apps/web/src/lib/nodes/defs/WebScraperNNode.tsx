@@ -28,29 +28,3 @@ export const WebScraperNNode = swNode
     });
     return result;
   });
-
-// renderInputs: (v) => (
-//   <>
-//     <Well title="URL">{v.url}</Well>
-//     <Well title="Query">{v.query}</Well>
-//   </>
-// ),
-// renderResult: (res) => (
-//   <>
-//     {res.title && <Well title="Title">{res.title}</Well>}
-//     <Well title="Relevant Information" markdownPreferred>
-//       {res.relevantInfo}
-//     </Well>
-//     <Well title="Key Points" markdownPreferred>
-//       {res.keyPoints.map((point, index) => `${index + 1}. ${point}`).join("\n")}
-//     </Well>
-//     <Well title="Code Snippets" markdownPreferred>
-//       {res.codeSnippets.map((snippet, index) => `Snippet ${index + 1}:\n${snippet}`).join("\n\n")}
-//     </Well>
-//     <Well title="Helpful Links" markdownPreferred>
-//       {res.helpfulLinks
-//         .map((link, index) => `${index + 1}. [${link.url}](${link.url})\n   Justification: ${link.justification}`)
-//         .join("\n\n")}
-//     </Well>
-//   </>
-// ),

@@ -159,21 +159,3 @@ Synthesize all the information gathered across iterations, highlight key insight
       })),
     };
   });
-
-// renderInputs: (v) => (
-//   <Well title="Query" markdownPreferred>
-//     {v.query}
-//   </Well>
-// ),
-// renderResult: (res) => (
-//   <>
-//     <Well title="Result" markdownPreferred>
-//       {res.result}
-//     </Well>
-//     <Well title="Sources" markdownPreferred>
-//       {res.sources
-//         .map((source) => "* " + [source.title?.trim(), source.url.trim()].filter((s) => !!s).join(" - "))
-//         .join("\n")}
-//     </Well>
-//   </>
-// ),

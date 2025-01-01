@@ -10,6 +10,3 @@ export const OutputNNode = swNode
     await nrc.effects.displayToast({ message: `[OutputNode] ${value.value}`, type: "info", autoClose: false });
     return {};
   });
-
-// renderInputs: (v) => renderJsonWell(v.description, v.value),
-// renderResult: () => null,

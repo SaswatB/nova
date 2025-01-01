@@ -1,5 +1,6 @@
 import llamaTokenizer from "llama-tokenizer-js";
 import pLimit from "p-limit";
+import { SwSpaceScope } from "streamweave-core";
 import { z } from "zod";
 
 import { readFilesRecursively } from "../../files";
@@ -227,21 +228,7 @@ ${docs.map((doc) => `<docs>\n<files>\n${doc.files.join("\n")}\n</files>\n<resear
 }
 
 export const ProjectAnalysisNNode = swNode
-  // { typeId: "project-analysis", scopeDef: NSDef.space },
+  .scope(SwSpaceScope)
   .input(z.object({}))
   .output(z.object({ result: ResearchedFileSystem }))
   .runnable(async (value, nrc) => ({ result: await projectAnalysis(nrc) }));
-
-// renderInputs: () => null,
-// renderResult: (res) => (
-//   <>
-//     <Well title="Research" markdownPreferred>
-//       {res.result.research}
-//     </Well>
-//     <Well title="Files" markdownPreferred>
-//       {res.result.files.length === 0
-//         ? "No files found (empty project)"
-//         : `${res.result.files.length} source files processed`}
-//     </Well>
-//   </>
-// ),

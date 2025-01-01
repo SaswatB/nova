@@ -11,24 +11,23 @@ import { ProjectAnalysisNNode, xmlFileSystemResearch } from "./ProjectAnalysisNN
 export const RelevantFileAnalysisNNode = swNode
   .input(z.object({ goal: orRef(z.string()) }))
   .output(z.object({ result: z.string(), files: z.array(z.string()) }))
-  .runnable(
-    async (value, nrc) => {
-      // todo lm_ec44d16eee restore ts deps
-      // const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
-      //   type: NNodeType.TypescriptDepAnalysis,
-      // });
-      const typescriptResult = {} as Record<string, { fileName: string }[]>;
-      const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
+  .runnable(async (value, nrc) => {
+    // todo lm_ec44d16eee restore ts deps
+    // const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
+    //   type: NNodeType.TypescriptDepAnalysis,
+    // });
+    const typescriptResult = {} as Record<string, { fileName: string }[]>;
+    const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
 
-      if (researchResult.files.length === 0) {
-        return {
-          result: "This is an empty project. No relevant files could be identified.",
-          files: [],
-        };
-      }
+    if (researchResult.files.length === 0) {
+      return {
+        result: "This is an empty project. No relevant files could be identified.",
+        files: [],
+      };
+    }
 
-      const rawRelevantFiles = await nrc.effects.aiChat("gemini", [
-        `
+    const rawRelevantFiles = await nrc.effects.aiChat("gemini", [
+      `
 ${xmlFileSystemResearch(researchResult, { showResearch: true })}
 <goal>
 ${value.goal}
@@ -54,33 +53,16 @@ Important:
 
 Your response will be used by an engineer to develop a comprehensive plan with the necessary context.
 `.trim(),
-      ]);
+    ]);
 
-      const directRelevantFiles = await getRelevantFiles(
-        nrc,
-        researchResult.files.map((f) => f.path),
-        rawRelevantFiles,
-      );
-      const relevantFiles = uniq(
-        directRelevantFiles.flatMap((f) => [
-          f,
-          ...(typescriptResult[f]?.map((d) => d.fileName).filter(isDefined) || []),
-        ]),
-      );
+    const directRelevantFiles = await getRelevantFiles(
+      nrc,
+      researchResult.files.map((f) => f.path),
+      rawRelevantFiles,
+    );
+    const relevantFiles = uniq(
+      directRelevantFiles.flatMap((f) => [f, ...(typescriptResult[f]?.map((d) => d.fileName).filter(isDefined) || [])]),
+    );
 
-      return { result: rawRelevantFiles, files: relevantFiles };
-    },
-    // renderInputs: (v) => (
-    //   <Well title="Goal" markdownPreferred>
-    //     {v.goal}
-    //   </Well>
-    // ),
-    // renderResult: (res) => (
-    //   <>
-    //     <Well title="Result" markdownPreferred>
-    //       {res.result}
-    //     </Well>
-    //     <Well title="Files">{res.files.length === 0 ? "No relevant files (empty project)" : res.files.join("\n")}</Well>
-    //   </>
-    // ),
-  );
+    return { result: rawRelevantFiles, files: relevantFiles };
+  });

@@ -2,15 +2,55 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { Button, Tabs } from "@radix-ui/themes";
 import { startCase } from "lodash";
-import { GraphRunnerData, resolveNodeValueRefs, SwNodeInstance } from "streamweave-core";
+import {
+  GraphRunnerData,
+  resolveNodeValueRefs,
+  ResolveSwNodeRefs,
+  SwNodeInstance,
+  SwNodeResult,
+  SwNodeValue,
+} from "streamweave-core";
 import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 
 import { formatError } from "../lib/err";
 import { saveJsonToFile } from "../lib/files";
+import { ApplyFileChangesNNodeRender } from "../lib/nodes/defs/ApplyFileChangesNNode.render";
+import { ContextNNodeRender } from "../lib/nodes/defs/ContextNNode.render";
+import { ExecuteNNodeRender } from "../lib/nodes/defs/ExecuteNNode.render";
+import { OutputNNodeRender } from "../lib/nodes/defs/OutputNNode.render";
+import { PlanNNodeRender } from "../lib/nodes/defs/PlanNNode.render";
+import { ProjectAnalysisNNodeRender } from "../lib/nodes/defs/ProjectAnalysisNNode.render";
+import { RelevantFileAnalysisNNodeRender } from "../lib/nodes/defs/RelevantFileAnalysisNNode.render";
+import { TypescriptDepAnalysisNNodeRender } from "../lib/nodes/defs/TypescriptDepAnalysisNNode.render";
+import { WebResearchHelperNNodeRender } from "../lib/nodes/defs/WebResearchHelperNNode.render";
+import { WebResearchOrchestratorNNodeRender } from "../lib/nodes/defs/WebResearchOrchestratorNNode.render";
+import { WebScraperNNodeRender } from "../lib/nodes/defs/WebScraperNNode.render";
 import { GraphRunner } from "../lib/nodes/swRunner";
 import { TraceElementList, traceElementSourceSymbol } from "./TraceElementView";
 import { createImagesField, createTextAreaRefArrayField, createTextAreaRefField, ZodForm } from "./ZodForm";
+
+const nodeRenderMap: {
+  [NodeTypeId in keyof GraphRunner["nodeMap"]]: {
+    renderInputs: (value: ResolveSwNodeRefs<SwNodeValue<GraphRunner["nodeMap"][NodeTypeId]>>) => React.ReactNode;
+    renderResult: (
+      result: SwNodeResult<GraphRunner["nodeMap"][NodeTypeId]>,
+      inputs: ResolveSwNodeRefs<SwNodeValue<GraphRunner["nodeMap"][NodeTypeId]>>,
+    ) => React.ReactNode;
+  };
+} = {
+  applyFileChanges: ApplyFileChangesNNodeRender,
+  context: ContextNNodeRender,
+  execute: ExecuteNNodeRender,
+  output: OutputNNodeRender,
+  plan: PlanNNodeRender,
+  projectAnalysis: ProjectAnalysisNNodeRender,
+  relevantFileAnalysis: RelevantFileAnalysisNNodeRender,
+  typescriptDepAnalysis: TypescriptDepAnalysisNNodeRender,
+  webResearchHelper: WebResearchHelperNNodeRender,
+  webResearchOrchestrator: WebResearchOrchestratorNNodeRender,
+  webScraper: WebScraperNNodeRender,
+};
 
 const CollapsibleContent = styled("div", {
   base: {
@@ -74,17 +114,18 @@ export function NodeViewer({
   const [nodeInputs, nodeOutputs] = useMemo(() => {
     try {
       const value = resolveNodeValueRefs(node.value, graphData.nodeInstances);
+      const renderer = nodeRenderMap[node.typeId as keyof typeof nodeRenderMap];
       return [
-        null,
-        null,
-        // nodeDef?.renderInputs(value) ?? null,
-        // node.state?.result ? nodeDef?.renderResult(node.state.result, value) : "No state yet",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        renderer?.renderInputs(value as any) ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        node.state?.result ? renderer?.renderResult(node.state.result, value as any) : "No state yet",
       ];
     } catch (e) {
       const error = formatError(e);
       return [error, error];
     }
-  }, [nodeDef, node.value, graphData, node.state?.result]);
+  }, [node.typeId, node.value, graphData, node.state?.result]);
 
   useEffect(() => {
     if (contentRef.current) {

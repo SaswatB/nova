@@ -221,21 +221,3 @@ Now, process the following change set and extract only the parts relevant to "${
   });
 
 export const ExecuteNNode_ContextId = registerContextId("execute-context", "Extra context for change set creation");
-
-// renderInputs: (v) => (
-//   <>
-//     <Well title="Instructions" markdownPreferred>
-//       {v.instructions}
-//     </Well>
-//     <Well title="Relevant Files">{v.relevantFiles.map((file) => file).join("\n") || ""}</Well>
-//   </>
-// ),
-// renderResult: ({ result: { rawChangeSet, ...rest } }) => (
-//   <>
-//     <Well title="Raw Result" markdownPreferred>
-//       {rawChangeSet}
-//     </Well>
-//     {/* todo maybe do this better */}
-//     {renderJsonWell("Result", rest)}
-//   </>
-// ),
