@@ -46,23 +46,3 @@ export async function getAiJsonParsed<T extends unknown>(
   const result = schema.safeParse(value);
   return result.success ? result.data : undefined;
 }
-
-// renderRequestTrace({ model, data, prompt }) {
-//   return (
-//     <>
-//       <Flex gap="4">
-//         <span>Model:</span>
-//         <code>{model || DEFAULT_MODEL}</code>
-//       </Flex>
-//       {prompt && prompt !== SYSTEM_PROMPT && (
-//         <Well title="Prompt" markdownPreferred>
-//           {prompt}
-//         </Well>
-//       )}
-//       <Well title="Input" markdownPreferred>
-//         {data}
-//       </Well>
-//     </>
-//   );
-// },
-// renderResultTrace: (result: unknown) => renderJsonWell("AI JSON Response", result),

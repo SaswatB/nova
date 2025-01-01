@@ -189,6 +189,8 @@ function SpaceSelector({
                 key={space.id}
                 className={css({
                   w: "100%",
+                  h: "unset",
+                  py: 4,
                   borderColor: "transparent",
                   outlineColor: "transparent",
                   boxShadow: "none",

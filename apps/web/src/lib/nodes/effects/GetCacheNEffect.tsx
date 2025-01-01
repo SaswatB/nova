@@ -3,15 +3,8 @@ import { z } from "zod";
 
 import { swEffect } from "../swEffect";
 
-export const GetCacheNEffect = swEffect.runnable(
-  (key: string, { effectContext }) => effectContext.projectCacheGet(key),
-  // renderRequestTrace: (key) => (
-  //   <Flex gap="4">
-  //     <span>Key:</span>
-  //     <code>{key}</code>
-  //   </Flex>
-  // ),
-  // renderResultTrace: (result, key) => renderJsonWell(`Get Cache Result ${key}`, result),
+export const GetCacheNEffect = swEffect.runnable((key: string, { effectContext }) =>
+  effectContext.projectCacheGet(key),
 );
 
 export async function getCacheParsed<T extends unknown>(

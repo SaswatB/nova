@@ -22,6 +22,7 @@ import {
   SwNodeExtraContext,
   GetEffectContext,
   GetNodeContext,
+  GetEffectMapFromNodeMap,
 } from "./nodes";
 import {
   createSwNodeRef,
@@ -123,7 +124,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
 }> {
   private nodeInstances: Record<string, SwNodeInstance> = {}; // id -> node instance
   private trace: GraphTraceEvent[] = [];
-  private effectMap: Record<string, SwEffect> = {};
+  private effectMap: GetEffectMapFromNodeMap<NodeMap> = {} as GetEffectMapFromNodeMap<NodeMap>;
 
   private runId = "";
   private abortController: AbortController | null = null;
@@ -142,7 +143,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
         if (this.effectMap[effectId] && this.effectMap[effectId] !== effect) {
           throw new Error(`Conflicting effect definitions: ${effectId}`);
         } else {
-          this.effectMap[effectId] = effect as SwEffect;
+          (this.effectMap as any)[effectId] = effect;
         }
       });
     });
@@ -605,9 +606,9 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
     return nodeDef as D;
   }
 
-  public getEffect(typeId: string) {
+  public getEffect(typeId: keyof typeof this.effectMap) {
     const effectDef = this.effectMap[typeId];
-    if (!effectDef) throw new Error(`Effect type not found: ${typeId}, make sure it's registered`);
+    if (!effectDef) throw new Error(`Effect type not found: ${String(typeId)}, make sure it's registered`);
     return effectDef;
   }
 

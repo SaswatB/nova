@@ -2,21 +2,49 @@ import { useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { Button, Card, Tabs } from "@radix-ui/themes";
 import { reverse, sortBy, startCase } from "lodash";
-import { GraphTraceEvent, SwNodeInstance, SwNodeTraceEvent } from "streamweave-core";
+import { GraphTraceEvent, SwEffectParam, SwEffectResult, SwNodeInstance, SwNodeTraceEvent } from "streamweave-core";
 import { css, cx } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 import { match, P } from "ts-pattern";
 import { VList, VListHandle } from "virtua";
 
+import { AIChatNEffectRender } from "../lib/nodes/effects/AIChatNEffect.render";
+import { AIJsonNEffectRender } from "../lib/nodes/effects/AIJsonNEffect.render";
+import { AIScrapeNEffectRender } from "../lib/nodes/effects/AIScrapeNEffect.render";
+import { AIWebSearchNEffectRender } from "../lib/nodes/effects/AIWebSearchNEffect.render";
+import { GetCacheNEffectRender } from "../lib/nodes/effects/GetCacheNEffect.render";
+import { ReadFileNEffectRender } from "../lib/nodes/effects/ReadFileNEffect.render";
+import { SetCacheNEffectRender } from "../lib/nodes/effects/SetCacheNEffect.render";
+import { WriteFileNEffectRender } from "../lib/nodes/effects/WriteFileNEffect.render";
 import { GraphRunner } from "../lib/nodes/swRunner";
 import { renderJsonWell } from "./base/Well";
 import { NNodeBadge } from "./NNodeBadge";
 
+const effectRenderMap: {
+  [EffectTypeId in keyof GraphRunner["effectMap"]]: {
+    renderRequestTrace: (request: SwEffectParam<GraphRunner["effectMap"][EffectTypeId]>) => React.ReactNode;
+    renderResultTrace: (
+      result: SwEffectResult<GraphRunner["effectMap"][EffectTypeId]>,
+      request: SwEffectParam<GraphRunner["effectMap"][EffectTypeId]>,
+    ) => React.ReactNode;
+  } | null;
+} = {
+  aiChat: AIChatNEffectRender,
+  aiJson: AIJsonNEffectRender,
+  aiScrape: AIScrapeNEffectRender,
+  aiWebSearch: AIWebSearchNEffectRender,
+  getCache: GetCacheNEffectRender,
+  setCache: SetCacheNEffectRender,
+  readFile: ReadFileNEffectRender,
+  writeFile: WriteFileNEffectRender,
+  displayToast: null,
+  writeDebugFile: null,
+};
+
 export const traceElementSourceSymbol = Symbol("traceElementSource");
 export type TraceElement = GraphTraceEvent | (SwNodeTraceEvent & { [traceElementSourceSymbol]: SwNodeInstance });
-export function TraceElementView({
+function TraceElementView({
   trace,
-  graphRunner,
   isActive,
   isExpanded,
   setIsExpanded,
@@ -24,7 +52,6 @@ export function TraceElementView({
   onNodeNav,
 }: {
   trace: TraceElement;
-  graphRunner?: GraphRunner;
   isActive: boolean;
   isExpanded: boolean;
   setIsExpanded: (isExpanded: boolean) => void;
@@ -63,21 +90,21 @@ export function TraceElementView({
           </>
         ))
         .with({ type: "effect-request" }, (t) => {
-          const effect = graphRunner?.getEffect(t.effectId);
+          const render = effectRenderMap[t.effectId as keyof GraphRunner["effectMap"]];
           return (
             <>
               <Flex css={{ alignItems: "center", gap: 8 }}>
                 Request <TraceIdButton traceId={t.traceId} onClick={(traceId) => onTraceIdNav(traceId, "result")} />
               </Flex>
-              {/* {effect?.renderRequestTrace
-                ? effect.renderRequestTrace(t.request)
-                : */}
-              {renderJsonWell(`${startCase(t.effectId)} Request`, t.request || "N/A")}
+              {render?.renderRequestTrace
+                ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  render.renderRequestTrace(t.request as any)
+                : renderJsonWell(`${startCase(t.effectId)} Request`, t.request || "N/A")}
             </>
           );
         })
         .with({ type: "effect-result" }, (t) => {
-          const effect = graphRunner?.getEffect(t.effectId);
+          const render = effectRenderMap[t.effectId as keyof GraphRunner["effectMap"]];
           const request = t[traceElementSourceSymbol]?.state?.trace?.find(
             (t2) => t2.type === "effect-request" && t.traceId === t2.traceId,
           ) as (SwNodeTraceEvent & { type: "effect-request" }) | undefined;
@@ -86,10 +113,10 @@ export function TraceElementView({
               <Flex css={{ alignItems: "center", gap: 7 }}>
                 Result <TraceIdButton traceId={t.traceId} onClick={(traceId) => onTraceIdNav(traceId, "request")} />
               </Flex>
-              {/* {effect?.renderResultTrace
-                ? effect.renderResultTrace(t.result, request?.request)
-                : */}
-              {renderJsonWell(`${startCase(t.effectId)} Result`, t.result || "N/A")}
+              {render?.renderResultTrace
+                ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  render.renderResultTrace(t.result, request?.request as any)
+                : renderJsonWell(`${startCase(t.effectId)} Result`, t.result || "N/A")}
             </>
           );
         })
@@ -209,7 +236,6 @@ export function TraceElementList({
           <TraceElementView
             key={key}
             trace={t}
-            graphRunner={graphRunner}
             isActive={isActive(t)}
             isExpanded={expandedTraceKeys.includes(key)}
             setIsExpanded={(isExpanded) => {

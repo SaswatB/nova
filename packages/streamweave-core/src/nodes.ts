@@ -17,13 +17,7 @@ export interface SwNode<
    * otherwise create a new child scope
    */
   scopeFactory?: (parentScope: SwScope) => SwScope | null;
-  inputSchema: z.ZodObject<
-    { [K in keyof Value]: z.ZodType<Value[K]> },
-    UnknownKeysParam,
-    ZodTypeAny,
-    Value,
-    Value
-  >;
+  inputSchema: z.ZodObject<{ [K in keyof Value]: z.ZodType<Value[K]> }, UnknownKeysParam, ZodTypeAny, Value, Value>;
   outputSchema: z.ZodObject<
     { [K in keyof Result]: z.ZodType<Result[K]> },
     UnknownKeysParam,
@@ -31,74 +25,48 @@ export interface SwNode<
     Result,
     Result
   >;
-  run: (
-    value: ResolveSwNodeRefs<Value>,
-    nrc: SwNodeRunnerContextType<EffectMap, ExtraNodeContext>
-  ) => Promise<Result>;
+  run: (value: ResolveSwNodeRefs<Value>, nrc: SwNodeRunnerContextType<EffectMap, ExtraNodeContext>) => Promise<Result>;
 
   effectMap: EffectMap;
 }
-export type SwNodeValue<T extends SwNode> =
-  T extends SwNode<infer Value, any, any, any> ? Value : never;
-export type SwNodeResult<T extends SwNode> =
-  T extends SwNode<any, infer Result, any, any> ? Result : never;
-export type SwNodeEffectMap<T extends SwNode> =
-  T extends SwNode<any, any, infer EffectMap, any> ? EffectMap : never;
+export type SwNodeValue<T extends SwNode> = T extends SwNode<infer Value, any, any, any> ? Value : never;
+export type SwNodeResult<T extends SwNode> = T extends SwNode<any, infer Result, any, any> ? Result : never;
+export type SwNodeEffectMap<T extends SwNode> = T extends SwNode<any, any, infer EffectMap, any> ? EffectMap : never;
 export type SwNodeExtraContext<T extends SwNode> =
-  T extends SwNode<any, any, any, infer ExtraNodeContext>
-    ? ExtraNodeContext
-    : never;
+  T extends SwNode<any, any, any, infer ExtraNodeContext> ? ExtraNodeContext : never;
 
 export type SwNodeMap = Record<string, SwNode>;
 
 export type GetEffectContext<NodeMap extends SwNodeMap> =
   NodeMap[keyof NodeMap] extends SwNode<any, any, infer EffectMap, any>
-    ? EffectMap[keyof EffectMap] extends SwEffect<
-        any,
-        any,
-        infer ExtraEffectContext,
-        any
-      >
+    ? EffectMap[keyof EffectMap] extends SwEffect<any, any, infer ExtraEffectContext, any>
       ? ExtraEffectContext
       : never
     : never;
 
+export type GetEffectMapFromNodeMap<NodeMap extends SwNodeMap> =
+  NodeMap[keyof NodeMap] extends SwNode<any, any, infer EffectMap, any> ? EffectMap : never;
+
 export type GetNodeContext<NodeMap extends SwNodeMap> =
-  NodeMap[keyof NodeMap] extends SwNode<any, any, any, infer ExtraNodeContext>
-    ? ExtraNodeContext
-    : never;
+  NodeMap[keyof NodeMap] extends SwNode<any, any, any, infer ExtraNodeContext> ? ExtraNodeContext : never;
 
 type MapSwEffectMapToRun<T extends SwEffectMap> = {
-  [K in keyof T]: (
-    ...param: Parameters<T[K]["callAlias"]>
-  ) => Promise<SwEffectResult<T[K]>>;
+  [K in keyof T]: (...param: Parameters<T[K]["callAlias"]>) => Promise<SwEffectResult<T[K]>>;
 };
 
-export interface SwNodeRunnerContextType<
-  T extends SwEffectMap = Record<string, never>,
-  ExtraNodeContext = unknown,
-> {
+export interface SwNodeRunnerContextType<T extends SwEffectMap = Record<string, never>, ExtraNodeContext = unknown> {
   nodeContext: ExtraNodeContext;
   effects: MapSwEffectMapToRun<T>;
 
   // dependency management
-  getOrAddDependencyForResult: <T extends SwNode>(
-    nodeDef: T,
-    nodeValue: SwNodeValue<T>
-  ) => Promise<SwNodeResult<T>>;
+  getOrAddDependencyForResult: <T extends SwNode>(nodeDef: T, nodeValue: SwNodeValue<T>) => Promise<SwNodeResult<T>>;
   findSwNodeForResult: <T extends SwNode>(
     nodeDef: T,
-    filter: (
-      node: SwNodeValue<T>,
-      extra: { scope: SwScope; isCurrentScope: boolean }
-    ) => boolean
+    filter: (node: SwNodeValue<T>, extra: { scope: SwScope; isCurrentScope: boolean }) => boolean,
   ) => Promise<SwNodeResult<T> | null>;
 
   // dependant management
-  addDependantSwNode: <V extends Record<string, unknown>>(
-    nodeDef: SwNode<V>,
-    nodeValue: V
-  ) => void;
+  addDependantSwNode: <V extends Record<string, unknown>>(nodeDef: SwNode<V>, nodeValue: V) => void;
 
   // refs
   createSwNodeRef: CreateSwNodeRef; // create a reference to the current node
@@ -117,49 +85,27 @@ interface SwNodeBuilder<
     "effects" | "scope" | "input" | "output" | "runnable"
   >;
   effects<NewEffectMap extends SwEffectMap>(
-    effectMap: NewEffectMap
-  ): Pick<
-    SwNodeBuilder<Value, Result, NewEffectMap, ExtraNodeContext>,
-    "scope" | "input" | "output" | "runnable"
-  >;
+    effectMap: NewEffectMap,
+  ): Pick<SwNodeBuilder<Value, Result, NewEffectMap, ExtraNodeContext>, "scope" | "input" | "output" | "runnable">;
 
   scope(
-    scopeFactory: SwScope | ((parentScope: SwScope) => SwScope | null)
-  ): Pick<
-    SwNodeBuilder<Value, Result, EffectMap, ExtraNodeContext>,
-    "input" | "output" | "runnable"
-  >;
+    scopeFactory: SwScope | ((parentScope: SwScope) => SwScope | null),
+  ): Pick<SwNodeBuilder<Value, Result, EffectMap, ExtraNodeContext>, "input" | "output" | "runnable">;
 
   input<NewValue extends Record<string, unknown>>(
-    schema: SwNode<NewValue, Result, EffectMap, ExtraNodeContext>["inputSchema"]
-  ): Pick<
-    SwNodeBuilder<NewValue, Result, EffectMap, ExtraNodeContext>,
-    "output" | "runnable"
-  >;
+    schema: SwNode<NewValue, Result, EffectMap, ExtraNodeContext>["inputSchema"],
+  ): Pick<SwNodeBuilder<NewValue, Result, EffectMap, ExtraNodeContext>, "output" | "runnable">;
   output<NewResult extends Record<string, unknown>>(
-    schema: SwNode<
-      Value,
-      NewResult,
-      EffectMap,
-      ExtraNodeContext
-    >["outputSchema"]
-  ): Pick<
-    SwNodeBuilder<Value, NewResult, EffectMap, ExtraNodeContext>,
-    "runnable"
-  >;
+    schema: SwNode<Value, NewResult, EffectMap, ExtraNodeContext>["outputSchema"],
+  ): Pick<SwNodeBuilder<Value, NewResult, EffectMap, ExtraNodeContext>, "runnable">;
 
   runnable(
-    run: SwNode<Value, Result, EffectMap, ExtraNodeContext>["run"]
+    run: SwNode<Value, Result, EffectMap, ExtraNodeContext>["run"],
   ): SwNode<Value, Result, EffectMap, ExtraNodeContext>;
 }
 
-export type ExtractSwNodeRunnerContext<
-  T extends Pick<SwNodeBuilder<any, any, any, any>, "runnable">,
-> =
-  T extends Pick<
-    SwNodeBuilder<any, any, infer EffectMap, infer ExtraNodeContext>,
-    "runnable"
-  >
+export type ExtractSwNodeRunnerContext<T extends Pick<SwNodeBuilder<any, any, any, any>, "runnable">> =
+  T extends Pick<SwNodeBuilder<any, any, infer EffectMap, infer ExtraNodeContext>, "runnable">
     ? SwNodeRunnerContextType<EffectMap, ExtraNodeContext>
     : never;
 
@@ -171,23 +117,12 @@ function createSwNodeBuilder<
 >(values: {
   effectMap: EffectMap;
   scopeFactory?: (parentScope: SwScope) => SwScope | null;
-  inputSchema: SwNode<
-    Value,
-    Result,
-    EffectMap,
-    ExtraNodeContext
-  >["inputSchema"];
-  outputSchema: SwNode<
-    Value,
-    Result,
-    EffectMap,
-    ExtraNodeContext
-  >["outputSchema"];
+  inputSchema: SwNode<Value, Result, EffectMap, ExtraNodeContext>["inputSchema"];
+  outputSchema: SwNode<Value, Result, EffectMap, ExtraNodeContext>["outputSchema"];
 }): SwNodeBuilder<Value, Result, EffectMap, ExtraNodeContext> {
   return {
     context: () => createSwNodeBuilder({ ...values }),
-    effects: (newEffectMap) =>
-      createSwNodeBuilder({ ...values, effectMap: newEffectMap }),
+    effects: (newEffectMap) => createSwNodeBuilder({ ...values, effectMap: newEffectMap }),
 
     /**
      * Defines the scope for the node.
@@ -208,14 +143,11 @@ function createSwNodeBuilder<
             ? scopeFactory
             : scopeFactory.type === SwScopeType.Space
               ? () => scopeFactory
-              : (currentScope) =>
-                  isEqual(currentScope, scopeFactory) ? null : scopeFactory,
+              : (currentScope) => (isEqual(currentScope, scopeFactory) ? null : scopeFactory),
       }),
 
-    input: (newInputSchema) =>
-      createSwNodeBuilder({ ...values, inputSchema: newInputSchema }),
-    output: (newOutputSchema) =>
-      createSwNodeBuilder({ ...values, outputSchema: newOutputSchema }),
+    input: (newInputSchema) => createSwNodeBuilder({ ...values, inputSchema: newInputSchema }),
+    output: (newOutputSchema) => createSwNodeBuilder({ ...values, outputSchema: newOutputSchema }),
 
     runnable: (run) => ({ ...values, run }),
   };

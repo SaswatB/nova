@@ -19,18 +19,3 @@ export async function getAiScrapeParsed<T extends unknown>(
   const response = await nrc.effects.aiScrape({ jsonSchema, url: param.url, prompt: param.prompt });
   return param.schema.parse(response);
 }
-
-// renderRequestTrace({ jsonSchema, url, prompt }) {
-//   return (
-//     <>
-//       <Well title="URL" code="url">
-//         {url}
-//       </Well>
-//       <Well title="Prompt" markdownPreferred>
-//         {prompt}
-//       </Well>
-//       {renderJsonWell("Schema", jsonSchema)}
-//     </>
-//   );
-// },
-// renderResultTrace: (result) => renderJsonWell("AI Scrape Result", result),
