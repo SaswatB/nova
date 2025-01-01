@@ -631,34 +631,6 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
     this.emit("dataChanged"); // whenever there's a change, there should be a trace, so this effectively occurs on every change to the node data
   }
 
-  // // todo is there a way to remove this hack
-  // public async reSaveAllWrites(): Promise<void> {
-  //   const writeEvents = this.trace.flatMap((event) =>
-  //     event.type === "end-node" && event.node.state?.trace
-  //       ? event.node.state.trace.filter(
-  //           (t): t is SwNodeTraceEvent & { type: "effect-request" } =>
-  //             t.type === "effect-request" &&
-  //             t.effectId === WriteFileNEffect.typeId
-  //         )
-  //       : []
-  //   );
-
-  //   for (const writeEvent of writeEvents) {
-  //     const request = writeEvent.request as NodeEffectParam<
-  //       typeof WriteFileNEffect
-  //     >;
-  //     try {
-  //       await this.projectContext.writeFile(request.path, request.content);
-  //       console.log(`Re-saved file: ${request.path}`);
-  //     } catch (error) {
-  //       console.error(`Failed to re-save file ${request.path}:`, error);
-  //       throw new Error(
-  //         `Failed to re-save file ${request.path}: ${formatError(error)}`
-  //       );
-  //     }
-  //   }
-  // }
-
   public exportNode(nodeId: string): ExportedNode {
     const node = this.nodeInstances[nodeId];
     if (!node) throw new Error(`Node not found: ${nodeId}`);

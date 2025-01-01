@@ -9,7 +9,7 @@ import { produce } from "immer";
 import { uniqBy } from "lodash";
 import { Pane } from "split-pane-react";
 import SplitPane from "split-pane-react/esm/SplitPane";
-import { createSwNodeRef, GraphRunnerData, SwNodeInstance } from "streamweave-core";
+import { createSwNodeRef, GraphRunnerData, SwEffectParam, SwNodeTraceEvent } from "streamweave-core";
 import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 import { stack } from "styled-system/patterns";
@@ -33,6 +33,7 @@ import {
   PlanNNode_PrevIterationGoalContextId,
   PlanNNodeValue,
 } from "../lib/nodes/defs/PlanNNode";
+import { WriteFileNEffect } from "../lib/nodes/effects/WriteFileNEffect";
 import { ProjectContext } from "../lib/nodes/project-ctx";
 import { GraphRunner, swRunner } from "../lib/nodes/swRunner";
 import { routes } from "../lib/routes";
@@ -528,14 +529,33 @@ export function SpaceEditor({
       return;
     }
 
-    // try {
-    //   await graphRunner.reSaveAllWrites();
-    //   toast.success("All writes re-saved successfully");
-    // } catch (error) {
-    const error = new Error("Not implemented");
-    console.error("Error re-saving writes:", error);
-    toast.error(`Failed to re-save writes: ${formatError(error)}`);
-    // }
+    try {
+      const WriteFileNEffectTypeId: keyof GraphRunner["effectMap"] = "writeFile";
+      const writeEvents = selectedPage?.graphData?.trace.flatMap((event) =>
+        event.type === "end-node" && event.ni.state?.trace
+          ? event.ni.state.trace.filter(
+              (t): t is SwNodeTraceEvent & { type: "effect-request" } =>
+                t.type === "effect-request" && t.effectId === WriteFileNEffectTypeId,
+            )
+          : [],
+      );
+
+      for (const writeEvent of writeEvents || []) {
+        const request = writeEvent.request as SwEffectParam<typeof WriteFileNEffect>;
+        try {
+          await projectContext.writeFile(request.path, request.content);
+          console.log(`Re-saved file: ${request.path}`);
+        } catch (error) {
+          console.error(`Failed to re-save file ${request.path}:`, error);
+          throw new Error(`Failed to re-save file ${request.path}: ${formatError(error)}`);
+        }
+      }
+
+      toast.success("All writes re-saved successfully");
+    } catch (error) {
+      console.error("Error re-saving writes:", error);
+      toast.error(`Failed to re-save writes: ${formatError(error)}`);
+    }
   };
 
   useAddVoiceStatus(
