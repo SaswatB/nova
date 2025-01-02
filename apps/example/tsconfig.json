@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "noImplicitAny": true,
+    "paths": {
+      "streamweave-core": ["../../packages/streamweave-core/src"]
+    }
+  },
+  "include": ["src/**/*"]
+}
