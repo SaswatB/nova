@@ -449,9 +449,9 @@ export function SpaceEditor({
           },
         })
         .revertProvider({
-          // filterEffects: async (entries) => RevertChangesDialog({ entries }),
+          filterEffects: async (entries) => RevertChangesDialog({ entries, projectContext }),
           onEffectsReverted: (entries) =>
-            toast(`Reverted ${entries.length} effect${entries.length > 1 ? "s" : ""}`, { type: "success" }),
+            toast(`Reverted ${entries.length} effect${entries.length !== 1 ? "s" : ""}`, { type: "success" }),
         })
         .effectContext(projectContext)
         .nodeContext(projectSettings),

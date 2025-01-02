@@ -42,6 +42,7 @@ export interface SwCacheProvider {
 
 export interface SwEffectTraceRevertEntry<Effect extends SwEffect = SwEffect> {
   id: string;
+  effectId: string;
   effect: Effect;
   request: SwEffectParam<Effect>;
   result: SwEffectResult<Effect>;
@@ -565,6 +566,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
         if (!effect.canRevert?.(req.request, resultTrace.result, effectCtx)) return null;
         return {
           id: req.traceId,
+          effectId: req.effectId,
           effect,
           request: req.request,
           result: resultTrace.result,
@@ -577,7 +579,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
     if (revertableEffects.length) {
       const selectedTraces = await this.revertProvider?.filterEffects?.(revertableEffects);
       const effectsToRevert =
-        selectedTraces! == undefined
+        selectedTraces !== undefined
           ? revertableEffects.filter((w) => selectedTraces!.includes(w.id))
           : revertableEffects;
       for (const { effect, request, result } of effectsToRevert) {
