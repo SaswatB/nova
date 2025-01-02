@@ -6,20 +6,38 @@ export { resolveNodeRef, resolveNodeValueRefs } from "./GraphRunner";
 
 // #region builder
 
-interface SwRunnerBuilder<NodeMap extends SwNodeMap> {
+interface SwRunnerBuilder<NodeMap extends SwNodeMap, AllowedMethods extends keyof SwRunnerBuilder<NodeMap, any>> {
   nodes<NewNodeMap extends SwNodeMap>(
     nodes: NewNodeMap,
-  ): Pick<SwRunnerBuilder<NewNodeMap>, "cacheProvider" | "revertProvider" | "effectContext">;
+  ): PickedSwRunnerBuilder<
+    NewNodeMap,
+    Exclude<AllowedMethods, "nodes"> | "nodeMap" | "effectContext" | "nodeContext" | "create" | "createFromData"
+  >;
+  nodeMap: NodeMap;
 
-  cacheProvider(cacheProvider: SwCacheProvider): Pick<SwRunnerBuilder<NodeMap>, "revertProvider" | "effectContext">;
-  revertProvider(revertProvider: SwRevertProvider): Pick<SwRunnerBuilder<NodeMap>, "effectContext">;
+  cacheProvider(
+    cacheProvider: SwCacheProvider,
+  ): PickedSwRunnerBuilder<NodeMap, Exclude<AllowedMethods, "cacheProvider">>;
+  revertProvider(
+    revertProvider: SwRevertProvider,
+  ): PickedSwRunnerBuilder<NodeMap, Exclude<AllowedMethods, "revertProvider">>;
 
-  effectContext(effectContext: GetEffectContext<NodeMap>): Pick<SwRunnerBuilder<NodeMap>, "nodeContext">;
-  nodeContext(nodeContext: GetNodeContext<NodeMap>): Pick<SwRunnerBuilder<NodeMap>, "create" | "createFromData">;
+  effectContext(
+    effectContext: GetEffectContext<NodeMap>,
+  ): PickedSwRunnerBuilder<NodeMap, Exclude<AllowedMethods, "effectContext">>;
+  nodeContext(
+    nodeContext: GetNodeContext<NodeMap>,
+  ): PickedSwRunnerBuilder<NodeMap, Exclude<AllowedMethods, "nodeContext">>;
 
   create(): GraphRunner<NodeMap>;
   createFromData(data: GraphRunnerData): GraphRunner<NodeMap>;
 }
+
+// applies AllowedMethods to the builder
+type PickedSwRunnerBuilder<
+  NodeMap extends SwNodeMap,
+  AllowedMethods extends keyof SwRunnerBuilder<NodeMap, any>,
+> = Pick<SwRunnerBuilder<NodeMap, AllowedMethods>, AllowedMethods>;
 
 /**
  * Extract the GraphRunner type from a SwRunnerBuilder after nodes have been set
@@ -35,8 +53,8 @@ interface SwRunnerBuilder<NodeMap extends SwNodeMap> {
  * type GraphRunner = ExtractGraphRunner<typeof swRunner>;
  * ```
  */
-export type ExtractGraphRunner<T extends Partial<SwRunnerBuilder<any>>> =
-  T extends Partial<SwRunnerBuilder<infer NodeMap>> ? GraphRunner<NodeMap> : never;
+export type ExtractGraphRunner<T extends Pick<SwRunnerBuilder<any, any>, "nodeMap">> =
+  T extends Partial<SwRunnerBuilder<infer NodeMap, any>> ? GraphRunner<NodeMap> : never;
 
 function createSwRunnerBuilder<NodeMap extends SwNodeMap>(o: {
   nodeMap: NodeMap;
@@ -44,7 +62,7 @@ function createSwRunnerBuilder<NodeMap extends SwNodeMap>(o: {
   nodeContext: GetNodeContext<NodeMap>;
   cacheProvider?: SwCacheProvider;
   revertProvider?: SwRevertProvider;
-}): SwRunnerBuilder<NodeMap> {
+}): SwRunnerBuilder<NodeMap, any> {
   return {
     nodes: (nodes) =>
       createSwRunnerBuilder({
@@ -53,6 +71,7 @@ function createSwRunnerBuilder<NodeMap extends SwNodeMap>(o: {
         effectContext: o.effectContext as any,
         nodeContext: o.nodeContext as any,
       }),
+    nodeMap: o.nodeMap,
     cacheProvider: (cacheProvider) => createSwRunnerBuilder({ ...o, cacheProvider }),
     revertProvider: (revertProvider) => createSwRunnerBuilder({ ...o, revertProvider }),
     effectContext: (effectContext) => createSwRunnerBuilder({ ...o, effectContext }),
@@ -63,10 +82,11 @@ function createSwRunnerBuilder<NodeMap extends SwNodeMap>(o: {
   };
 }
 
-export const swRunnerInit: Pick<SwRunnerBuilder<{}>, "nodes"> = createSwRunnerBuilder({
-  nodeMap: {},
-  effectContext: {},
-  nodeContext: {},
-});
+export const swRunnerInit: PickedSwRunnerBuilder<{}, "nodes" | "cacheProvider" | "revertProvider"> =
+  createSwRunnerBuilder({
+    nodeMap: {},
+    effectContext: {},
+    nodeContext: {},
+  });
 
 // #endregion

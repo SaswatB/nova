@@ -74,55 +74,67 @@ export interface SwNodeRunnerContextType<T extends SwEffectMap = Record<string, 
 
 // #region builder
 
-interface SwNodeBuilder<
-  Value extends Record<string, unknown>,
-  Result extends Record<string, unknown>,
-  EffectMap extends SwEffectMap,
-  ExtraNodeContext,
-> {
-  context<NewExtraNodeContext>(): Pick<
-    SwNodeBuilder<Value, Result, EffectMap, NewExtraNodeContext>,
-    "effects" | "scope" | "input" | "output" | "runnable"
+type BuilderParams = {
+  Value: Record<string, unknown>;
+  Result: Record<string, unknown>;
+  EffectMap: SwEffectMap;
+  ExtraNodeContext: unknown;
+};
+type UpdateParams<Current extends BuilderParams, Updates extends Partial<BuilderParams>> = Omit<
+  Current,
+  keyof Updates
+> &
+  Updates;
+type SwNodeFromParams<P extends BuilderParams> = SwNode<P["Value"], P["Result"], P["EffectMap"], P["ExtraNodeContext"]>;
+
+interface SwNodeBuilder<P extends BuilderParams, AllowedMethods extends keyof SwNodeBuilder<P, any>> {
+  context<NewExtraNodeContext>(): PickedSwNodeBuilder<
+    UpdateParams<P, { ExtraNodeContext: NewExtraNodeContext }>,
+    Exclude<AllowedMethods, "context">
   >;
   effects<NewEffectMap extends SwEffectMap>(
     effectMap: NewEffectMap,
-  ): Pick<SwNodeBuilder<Value, Result, NewEffectMap, ExtraNodeContext>, "scope" | "input" | "output" | "runnable">;
+  ): PickedSwNodeBuilder<
+    UpdateParams<P, { EffectMap: NewEffectMap }>,
+    Exclude<AllowedMethods, "effects"> | "effectMap"
+  >;
+  effectMap: P["EffectMap"];
 
   scope(
     scopeFactory: SwScope | ((parentScope: SwScope) => SwScope | null),
-  ): Pick<SwNodeBuilder<Value, Result, EffectMap, ExtraNodeContext>, "input" | "output" | "runnable">;
+  ): PickedSwNodeBuilder<P, Exclude<AllowedMethods, "scope">>;
 
   input<NewValue extends Record<string, unknown>>(
-    schema: SwNode<NewValue, Result, EffectMap, ExtraNodeContext>["inputSchema"],
-  ): Pick<SwNodeBuilder<NewValue, Result, EffectMap, ExtraNodeContext>, "output" | "runnable">;
+    schema: SwNodeFromParams<UpdateParams<P, { Value: NewValue }>>["inputSchema"],
+  ): PickedSwNodeBuilder<UpdateParams<P, { Value: NewValue }>, Exclude<AllowedMethods, "input">>;
   output<NewResult extends Record<string, unknown>>(
-    schema: SwNode<Value, NewResult, EffectMap, ExtraNodeContext>["outputSchema"],
-  ): Pick<SwNodeBuilder<Value, NewResult, EffectMap, ExtraNodeContext>, "runnable">;
+    schema: SwNodeFromParams<UpdateParams<P, { Result: NewResult }>>["outputSchema"],
+  ): PickedSwNodeBuilder<UpdateParams<P, { Result: NewResult }>, Exclude<AllowedMethods, "output">>;
 
-  runnable(
-    run: SwNode<Value, Result, EffectMap, ExtraNodeContext>["run"],
-  ): SwNode<Value, Result, EffectMap, ExtraNodeContext>;
+  runnable(run: SwNodeFromParams<P>["run"]): SwNodeFromParams<P>;
 }
 
-export type ExtractSwNodeRunnerContext<T extends Pick<SwNodeBuilder<any, any, any, any>, "runnable">> =
-  T extends Pick<SwNodeBuilder<any, any, infer EffectMap, infer ExtraNodeContext>, "runnable">
-    ? SwNodeRunnerContextType<EffectMap, ExtraNodeContext>
+// applies AllowedMethods to the builder
+type PickedSwNodeBuilder<P extends BuilderParams, AllowedMethods extends keyof SwNodeBuilder<P, any>> = Pick<
+  SwNodeBuilder<P, AllowedMethods>,
+  AllowedMethods
+>;
+
+export type ExtractSwNodeRunnerContext<T extends Pick<SwNodeBuilder<any, any>, "runnable">> =
+  T extends Pick<SwNodeBuilder<infer P, any>, "runnable">
+    ? SwNodeRunnerContextType<P["EffectMap"], P["ExtraNodeContext"]>
     : never;
 
-function createSwNodeBuilder<
-  Value extends Record<string, unknown>,
-  Result extends Record<string, unknown>,
-  EffectMap extends SwEffectMap,
-  ExtraNodeContext,
->(values: {
-  effectMap: EffectMap;
+function createSwNodeBuilder<P extends BuilderParams>(values: {
+  effectMap: P["EffectMap"];
   scopeFactory?: (parentScope: SwScope) => SwScope | null;
-  inputSchema: SwNode<Value, Result, EffectMap, ExtraNodeContext>["inputSchema"];
-  outputSchema: SwNode<Value, Result, EffectMap, ExtraNodeContext>["outputSchema"];
-}): SwNodeBuilder<Value, Result, EffectMap, ExtraNodeContext> {
+  inputSchema: SwNodeFromParams<P>["inputSchema"];
+  outputSchema: SwNodeFromParams<P>["outputSchema"];
+}): SwNodeBuilder<P, any> {
   return {
     context: () => createSwNodeBuilder({ ...values }),
     effects: (newEffectMap) => createSwNodeBuilder({ ...values, effectMap: newEffectMap }),
+    effectMap: values.effectMap,
 
     /**
      * Defines the scope for the node.
@@ -153,7 +165,10 @@ function createSwNodeBuilder<
   };
 }
 
-export const swNodeInit = createSwNodeBuilder({
+export const swNodeInit: PickedSwNodeBuilder<
+  { Value: {}; Result: {}; EffectMap: {}; ExtraNodeContext: {} },
+  Exclude<keyof SwNodeBuilder<any, any>, "effectMap">
+> = createSwNodeBuilder({
   effectMap: {},
   inputSchema: z.object({}),
   outputSchema: z.object({}),

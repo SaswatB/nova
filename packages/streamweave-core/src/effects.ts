@@ -31,43 +31,75 @@ export type SwEffectMap = Record<string, SwEffect>;
 
 // #region builder
 
-interface SwEffectBuilder<Param, Result, ExtraEffectContext, CallAlias extends (...args: any[]) => Param> {
-  context<NewExtraContext>(): Pick<
-    SwEffectBuilder<Param, Result, NewExtraContext, CallAlias>,
-    "runnable" | "runnableAnd"
+type BuilderParams = {
+  Param: unknown;
+  Result: unknown;
+  ExtraEffectContext: unknown;
+};
+type UpdateParams<Current extends BuilderParams, Updates extends Partial<BuilderParams>> = Omit<
+  Current,
+  keyof Updates
+> &
+  Updates;
+type SwEffectFromParams<P extends BuilderParams, CallAlias extends (...args: any[]) => P["Param"]> = SwEffect<
+  P["Param"],
+  P["Result"],
+  P["ExtraEffectContext"],
+  CallAlias
+>;
+
+interface SwEffectBuilder<
+  P extends BuilderParams,
+  CallAlias extends (...args: any[]) => P["Param"],
+  AllowedMethods extends keyof SwEffectBuilder<P, CallAlias, any>,
+> {
+  context<NewExtraContext>(): PickedSwEffectBuilder<
+    UpdateParams<P, { ExtraEffectContext: NewExtraContext }>,
+    CallAlias,
+    Exclude<AllowedMethods, "context">
   >;
 
   runnable<NewParam, NewResult>(
-    fn: SwEffect<NewParam, NewResult, ExtraEffectContext>["run"],
-  ): SwEffect<NewParam, NewResult, ExtraEffectContext, (arg: NewParam) => NewParam>;
+    fn: SwEffectFromParams<UpdateParams<P, { Param: NewParam; Result: NewResult }>, (arg: NewParam) => NewParam>["run"],
+  ): SwEffectFromParams<UpdateParams<P, { Param: NewParam; Result: NewResult }>, (arg: NewParam) => NewParam>;
   runnableAnd<NewParam, NewResult>(
-    fn: SwEffect<NewParam, NewResult, ExtraEffectContext>["run"],
-  ): Pick<
-    SwEffectBuilder<NewParam, NewResult, ExtraEffectContext, (arg: NewParam) => NewParam>,
-    "callAlias" | "callAliasAnd" | "cacheable" | "revertable"
+    fn: SwEffectFromParams<UpdateParams<P, { Param: NewParam; Result: NewResult }>, (arg: NewParam) => NewParam>["run"],
+  ): PickedSwEffectBuilder<
+    UpdateParams<P, { Param: NewParam; Result: NewResult }>,
+    (arg: NewParam) => NewParam,
+    | Exclude<AllowedMethods, "context" | "runnable" | "runnableAnd">
+    | "callAlias"
+    | "callAliasAnd"
+    | "cacheable"
+    | "revertable"
   >;
 
-  callAlias<NewCallAlias extends (...args: any[]) => Param>(
+  callAlias<NewCallAlias extends (...args: any[]) => P["Param"]>(
     alias: NewCallAlias,
-  ): SwEffect<Param, Result, ExtraEffectContext, NewCallAlias>;
-  callAliasAnd<NewCallAlias extends (...args: any[]) => Param>(
+  ): SwEffectFromParams<P, NewCallAlias>;
+  callAliasAnd<NewCallAlias extends (...args: any[]) => P["Param"]>(
     alias: NewCallAlias,
-  ): Pick<SwEffectBuilder<Param, Result, ExtraEffectContext, NewCallAlias>, "cacheable" | "revertable">;
+  ): PickedSwEffectBuilder<P, NewCallAlias, Exclude<AllowedMethods, "callAlias" | "callAliasAnd">>;
 
   // cacheable and revertable cannot be used together
-  cacheable(
-    o2?: Pick<SwEffect<Param, Result, ExtraEffectContext, CallAlias>, "generateCacheKey">,
-  ): SwEffect<Param, Result, ExtraEffectContext, CallAlias>;
+  cacheable(o2?: Pick<SwEffectFromParams<P, CallAlias>, "generateCacheKey">): SwEffectFromParams<P, CallAlias>;
   revertable(
     o2:
-      | Pick<SwEffect<Param, Result, ExtraEffectContext, CallAlias>, "canRevert">
-      | Required<Pick<SwEffect<Param, Result, ExtraEffectContext, CallAlias>, "revert">>,
-  ): SwEffect<Param, Result, ExtraEffectContext, CallAlias>;
+      | Pick<SwEffectFromParams<P, CallAlias>, "canRevert">
+      | Required<Pick<SwEffectFromParams<P, CallAlias>, "revert">>,
+  ): SwEffectFromParams<P, CallAlias>;
 }
 
-function createSwEffectBuilder<Param, Result, ExtraEffectContext, CallAlias extends (...args: any[]) => Param>(
-  o: Pick<SwEffect<Param, Result, ExtraEffectContext, CallAlias>, "run" | "callAlias">,
-): SwEffectBuilder<Param, Result, ExtraEffectContext, CallAlias> {
+// applies AllowedMethods to the builder
+type PickedSwEffectBuilder<
+  P extends BuilderParams,
+  CallAlias extends (...args: any[]) => P["Param"],
+  AllowedMethods extends keyof SwEffectBuilder<P, CallAlias, any>,
+> = Pick<SwEffectBuilder<P, CallAlias, AllowedMethods>, AllowedMethods>;
+
+function createSwEffectBuilder<P extends BuilderParams, CallAlias extends (...args: any[]) => P["Param"]>(
+  o: Pick<SwEffectFromParams<P, CallAlias>, "run" | "callAlias">,
+): SwEffectBuilder<P, CallAlias, any> {
   return {
     context: () => createSwEffectBuilder({ ...o, run: async (p) => p }),
 
@@ -82,8 +114,9 @@ function createSwEffectBuilder<Param, Result, ExtraEffectContext, CallAlias exte
   };
 }
 
-export const swEffectInit: Pick<
-  SwEffectBuilder<unknown, unknown, undefined, (arg: unknown) => unknown>,
+export const swEffectInit: PickedSwEffectBuilder<
+  { Param: unknown; Result: unknown; ExtraEffectContext: {} },
+  (arg: unknown) => unknown,
   "context" | "runnable" | "runnableAnd"
 > = createSwEffectBuilder({ run: async (p) => p, callAlias: (p) => p });
 
