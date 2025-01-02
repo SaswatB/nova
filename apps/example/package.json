@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": "tsx src/index.ts"
+    "start": "tsx src/index.ts",
+    "storygen": "tsx src/storyGen.ts"
   },
   "dependencies": {
     "openai": "^4.77.0",
