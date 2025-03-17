@@ -3,13 +3,12 @@ import { z } from "zod";
 
 import { ProjectSettings } from "@repo/shared";
 
-import { getAiJsonParsed } from "./effects/AIJsonNEffect";
 import { DEFAULT_RULES } from "./project-ctx";
 import { SwNodeRunnerContext } from "./swNode";
 
 export async function getRelevantFiles(nrc: SwNodeRunnerContext, files: string[], document: string) {
   const RelevantFilesSchema = z.object({ files: z.array(z.string()) });
-  const directRelevantFiles = await getAiJsonParsed(nrc, {
+  const directRelevantFiles = await nrc.effects.aiJson({
     schema: RelevantFilesSchema,
     data: `
 Extract all the absolute paths for the files from the following document.

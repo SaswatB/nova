@@ -1,7 +1,6 @@
 import { uniq } from "lodash";
 import { z } from "zod";
 
-import { getAiJsonParsed } from "../effects/AIJsonNEffect";
 import { swNode } from "../swNode";
 import { WebScraperNNode } from "./WebScraperNNode";
 
@@ -17,7 +16,7 @@ export const WebResearchHelperNNode = swNode
     const performSearch = async (query: string, context: string) => {
       // generate search terms
       const { terms = [] } =
-        (await getAiJsonParsed(nrc, {
+        (await nrc.effects.aiJson({
           schema: z.object({ terms: z.array(z.string()).min(0) }),
           data: `
 <query>
@@ -35,7 +34,7 @@ If the provided context sufficiently answers the research query, you can return 
       const searchResults = (await Promise.all(terms.slice(0, 3).map((term) => nrc.effects.aiWebSearch(term)))).flat();
 
       // evaluate the search results
-      const relevantResults = await getAiJsonParsed(nrc, {
+      const relevantResults = await nrc.effects.aiJson({
         schema: z.object({
           results: z.array(
             z.object({ url: z.string(), relevance: z.number().min(0).max(100), justification: z.string() }),
@@ -114,7 +113,7 @@ Highlight any gaps in the current information or areas that might benefit from f
 
       finalResult += (finalResult ? "\n\n" : "") + `Iteration ${i + 1}:\n${iterationSummary}`;
 
-      const continueResearch = await getAiJsonParsed(nrc, {
+      const continueResearch = await nrc.effects.aiJson({
         schema: z.object({
           shouldContinue: z.boolean(),
           justification: z.string(),

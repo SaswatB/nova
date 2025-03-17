@@ -181,60 +181,63 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
 
     const node = this.getNodeDef(ni);
 
-    const runEffect = async <P, R, EEC, CA extends (...args: any[]) => P>(
+    const runEffect = async <P, R, EEC, ERR, ER extends (...args: any[]) => Promise<ERR>>(
       effectId: string,
-      effect: SwEffect<P, R, EEC, CA>,
-      params: Parameters<CA>,
-    ): Promise<R> => {
+      effect: SwEffect<P, R, EEC, ER>,
+      params: Parameters<ER>,
+    ): Promise<ERR> => {
       if (signal.aborted) throw new RunStoppedError();
-      const param = effect.callAlias(...params);
 
-      const traceId = newId.traceEffect();
-      console.log("[GraphRunner] Running effect", effectId, param);
-      this.addNiTrace(ni, { type: "effect-request", traceId, effectId, request: param });
+      return effect.wrap(async (param) => {
+        if (signal.aborted) throw new RunStoppedError();
 
-      let result: R | undefined;
-      try {
-        // resolve cache key if effect is cacheable
-        let cacheKey: string | null = null;
-        if (effect.cacheable) {
-          if (!this.cacheProvider) throw new Error("Cache provider not set");
+        const traceId = newId.traceEffect();
+        console.log("[GraphRunner] Running effect", effectId, param);
+        this.addNiTrace(ni, { type: "effect-request", traceId, effectId, request: param });
 
-          if (effect.generateCacheKey) {
-            const effectCacheKey = effect.generateCacheKey(param);
-            if (effectCacheKey) {
-              cacheKey = typeof effectCacheKey === "string" ? effectCacheKey : await generateCacheKey(effectCacheKey);
+        let result: R | undefined;
+        try {
+          // resolve cache key if effect is cacheable
+          let cacheKey: string | null = null;
+          if (effect.cacheable) {
+            if (!this.cacheProvider) throw new Error("Cache provider not set");
+
+            if (effect.generateCacheKey) {
+              const effectCacheKey = effect.generateCacheKey(param);
+              if (effectCacheKey) {
+                cacheKey = typeof effectCacheKey === "string" ? effectCacheKey : await generateCacheKey(effectCacheKey);
+              }
+            } else {
+              cacheKey = `effect-${effectId}-${await generateCacheKey({ param })}`;
             }
-          } else {
-            cacheKey = `effect-${effectId}-${await generateCacheKey({ param })}`;
           }
-        }
 
-        // check cache for existing result
-        if (cacheKey) {
-          const cachedValue = await this.cacheProvider!.get<R>(cacheKey);
-          if (cachedValue) {
-            console.log("[GraphRunner] Cached effect result", cachedValue);
-            return cachedValue;
+          // check cache for existing result
+          if (cacheKey) {
+            const cachedValue = await this.cacheProvider!.get<R>(cacheKey);
+            if (cachedValue) {
+              console.log("[GraphRunner] Cached effect result", cachedValue);
+              return cachedValue;
+            }
           }
+
+          // run effect
+          result = await effect.run(param, {
+            effectContext: this.effectContext as EEC,
+            signal,
+          });
+
+          console.log("[GraphRunner] Effect result", result);
+          if (cacheKey) await this.cacheProvider!.set(cacheKey, result);
+          return result;
+        } catch (e) {
+          console.error("[GraphRunner] Effect failed", e);
+          console.error(JSON.stringify(e, null, 2));
+          throw e;
+        } finally {
+          this.addNiTrace(ni, { type: "effect-result", traceId, effectId, result });
         }
-
-        // run effect
-        result = await effect.run(param, {
-          effectContext: this.effectContext as SwEffectExtraContext<typeof effect>,
-          signal,
-        });
-
-        console.log("[GraphRunner] Effect result", result);
-        if (cacheKey) await this.cacheProvider!.set(cacheKey, result);
-        return result;
-      } catch (e) {
-        console.error("[GraphRunner] Effect failed", e);
-        console.error(JSON.stringify(e, null, 2));
-        throw e;
-      } finally {
-        this.addNiTrace(ni, { type: "effect-result", traceId, effectId, result });
-      }
+      })(...params);
     };
 
     const nodeRunnerContext: SwNodeRunnerContextType<SwNodeEffectMap<D>, SwNodeExtraContext<D>> = {

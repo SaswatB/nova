@@ -1,4 +1,3 @@
-import { SwNodeRunnerContextType } from "streamweave-core";
 import { z } from "zod";
 import { zerialize } from "zodex";
 
@@ -34,15 +33,22 @@ export const AIJsonNEffect = swEffect
       return effectContext.trpcClient.ai.json.mutate(args, { signal });
     },
   )
+  .wrapAnd(
+    (runEffect) =>
+      async <T extends unknown>({
+        schema,
+        ...rest
+      }: {
+        schema: z.ZodSchema<T>;
+        data: string;
+        model?: Model;
+        prompt?: string;
+      }): Promise<T | undefined> => {
+        // this is breaking typescript, so use any to disable typechecking
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const value = await runEffect({ zSchema: (zerialize as any)(schema), ...rest });
+        const result = schema.safeParse(value);
+        return result.success ? result.data : undefined;
+      },
+  )
   .cacheable();
-
-export async function getAiJsonParsed<T extends unknown>(
-  nrc: SwNodeRunnerContextType<{ aiJson: typeof AIJsonNEffect }>,
-  { schema, ...rest }: { schema: z.ZodSchema<T>; data: string; model?: Model; prompt?: string },
-): Promise<T | undefined> {
-  // this is breaking typescript, so use any to disable typechecking
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const value = await nrc.effects.aiJson({ zSchema: (zerialize as any)(schema), ...rest });
-  const result = schema.safeParse(value);
-  return result.success ? result.data : undefined;
-}

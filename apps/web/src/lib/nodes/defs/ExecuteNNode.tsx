@@ -4,7 +4,6 @@ import { orRef } from "streamweave-core";
 import { z } from "zod";
 
 import { xmlProjectSettings } from "../ai-helpers";
-import { getAiJsonParsed } from "../effects/AIJsonNEffect";
 import { swNode } from "../swNode";
 import { ApplyFileChangesNNode } from "./ApplyFileChangesNNode";
 import { ContextNNode, registerContextId } from "./ContextNNode";
@@ -100,7 +99,7 @@ Ensure each suggestion contains all necessary information for implementation wit
         .optional(),
       filesToChange: z.array(z.object({ absolutePathIncludingFileName: z.string() })),
     });
-    const changeSet = await getAiJsonParsed(nrc, {
+    const changeSet = await nrc.effects.aiJson({
       schema: ChangeSetSchema,
       data: `
 I have a document detailing changes to a project. Please transform the information into a JSON format with the following structure:

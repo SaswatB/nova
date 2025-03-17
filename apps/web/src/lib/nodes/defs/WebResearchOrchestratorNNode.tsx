@@ -2,7 +2,6 @@ import { createSwTaskScope } from "streamweave-core";
 import { z } from "zod";
 
 import { xmlProjectSettings } from "../ai-helpers";
-import { getAiJsonParsed } from "../effects/AIJsonNEffect";
 import { swNode } from "../swNode";
 import { ProjectAnalysisNNode, xmlFileSystemResearch } from "./ProjectAnalysisNNode";
 import { WebResearchHelperNNode } from "./WebResearchHelperNNode";
@@ -27,7 +26,7 @@ export const WebResearchOrchestratorNNode = swNode
     const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
 
     const generateResearchTopics = async () => {
-      return getAiJsonParsed(nrc, {
+      return nrc.effects.aiJson({
         schema: z.object({
           webResearchRequests: z.array(
             z.object({

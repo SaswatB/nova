@@ -1,7 +1,7 @@
 import isEqual from "lodash/isEqual";
 import { UnknownKeysParam, z, ZodTypeAny } from "zod";
 
-import { SwEffect, SwEffectMap, SwEffectResult } from "./effects";
+import { SwEffect, SwEffectMap, SwEffectResult, SwEffectWrapper } from "./effects";
 import { CreateSwNodeRef, ResolveSwNodeRefs } from "./refs";
 import { SwScope, SwScopeType } from "./scopes";
 
@@ -51,7 +51,7 @@ export type GetNodeContext<NodeMap extends SwNodeMap> =
   NodeMap[keyof NodeMap] extends SwNode<any, any, any, infer ExtraNodeContext> ? ExtraNodeContext : never;
 
 type MapSwEffectMapToRun<T extends SwEffectMap> = {
-  [K in keyof T]: (...param: Parameters<T[K]["callAlias"]>) => Promise<SwEffectResult<T[K]>>;
+  [K in keyof T]: SwEffectWrapper<T[K]>;
 };
 
 export interface SwNodeRunnerContextType<T extends SwEffectMap = Record<string, never>, ExtraNodeContext = unknown> {
