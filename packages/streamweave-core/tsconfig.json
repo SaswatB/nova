@@ -1,7 +1,23 @@
 {
-  "extends": "@repo/typescript-config/base.json",
   "include": ["src"],
   "compilerOptions": {
-    "emitDecoratorMetadata": false
+    "noEmit": true,
+    "esModuleInterop": true,
+    "incremental": false,
+    "isolatedModules": true,
+    "lib": ["es2022"],
+    "module": "ESNext",
+    "moduleDetection": "force",
+    "moduleResolution": "Bundler",
+    "emitDecoratorMetadata": false,
+    "experimentalDecorators": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "useDefineForClassFields": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2022"
   }
 }
