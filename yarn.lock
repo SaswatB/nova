@@ -13702,7 +13702,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"streamweave-core@npm:0.1.0, streamweave-core@workspace:packages/streamweave-core":
+"streamweave-core@npm:0.1.0":
+  version: 0.1.0
+  resolution: "streamweave-core@npm:0.1.0"
+  dependencies:
+    events: "npm:^3.3.0"
+    immer: "npm:^10.0.4"
+    lodash: "npm:^4.17.21"
+    zod: "npm:^3.22.5"
+  checksum: 10c0/a49014abfacd31479f356e5946f0abca56360e5389ecb2ac597d26ade9ab86402441193c5f182824dee2e65c567c67b2f770bf3116d5a4e0284062ace526dfad
+  languageName: node
+  linkType: hard
+
+"streamweave-core@workspace:packages/streamweave-core":
   version: 0.0.0-use.local
   resolution: "streamweave-core@workspace:packages/streamweave-core"
   dependencies:

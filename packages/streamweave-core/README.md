@@ -192,6 +192,19 @@ const MyEffect = swEffect
   })
   .callAliasAnd((input: string) => input)
   .cacheable();
+
+const MyGenericEffect = swEffect
+  .runnableAnd(async (input: object, context) => {
+    // Access injected context
+    const result = await context.effectContext.someService.process(input);
+    return result;
+  })
+  .wrapAnd(
+    (runEffect) =>
+      async <T>(input: object, schema: z.ZodSchema<T>) =>
+        schema.parse(await runEffect(input)),
+  )
+  .cacheable();
 ```
 
 ### Nodes

@@ -1,6 +1,6 @@
 {
   "name": "streamweave-core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A declarative framework for complex tasks",
   "author": "Saswat Bhattacharya",
   "license": "MIT",
