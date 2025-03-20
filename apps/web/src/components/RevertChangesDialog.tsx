@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { Button, CheckboxCards, Dialog } from "@radix-ui/themes";
-import { SwEffectResult } from "streamweave-core";
-import { SwEffectParam } from "streamweave-core";
+import { SwEffectParam, SwEffectResult, SwEffectTraceRevertEntry } from "streamweave-core";
 import { css } from "styled-system/css";
 import { Flex, Stack } from "styled-system/jsx";
 
-import { SwEffectTraceRevertEntry } from "../../../../packages/streamweave-core/src/lib/GraphRunner";
 import { WriteFileNEffectRender } from "../lib/nodes/effects/WriteFileNEffect.render";
 import { ProjectContext } from "../lib/nodes/project-ctx";
 import { swNode } from "../lib/nodes/swNode";

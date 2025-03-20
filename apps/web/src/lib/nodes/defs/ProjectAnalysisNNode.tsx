@@ -3,8 +3,8 @@ import pLimit from "p-limit";
 import { SwSpaceScope } from "streamweave-core";
 import { z } from "zod";
 
+import { generateCacheKey } from "../../../../../../packages/streamweave-core/src/lib/hash";
 import { readFilesRecursively } from "../../files";
-import { generateCacheKey } from "../../hash";
 import { getCacheParsed } from "../effects/GetCacheNEffect";
 import { getEffectiveExtensions } from "../project-ctx";
 import { swNode, SwNodeRunnerContext } from "../swNode";
