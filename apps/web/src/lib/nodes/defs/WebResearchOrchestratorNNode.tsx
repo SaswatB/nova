@@ -23,7 +23,7 @@ export const WebResearchOrchestratorNNode = swNode
     }),
   )
   .runnable(async (value, nrc) => {
-    const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
+    const { result: researchResult } = await nrc.runNode(ProjectAnalysisNNode, {});
 
     const generateResearchTopics = async () => {
       return nrc.effects.aiJson({
@@ -90,7 +90,7 @@ If you aren't confident any research needs to be done, please respond with an em
 
     const results = await Promise.all(
       (prioritizedTopics || []).map(async (topic) => {
-        const { result, sources } = await nrc.getOrAddDependencyForResult(WebResearchHelperNNode, {
+        const { result, sources } = await nrc.runNode(WebResearchHelperNNode, {
           query: topic.goal,
           urls: topic.urls,
         });

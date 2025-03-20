@@ -56,7 +56,7 @@ ${showResearch ? `<research>\n${research}\n</research>\n` : ""}
 
 async function projectAnalysis(nrc: SwNodeRunnerContext): Promise<ResearchedFileSystem> {
   // todo lm_ec44d16eee restore ts deps
-  // const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
+  // const { result: typescriptResult } = await nrc.runNode({
   //   type: NNodeType.TypescriptDepAnalysis,
   // });
   // const pendingFiles = [...Object.keys(typescriptResult)];

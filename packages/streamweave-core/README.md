@@ -122,10 +122,10 @@ export const StoryGeneratorNode = swNode
   .output(z.object({ success: z.boolean(), story: z.string() }))
   .runnable(async (input, context) => {
     // Generate outline
-    const { outline } = await context.getOrAddDependencyForResult(GenerateOutlineNode, { topic: input.topic });
+    const { outline } = await context.runNode(GenerateOutlineNode, { topic: input.topic });
 
     // Expand into full story
-    const { story } = await context.getOrAddDependencyForResult(ExpandStoryNode, { outline });
+    const { story } = await context.runNode(ExpandStoryNode, { outline });
 
     const output = ["## Outline", outline, "", "## Story", story].join("\n");
 
@@ -227,7 +227,7 @@ const MyNode = swNode
     const processed = await context.effects.myEffect(input.data);
 
     // Add dependencies
-    const depResult = await context.getOrAddDependencyForResult(OtherNode, { someInput: processed });
+    const depResult = await context.runNode(OtherNode, { someInput: processed });
 
     return { result: depResult.output };
   });

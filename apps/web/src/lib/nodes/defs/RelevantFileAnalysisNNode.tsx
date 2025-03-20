@@ -13,11 +13,11 @@ export const RelevantFileAnalysisNNode = swNode
   .output(z.object({ result: z.string(), files: z.array(z.string()) }))
   .runnable(async (value, nrc) => {
     // todo lm_ec44d16eee restore ts deps
-    // const { result: typescriptResult } = await nrc.getOrAddDependencyForResult({
+    // const { result: typescriptResult } = await nrc.runNode({
     //   type: NNodeType.TypescriptDepAnalysis,
     // });
     const typescriptResult = {} as Record<string, { fileName: string }[]>;
-    const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
+    const { result: researchResult } = await nrc.runNode(ProjectAnalysisNNode, {});
 
     if (researchResult.files.length === 0) {
       return {

@@ -23,26 +23,26 @@ export const PlanNNode = swNode
   )
   .output(z.object({ result: z.string(), relevantFiles: z.array(z.string()) }))
   .runnable(async (value, nrc) => {
-    const extraContext = await nrc.findSwNodeForResult(ContextNNode, (n) => n.contextId === PlanNNode_ContextId);
-    const prevIterationGoalContext = await nrc.findSwNodeForResult(
+    const extraContext = await nrc.findNode(ContextNNode, (n) => n.contextId === PlanNNode_ContextId);
+    const prevIterationGoalContext = await nrc.findNode(
       ContextNNode,
       (n) => n.contextId === PlanNNode_PrevIterationGoalContextId,
     );
-    const prevIterationChangeSetContext = await nrc.findSwNodeForResult(
+    const prevIterationChangeSetContext = await nrc.findNode(
       ContextNNode,
       (n) => n.contextId === PlanNNode_PrevIterationChangeSetContextId,
     );
 
     // analyze the project
-    const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
+    const { result: researchResult } = await nrc.runNode(ProjectAnalysisNNode, {});
 
     // find relevant files for the goal
-    const relevantFilesPromise = nrc.getOrAddDependencyForResult(RelevantFileAnalysisNNode, { goal: value.goal });
+    const relevantFilesPromise = nrc.runNode(RelevantFileAnalysisNNode, { goal: value.goal });
 
     // do web research if needed
     let webResearchResults: { query: string; result: string }[] = [];
     if (value.enableWebResearch) {
-      const { results } = await nrc.getOrAddDependencyForResult(WebResearchOrchestratorNNode, { goal: value.goal });
+      const { results } = await nrc.runNode(WebResearchOrchestratorNNode, { goal: value.goal });
       webResearchResults = results;
     }
 
@@ -119,9 +119,9 @@ The implementation engineer will attempt to implement the file changes described
       JSON.stringify({ planRelevantFiles, mergedRelevantFiles }, null, 2),
     );
 
-    nrc.addDependantSwNode(ExecuteNNode, {
-      instructions: nrc.createSwNodeRef({ type: "result", path: "result", schema: "string" }),
-      relevantFiles: nrc.createSwNodeRef({ type: "result", path: "relevantFiles", schema: "string[]" }),
+    nrc.queueNode(ExecuteNNode, {
+      instructions: nrc.newRef({ type: "result", path: "result", schema: "string" }),
+      relevantFiles: nrc.newRef({ type: "result", path: "relevantFiles", schema: "string[]" }),
     });
     return { result: plan, relevantFiles: mergedRelevantFiles };
   });

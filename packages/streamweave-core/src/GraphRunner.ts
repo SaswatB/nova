@@ -253,7 +253,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
         },
       ) as any,
 
-      getOrAddDependencyForResult: async (nodeDef, nodeValue) => {
+      runNode: async (nodeDef, nodeValue) => {
         let depNi = this.findNodeInstance(ni.scope, nodeDef, nodeValue);
         let subResult: SwNodeResult<typeof nodeDef>;
         let existing = undefined;
@@ -278,7 +278,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
 
         return subResult;
       },
-      findSwNodeForResult: async (nodeDef, filter) => {
+      findNode: async (nodeDef, filter) => {
         const foundNi = this.findNodeInstance(ni.scope, nodeDef, (n) =>
           filter(n.value, { scope: n.scope.def, isCurrentScope: n.scope.id === ni.scope.id }),
         );
@@ -291,7 +291,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
         return result;
       },
 
-      addDependantSwNode: (newNodeDef, newNodeValue) => {
+      queueNode: (newNodeDef, newNodeValue) => {
         console.log("[GraphRunner] Adding dependant node", newNodeValue);
         const newNi = this.addNode(newNodeDef, newNodeValue, ni.scope, [ni.id]);
         ((ni.state ||= {}).createdNodes ||= []).push(newNi.id);
@@ -299,7 +299,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
         this.addNiTrace(ni, { type: "dependant", ni: newNi });
       },
 
-      createSwNodeRef: createNodeRefFactory(ni.id),
+      newRef: createNodeRefFactory(ni.id),
     };
 
     const accessedNodeIds = new Set<string>();

@@ -59,17 +59,34 @@ export interface SwNodeRunnerContextType<T extends SwEffectMap = Record<string, 
   effects: MapSwEffectMapToRun<T>;
 
   // dependency management
-  getOrAddDependencyForResult: <T extends SwNode>(nodeDef: T, nodeValue: SwNodeValue<T>) => Promise<SwNodeResult<T>>;
-  findSwNodeForResult: <T extends SwNode>(
+
+  /**
+   * Run a node and return the result
+   * If the node was already run, return the cached result
+   */
+  runNode: <T extends SwNode>(nodeDef: T, nodeValue: SwNodeValue<T>) => Promise<SwNodeResult<T>>;
+
+  /**
+   * Find a node and return the result
+   */
+  findNode: <T extends SwNode>(
     nodeDef: T,
     filter: (node: SwNodeValue<T>, extra: { scope: SwScope; isCurrentScope: boolean }) => boolean,
   ) => Promise<SwNodeResult<T> | null>;
 
   // dependant management
-  addDependantSwNode: <V extends Record<string, unknown>>(nodeDef: SwNode<V>, nodeValue: V) => void;
+
+  /**
+   * Queue a node to be run after the current node
+   */
+  queueNode: <V extends Record<string, unknown>>(nodeDef: SwNode<V>, nodeValue: V) => void;
 
   // refs
-  createSwNodeRef: CreateSwNodeRef; // create a reference to the current node
+
+  /**
+   * Create a reference to the current node
+   */
+  newRef: CreateSwNodeRef;
 }
 
 // #region builder

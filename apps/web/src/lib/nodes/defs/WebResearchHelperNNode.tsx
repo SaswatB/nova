@@ -56,7 +56,7 @@ Choose only the most relevant results, aiming for ~3 high-quality sources.
     };
 
     const scrapeUrl = async (url: string, query: string) => {
-      const result = await nrc.getOrAddDependencyForResult(WebScraperNNode, { url, query });
+      const result = await nrc.runNode(WebScraperNNode, { url, query });
       allSources.push({ link: url, title: result.title || "" });
       return { url, ...result };
     };

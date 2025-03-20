@@ -27,8 +27,8 @@ export const ExecuteNNode = swNode
   .input(z.object({ instructions: orRef(z.string()), relevantFiles: orRef(z.array(z.string())) }))
   .output(z.object({ result: ExecuteResult }))
   .runnable(async (value, nrc) => {
-    const { result: researchResult } = await nrc.getOrAddDependencyForResult(ProjectAnalysisNNode, {});
-    const extraContext = await nrc.findSwNodeForResult(ContextNNode, (n) => n.contextId === ExecuteNNode_ContextId);
+    const { result: researchResult } = await nrc.runNode(ProjectAnalysisNNode, {});
+    const extraContext = await nrc.findNode(ContextNNode, (n) => n.contextId === ExecuteNNode_ContextId);
 
     const executePrompt = `
 ${xmlProjectSettings(nrc.nodeContext)}
@@ -201,19 +201,19 @@ Now, process the following change set and extract only the parts relevant to "${
     await nrc.effects.writeDebugFile("debug-execute-files-to-change.json", JSON.stringify(filesToChange, null, 2));
 
     if (changeSet?.generalNoteList?.length) {
-      nrc.addDependantSwNode(OutputNNode, {
+      nrc.queueNode(OutputNNode, {
         description: "General notes for the project",
-        value: nrc.createSwNodeRef({ type: "result", path: "result.generalNoteList", schema: "string[]" }),
+        value: nrc.newRef({ type: "result", path: "result.generalNoteList", schema: "string[]" }),
       });
     }
     for (let i = 0; i < (changeSet?.filesToChange || []).length; i++) {
-      nrc.addDependantSwNode(ApplyFileChangesNNode, {
-        path: nrc.createSwNodeRef({
+      nrc.queueNode(ApplyFileChangesNNode, {
+        path: nrc.newRef({
           type: "result",
           path: `result.filesToChange[${i}].absolutePathIncludingFileName`,
           schema: "string",
         }),
-        changes: nrc.createSwNodeRef({ type: "result", path: `result.filesToChange[${i}].steps`, schema: "string" }),
+        changes: nrc.newRef({ type: "result", path: `result.filesToChange[${i}].steps`, schema: "string" }),
       });
     }
     return { result: { generalNoteList: changeSet?.generalNoteList, rawChangeSet, filesToChange: filesToChange } };
