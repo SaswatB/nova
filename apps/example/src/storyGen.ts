@@ -97,10 +97,9 @@ export async function main() {
   const runner = swRunner.effectContext({ openai }).create();
 
   // Generate and save a story
-  runner.addNode(StoryGeneratorNode, {
+  await runner.nodes.storyGenerator.run({
     topic: "A time-traveling coffee cup",
     outputPath: "story.md",
   });
-  await runner.run();
 }
 main().catch(console.error);

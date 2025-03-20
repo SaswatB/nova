@@ -18,8 +18,8 @@ import { z } from "zod";
 
 import { dirname, IterationMode, ProjectSettings, VoiceStatusPriority } from "@repo/shared";
 
+import { formatError } from "../../../../packages/streamweave-core/src/lib/err";
 import { getFileHandleForPath, opfsRootPromise, readFileHandle, writeFileHandle } from "../lib/browser-fs";
-import { formatError } from "../lib/err";
 import { useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
 import { onSubmitEnter } from "../lib/key-press";

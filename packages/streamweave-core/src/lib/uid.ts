@@ -26,10 +26,10 @@ function fromNumber(number: number) {
 }
 
 enum ID_TYPE {
-  project = "p",
-  frontendSession = "fs",
-  space = "s",
-  spacePage = "sp",
+  graphNode = "gn",
+  graphRun = "gr",
+  nodeScope = "ns",
+  traceEffect = "te",
 }
 
 /**

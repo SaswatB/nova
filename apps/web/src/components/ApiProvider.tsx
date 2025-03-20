@@ -4,8 +4,8 @@ import { useAuth } from "@clerk/clerk-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
 
+import { formatError } from "../../../../packages/streamweave-core/src/lib/err";
 import { env } from "../lib/env";
-import { formatError } from "../lib/err";
 import { getLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
 import { lsKey } from "../lib/keys";

@@ -1,7 +1,7 @@
 import { aiChatImpl, Message, Model } from "@repo/shared";
 
+import { throwError } from "../../../../../../packages/streamweave-core/src/lib/err";
 import { SYSTEM_PROMPT } from "../../constants";
-import { throwError } from "../../err";
 import { getLocalStorage } from "../../hooks/useLocalStorage";
 import { lsKey } from "../../keys";
 import { swEffect } from "../swEffect";

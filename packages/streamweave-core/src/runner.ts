@@ -1,8 +1,18 @@
 import { GetEffectContext, GetNodeContext, SwNodeMap } from "./nodes";
-import { GraphRunner, GraphRunnerData, SwCacheProvider, SwRevertProvider } from "./GraphRunner";
+import { GraphRunner, GraphRunnerData, SwCacheProvider, SwRevertProvider } from "./lib/GraphRunner";
 
-export type { GraphRunnerData, GraphTraceEvent, SwNodeInstance, SwNodeTraceEvent } from "./GraphRunner";
-export { resolveNodeRef, resolveNodeValueRefs } from "./GraphRunner";
+export type {
+  GraphRunnerData,
+  GraphTraceEvent,
+  ExportedNode,
+  SwNodeInstance,
+  SwNodeTraceEvent,
+  SwScopeInstance,
+  SwEffectTraceRevertEntry,
+  SwCacheProvider,
+  SwRevertProvider,
+} from "./lib/GraphRunner";
+export { resolveNodeRef, resolveNodeValueRefs, RunStoppedError } from "./lib/GraphRunner";
 
 // #region builder
 

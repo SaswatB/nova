@@ -6,7 +6,7 @@ import { IconButton } from "@radix-ui/themes";
 import { css } from "styled-system/css";
 import { Flex, styled } from "styled-system/jsx";
 
-import { formatError } from "../lib/err";
+import { formatError } from "../../../../packages/streamweave-core/src/lib/err";
 import { useUpdatingRef } from "../lib/hooks/useUpdatingRef";
 
 const processImage = (file: File): Promise<string> => {

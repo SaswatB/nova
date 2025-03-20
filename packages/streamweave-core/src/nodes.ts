@@ -1,9 +1,9 @@
 import isEqual from "lodash/isEqual";
 import { UnknownKeysParam, z, ZodTypeAny } from "zod";
 
-import { SwEffect, SwEffectMap, SwEffectResult, SwEffectWrapper } from "./effects";
+import { SwEffect, SwEffectMap, SwEffectWrapper } from "./effects";
 import { CreateSwNodeRef, ResolveSwNodeRefs } from "./refs";
-import { SwScope, SwScopeType } from "./scopes";
+import { createSwTaskScope, SwScope, SwScopeType } from "./scopes";
 
 export interface SwNode<
   Value extends Record<string, unknown> = any,
@@ -118,7 +118,7 @@ interface SwNodeBuilder<P extends BuilderParams, AllowedMethods extends keyof Sw
   effectMap: P["EffectMap"];
 
   scope(
-    scopeFactory: SwScope | ((parentScope: SwScope) => SwScope | null),
+    scopeFactory: string | SwScope | ((parentScope: SwScope) => SwScope | null),
   ): PickedSwNodeBuilder<P, Exclude<AllowedMethods, "scope">>;
 
   input<NewValue extends Record<string, unknown>>(
@@ -160,7 +160,7 @@ function createSwNodeBuilder<P extends BuilderParams>(values: {
      *  - null = current scope
      *  - SwScopeType.Space = global scope
      *  - otherwise create a new child scope
-     * If the scopeFactory is a SwScope:
+     * If the scopeFactory is a SwScope or string:
      *  - SwScopeType.Space = global scope
      *  - otherwise create a new child scope if it's not equal to the current scope
      */
@@ -168,11 +168,13 @@ function createSwNodeBuilder<P extends BuilderParams>(values: {
       createSwNodeBuilder({
         ...values,
         scopeFactory:
-          typeof scopeFactory === "function"
-            ? scopeFactory
-            : scopeFactory.type === SwScopeType.Space
-              ? () => scopeFactory
-              : (currentScope) => (isEqual(currentScope, scopeFactory) ? null : scopeFactory),
+          typeof scopeFactory === "string"
+            ? () => createSwTaskScope(scopeFactory)
+            : typeof scopeFactory === "function"
+              ? scopeFactory
+              : scopeFactory.type === SwScopeType.Space
+                ? () => scopeFactory
+                : (currentScope) => (isEqual(currentScope, scopeFactory) ? null : scopeFactory),
       }),
 
     input: (newInputSchema) => createSwNodeBuilder({ ...values, inputSchema: newInputSchema }),

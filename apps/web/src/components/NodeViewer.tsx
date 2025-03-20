@@ -13,7 +13,7 @@ import {
 import { css } from "styled-system/css";
 import { Flex, Stack, styled } from "styled-system/jsx";
 
-import { formatError } from "../lib/err";
+import { formatError } from "../../../../packages/streamweave-core/src/lib/err";
 import { saveJsonToFile } from "../lib/files";
 import { ApplyFileChangesNNodeRender } from "../lib/nodes/defs/ApplyFileChangesNNode.render";
 import { ContextNNodeRender } from "../lib/nodes/defs/ContextNNode.render";

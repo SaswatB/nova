@@ -165,11 +165,10 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const runner = swRunner.effectContext({ openai }).create();
 
 // Generate and save a story
-runner.addNode(StoryGeneratorNode, {
+await runner.nodes.storyGenerator.run({
   topic: "A time-traveling coffee cup",
   outputPath: "story.md",
 });
-await runner.run();
 ```
 
 ## Core Concepts
@@ -212,14 +211,13 @@ const MyGenericEffect = swEffect
 Nodes are the core building blocks that:
 
 - Define clear input/output contracts with Zod schemas
-- Are deduplicated by value
+- Can be deduplicated by value
 - Can depend on other nodes
 - Can be scoped for isolation
 - Have access to registered effects
 
 ```typescript
 const MyNode = swNode
-  .scope(() => createSwTaskScope("my-scope"))
   .input(z.object({ data: z.string() }))
   .output(z.object({ result: z.string() }))
   .runnable(async (input, context) => {

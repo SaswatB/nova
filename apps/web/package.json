@@ -38,7 +38,7 @@
     "jotai": "^2.8.2",
     "llama-tokenizer-js": "^1.2.1",
     "lodash": "^4.17.21",
-    "nanoid": "^5.0.7",
+    "nanoid": "^5.1.5",
     "p-limit": "^5.0.0",
     "react-async-hook": "^4.0.0",
     "react-diff-viewer": "^3.1.1",

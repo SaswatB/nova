@@ -5,7 +5,7 @@ import { SwEffectParam } from "streamweave-core";
 import { css } from "styled-system/css";
 import { Flex, Stack } from "styled-system/jsx";
 
-import { SwEffectTraceRevertEntry } from "../../../../packages/streamweave-core/src/GraphRunner";
+import { SwEffectTraceRevertEntry } from "../../../../packages/streamweave-core/src/lib/GraphRunner";
 import { WriteFileNEffectRender } from "../lib/nodes/effects/WriteFileNEffect.render";
 import { ProjectContext } from "../lib/nodes/project-ctx";
 import { swNode } from "../lib/nodes/swNode";

@@ -1,4 +1,3 @@
-import { createSwTaskScope } from "streamweave-core";
 import { z } from "zod";
 
 import { xmlProjectSettings } from "../ai-helpers";
@@ -6,10 +5,8 @@ import { swNode } from "../swNode";
 import { ProjectAnalysisNNode, xmlFileSystemResearch } from "./ProjectAnalysisNNode";
 import { WebResearchHelperNNode } from "./WebResearchHelperNNode";
 
-const webResearchScope = createSwTaskScope("web-research");
-
 export const WebResearchOrchestratorNNode = swNode
-  .scope(() => webResearchScope)
+  .scope("web-research")
   .input(z.object({ goal: z.string() }))
   .output(
     z.object({

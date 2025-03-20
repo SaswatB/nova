@@ -18,7 +18,7 @@ import { z } from "zod";
 
 import { aiChatImpl } from "@repo/shared";
 
-import { throwError } from "../lib/err";
+import { throwError } from "../../../../packages/streamweave-core/src/lib/err";
 import { getLocalStorage, useLocalStorage } from "../lib/hooks/useLocalStorage";
 import { useObservableCallback } from "../lib/hooks/useObservableCallback";
 import { useSubject } from "../lib/hooks/useSubject";

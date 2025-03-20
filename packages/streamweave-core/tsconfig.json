@@ -1,6 +1,7 @@
 {
   "include": ["src"],
   "compilerOptions": {
+    "rootDir": "src",
     "noEmit": true,
     "esModuleInterop": true,
     "incremental": false,

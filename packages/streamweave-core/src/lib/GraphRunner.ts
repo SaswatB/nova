@@ -6,9 +6,9 @@ import isEqual from "lodash/isEqual";
 import isFunction from "lodash/isFunction";
 import uniq from "lodash/uniq";
 
-import { formatError, throwError } from "../../../apps/web/src/lib/err";
-import { generateCacheKey } from "../../../apps/web/src/lib/hash";
-import { newId } from "../../../apps/web/src/lib/uid";
+import { formatError, throwError } from "./err";
+import { generateCacheKey } from "./hash";
+import { newId } from "./uid";
 import {
   SwNodeRunnerContextType,
   SwNodeValue,
@@ -20,7 +20,7 @@ import {
   GetEffectContext,
   GetNodeContext,
   GetEffectMapFromNodeMap,
-} from "./nodes";
+} from "../nodes";
 import {
   createSwNodeRef,
   CreateSwNodeRef,
@@ -29,9 +29,9 @@ import {
   SwNodeRef,
   SwNodeRefAccessorSchema,
   SwNodeRefAccessorSchemaMap,
-} from "./refs";
-import { SwEffect, SwEffectExtraContext, SwEffectParam, SwEffectResult } from "./effects";
-import { SwScope, SwScopeType, SwSpaceScope } from "./scopes";
+} from "../refs";
+import { SwEffect, SwEffectExtraContext, SwEffectParam, SwEffectResult } from "../effects";
+import { SwScope, SwScopeType, SwSpaceScope } from "../scopes";
 
 type OmitUnion<T, K extends keyof any> = T extends any ? Omit<T, K> : never;
 
@@ -147,6 +147,26 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
         }
       });
     });
+  }
+
+  get nodes() {
+    return Object.fromEntries(
+      Object.entries(this.nodeMap).map(
+        ([key, def]) =>
+          [
+            key,
+            {
+              def,
+              run: (value: SwNodeValue<SwNode>, signal?: AbortSignal) => this.runNode(def, value, signal),
+            },
+          ] as const,
+      ),
+    ) as {
+      [K in keyof NodeMap]: {
+        def: NodeMap[K];
+        run: (value: SwNodeValue<NodeMap[K]>, signal?: AbortSignal) => Promise<SwNodeResult<NodeMap[K]>>;
+      };
+    };
   }
 
   public static fromData<NodeMap extends SwNodeMap>(
@@ -321,6 +341,12 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
     return result;
   }
 
+  public async runNode<D extends SwNode>(node: D, value: SwNodeValue<D>, signal?: AbortSignal) {
+    const ni = this.addNode(node, value, this.newNodeScopeInstance({ type: SwScopeType.NodeRun }));
+    await this.run({ signal });
+    return ni.state!.result as SwNodeResult<D>;
+  }
+
   public async run({ signal }: { signal?: AbortSignal } = {}) {
     this.runId = newId.graphRun();
     const abortController = new AbortController();
@@ -421,10 +447,6 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
     return typeId;
   }
 
-  public getNodeMap() {
-    return this.nodeMap;
-  }
-
   /**
    * Resolves nodes, respecting scope
    *
@@ -460,6 +482,10 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
     return this.findNodeInstance(scope.parent, node, filterFunc, maxDepth - 1);
   }
 
+  private newNodeScopeInstance(scope: SwScope, parent?: SwScopeInstance | null): SwScopeInstance {
+    return { id: newId.nodeScope(), def: scope, parent: parent || null };
+  }
+
   public addNode<D extends SwNode>(
     nodeDef: D,
     nodeValue: SwNodeValue<D>,
@@ -481,10 +507,10 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
           }
         });
         // if no space scope is found, create a new one
-        if (!scope) scope = { id: newId.nodeScope(), def: SwSpaceScope, parent: null };
+        if (!scope) scope = this.newNodeScopeInstance(SwSpaceScope, null);
       } else {
         // if the scope factory returns a task scope, always create a child scope
-        scope = { id: newId.nodeScope(), def: scopeOrInstance, parent: parentScope || null };
+        scope = this.newNodeScopeInstance(scopeOrInstance, parentScope);
       }
     }
 

@@ -1,5 +1,4 @@
 import OpenAI from "openai";
-import { ReviewNode } from "./nodes/reviewNode";
 import { swRunner } from "./nodes/swRunner";
 
 async function main() {
@@ -41,25 +40,19 @@ async function main() {
     );
 
     // Run the review
-    runner.addNode(ReviewNode, { branch, baseBranch: "main" });
-    await runner.run();
-
-    // Get the result
-    const reviewNode = runner.findNodeInstance(
-      undefined,
-      ReviewNode,
-      (ni) => ni.value.branch === branch
-    );
-    const result = reviewNode?.state?.result;
+    const result = await runner.nodes.review.run({
+      branch,
+      baseBranch: "main",
+    });
 
     // Output results
     console.log("\nChanges:");
     console.log("--------");
-    console.log(result?.changes);
+    console.log(result.changes);
 
     console.log("\nReview:");
     console.log("-------");
-    console.log(result?.review);
+    console.log(result.review);
   } catch (error) {
     console.error("Error:", error);
     process.exit(1);

@@ -1,5 +1,5 @@
 import uniq from "lodash/uniq";
-import { createSwTaskScope, orRef } from "streamweave-core";
+import { orRef } from "streamweave-core";
 import { z } from "zod";
 
 import { getRelevantFiles, xmlProjectSettings } from "../ai-helpers";
@@ -10,10 +10,7 @@ import { ProjectAnalysisNNode, xmlFileSystemResearch } from "./ProjectAnalysisNN
 import { RelevantFileAnalysisNNode } from "./RelevantFileAnalysisNNode";
 import { WebResearchOrchestratorNNode } from "./WebResearchOrchestratorNNode";
 
-const codeChangeScope = createSwTaskScope("code-change");
-
 export const PlanNNode = swNode
-  .scope(() => codeChangeScope)
   .input(
     z.object({
       goal: orRef(z.string()),
