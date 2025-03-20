@@ -9,6 +9,7 @@ import uniq from "lodash/uniq";
 import { formatError, throwError } from "./err";
 import { generateCacheKey } from "./hash";
 import { newId } from "./uid";
+import { createLogger, LogLevel } from "./Logger";
 import {
   SwNodeRunnerContextType,
   SwNodeValue,
@@ -32,6 +33,15 @@ import {
 } from "../refs";
 import { SwEffect, SwEffectExtraContext, SwEffectParam, SwEffectResult } from "../effects";
 import { SwScope, SwScopeType, SwSpaceScope } from "../scopes";
+
+// Initialize the logger
+const logger = createLogger({
+  name: "GraphRunner",
+  level:
+    (typeof process !== "undefined" && Object.values(LogLevel).find((l) => l === process.env.LOG_LEVEL)) ||
+    LogLevel.INFO,
+  enabled: typeof process !== "undefined" ? process.env.DISABLE_STREAMWEAVE_LOG !== "true" : true,
+});
 
 type OmitUnion<T, K extends keyof any> = T extends any ? Omit<T, K> : never;
 
@@ -129,6 +139,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
   private runId = "";
   private abortController: AbortController | null = null;
   private nodeTypeIdMap: WeakMap<SwNode, string> = new WeakMap();
+  private startNodeCount = 0;
 
   public constructor(
     private readonly nodeMap: NodeMap,
@@ -196,7 +207,8 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
     waitForNode: <D2 extends SwNode>(ni: SwNodeInstance<D2>) => Promise<SwNodeResult<D2>>,
   ): Promise<SwNodeResult<D>> {
     if (signal.aborted) throw new RunStoppedError();
-    console.log("[GraphRunner] Starting node", ni.value);
+    const startNodeIndex = ++this.startNodeCount;
+    logger.info(`Starting node ${startNodeIndex} "${ni.typeId}"`, ni.value);
     this.addTrace({ type: "start-node", ni });
 
     const node = this.getNodeDef(ni);
@@ -212,7 +224,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
         if (signal.aborted) throw new RunStoppedError();
 
         const traceId = newId.traceEffect();
-        console.log("[GraphRunner] Running effect", effectId, param);
+        logger.info(`Running effect "${effectId}" for node ${startNodeIndex} "${ni.typeId}"`, param);
         this.addNiTrace(ni, { type: "effect-request", traceId, effectId, request: param });
 
         let result: R | undefined;
@@ -236,7 +248,10 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
           if (cacheKey) {
             const cachedValue = await this.cacheProvider!.get<R>(cacheKey);
             if (cachedValue) {
-              console.log("[GraphRunner] Cached effect result", cachedValue);
+              logger.info(
+                `Cached result for effect "${effectId}" on node ${startNodeIndex} "${ni.typeId}"`,
+                cachedValue,
+              );
               return cachedValue;
             }
           }
@@ -247,12 +262,11 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
             signal,
           });
 
-          console.log("[GraphRunner] Effect result", result);
+          logger.debug(`Effect result for "${effectId}" on node ${startNodeIndex} "${ni.typeId}"`, result);
           if (cacheKey) await this.cacheProvider!.set(cacheKey, result);
           return result;
         } catch (e) {
-          console.error("[GraphRunner] Effect failed", e);
-          console.error(JSON.stringify(e, null, 2));
+          logger.error(`Effect "${effectId}" failed on node ${startNodeIndex} "${ni.typeId}"`, e);
           throw e;
         } finally {
           this.addNiTrace(ni, { type: "effect-result", traceId, effectId, result });
@@ -278,13 +292,13 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
         let subResult: SwNodeResult<typeof nodeDef>;
         let existing = undefined;
         if (depNi) {
-          console.log("[GraphRunner] Found existing node", depNi.value);
+          logger.debug("Found existing node", depNi.value);
           if (!depNi.state?.result) throw new Error("Node result not found"); // this shouldn't happen since deps are processed first
           existing = true;
           subResult = depNi.state.result;
           ni.dependencies = uniq([...(ni.dependencies || []), depNi.id]);
         } else {
-          console.log("[GraphRunner] Adding dependency node", nodeValue);
+          logger.debug("Adding dependency node", nodeValue);
           depNi = this.addNode(nodeDef, nodeValue, ni.scope);
           (ni.dependencies ||= []).push(depNi.id);
           ((ni.state ||= {}).createdNodes ||= []).push(depNi.id);
@@ -293,7 +307,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
           subResult = await waitForNode(depNi);
         }
 
-        console.log("[GraphRunner] Dependency result", subResult);
+        logger.debug("Dependency result", subResult);
         this.addNiTrace(ni, { type: "dependency-result", ni: depNi, existing, result: subResult });
 
         return subResult;
@@ -312,7 +326,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
       },
 
       queueNode: (newNodeDef, newNodeValue) => {
-        console.log("[GraphRunner] Adding dependant node", newNodeValue);
+        logger.debug("Adding dependant node", newNodeValue);
         const newNi = this.addNode(newNodeDef, newNodeValue, ni.scope, [ni.id]);
         ((ni.state ||= {}).createdNodes ||= []).push(newNi.id);
         queueNode(newNi);
@@ -337,7 +351,8 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
     this.addNiTrace(ni, { type: "result", result });
 
     this.addTrace({ type: "end-node", ni });
-    console.log("[GraphRunner] Node completed", ni.value, nodeResolvedValue);
+    logger.debug(`Result for node ${startNodeIndex} "${ni.typeId}"`, result);
+    logger.info(`Completed node ${startNodeIndex} "${ni.typeId}"`);
     return result;
   }
 
@@ -363,7 +378,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
       const runStack = Object.values(this.nodeInstances).filter((ni) => !ni.state?.completedAt);
       runStack.forEach((ni) => {
         if (ni.state?.startedAt && !ni.state.completedAt) {
-          console.warn("[GraphRunner] Node started but not completed, clearing state", ni.value);
+          logger.warn("Node started but not completed, clearing state", ni.value);
           delete ni.state;
         }
       });
@@ -372,11 +387,11 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
       const startNodeWrapped = (ni: SwNodeInstance): Promise<SwNodeResult<SwNode>> => {
         if (!nodePromises.has(ni.id)) {
           if (!this.isNodeInstanceRunnable(ni)) {
-            console.error("[GraphRunner] Node is not runnable", ni.value);
+            logger.error("Node is not runnable", ni.value);
             throw new Error("Node is not runnable");
           }
           if (ni.state?.startedAt) {
-            console.warn("[GraphRunner] Node marked as already started", ni.value);
+            logger.warn("Node marked as already started", ni.value);
           }
           nodePromises.set(
             ni.id,
@@ -389,7 +404,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
                   startNodeWrapped as any,
                 );
               } catch (e) {
-                console.error("[GraphRunner] Node failed", ni.value, e);
+                logger.error("Node failed", ni.value, e);
                 (ni.state ||= {}).error = e;
                 this.addNiTrace(ni, { type: "error", message: formatError(e), error: e });
                 throw e;
@@ -404,7 +419,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
       while (runStack.length > 0) {
         const runnableNodes = runStack.filter((ni) => this.isNodeInstanceRunnable(ni));
         if (runnableNodes.length === 0) {
-          console.log("[GraphRunner] No runnable nodes", runStack);
+          logger.error("No runnable nodes", runStack);
           throw new Error("No runnable nodes");
         }
         runnableNodes.forEach((ni) => runStack.splice(runStack.indexOf(ni), 1));
@@ -517,7 +532,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
     const typeId = this.getNodeTypeId(nodeDef);
     const duplicateNode = this.findNodeInstance(scope, nodeDef, nodeValue);
     if (duplicateNode) {
-      console.warn("[GraphRunner] Duplicate node found while adding node", typeId, nodeValue, duplicateNode.id);
+      logger.warn("Duplicate node found while adding node", typeId, nodeValue, duplicateNode.id);
       return duplicateNode;
     }
 
@@ -648,7 +663,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
 
   private addTrace(event: OmitUnion<GraphTraceEvent, "timestamp" | "runId">) {
     this.trace.push({ ...event, timestamp: Date.now(), runId: this.runId });
-    console.log("[GraphRunner] Trace", event);
+    logger.trace("Trace event", event);
     this.emit("dataChanged"); // whenever there's a change, there should be a trace, so this effectively occurs on every change to the top level data
   }
   private addNiTrace(ni: SwNodeInstance, event: OmitUnion<SwNodeTraceEvent, "timestamp" | "runId">) {
@@ -657,7 +672,7 @@ export class GraphRunner<NodeMap extends SwNodeMap> extends EventEmitter<{
       timestamp: Date.now(),
       runId: this.runId,
     });
-    console.log("[GraphRunner] Node trace", ni.value, event);
+    logger.trace(`Node trace for ${ni.typeId}:${ni.id}`, event);
     this.emit("dataChanged"); // whenever there's a change, there should be a trace, so this effectively occurs on every change to the node data
   }
 
